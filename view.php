@@ -79,8 +79,8 @@ $mainfile = $fs->get_file($context->id, 'mod_exelearning', 'content',
 // extrajo o los grade items no se detectaron (porque esa vía no pasó por
 // exelearning_add_instance), recuperarlo aquí. Idempotente: sólo actúa cuando
 // falta algo, así que no penaliza la vista normal.
-$packagefiles = $fs->get_area_files($context->id, 'mod_exelearning', 'package', 0, 'id', false);
-if (!empty($packagefiles)) {
+$haspackage = (exelearning_get_stored_package($context->id) !== null);
+if ($haspackage) {
     if (!$mainfile) {
         exelearning_extract_stored_package($context->id, (int) $exelearning->revision);
         $mainfile = $fs->get_file($context->id, 'mod_exelearning', 'content',

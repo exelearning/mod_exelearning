@@ -108,7 +108,7 @@
       "files": [
         {
           "filearea": "package",
-          "itemid":   1,
+          "itemid":   0,
           "filename": "actividad-evaluable.elpx",
           "data": {
             "url": "https://raw.githubusercontent.com/ateeducacion/mod_exelearning/main/research/fixtures/elpx/actividad-evaluable.elpx"

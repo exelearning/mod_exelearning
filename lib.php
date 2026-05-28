@@ -422,7 +422,31 @@ function exelearning_save_and_extract_package(stdClass $data): void {
 }
 
 /**
- * Extrae a `content/{revision}/` el ELPX ya almacenado en `package/0/`.
+ * Localiza el ELPX almacenado en el filearea 'package', SIN asumir itemid.
+ *
+ * La subida por formulario lo guarda en itemid=0, pero las vías programáticas
+ * (p.ej. el `addModule` del Moodle Playground, que sube con `itemid: 1`, o
+ * `editor/save.php`, que usa la revision como itemid) lo dejan en otro itemid.
+ * Buscamos en TODOS los itemids y devolvemos el fichero más reciente.
+ *
+ * @param int $contextid
+ * @return \stored_file|null
+ */
+function exelearning_get_stored_package(int $contextid): ?\stored_file {
+    $fs = get_file_storage();
+    // itemid=false → todos los itemids del filearea.
+    $files = $fs->get_area_files($contextid, 'mod_exelearning', 'package', false,
+            'itemid DESC, sortorder, filepath, filename', false);
+    foreach ($files as $file) {
+        if (!$file->is_directory()) {
+            return $file;
+        }
+    }
+    return null;
+}
+
+/**
+ * Extrae a `content/{revision}/` el ELPX ya almacenado en `package`.
  *
  * Separado de exelearning_save_and_extract_package() para poder re-ejecutarse
  * SIN un draft itemid (p.ej. el self-heal de view.php cuando una subida
@@ -436,10 +460,8 @@ function exelearning_save_and_extract_package(stdClass $data): void {
 function exelearning_extract_stored_package(int $contextid, int $revision): void {
     $fs = get_file_storage();
 
-    // Localizar el ZIP almacenado.
-    $files = $fs->get_area_files($contextid, 'mod_exelearning', 'package', 0,
-            'sortorder, filepath, filename', false);
-    $package = reset($files);
+    // Localizar el ZIP almacenado (cualquier itemid).
+    $package = exelearning_get_stored_package($contextid);
     if (!$package instanceof \stored_file) {
         return;
     }
@@ -586,11 +608,9 @@ function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null
     }
     $context = context::instance_by_id($contextid);
 
-    // Localizar el ELPX en filearea 'package'.
-    $fs = get_file_storage();
-    $files = $fs->get_area_files($context->id, 'mod_exelearning', 'package', 0,
-            'sortorder, filepath, filename', false);
-    $elpx = reset($files);
+    // Localizar el ELPX en filearea 'package' (cualquier itemid: form=0,
+    // Playground addModule=1, editor/save.php=revision).
+    $elpx = exelearning_get_stored_package($context->id);
     if (!$elpx instanceof \stored_file) {
         return;
     }
