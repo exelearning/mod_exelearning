@@ -6,10 +6,10 @@ version_consultada: "Moodle 4.x"
 enlaces_oficiales:
   - https://moodledev.io/docs/apis/subsystems/grades
 context7:
-  library_id: "[PENDIENTE: context7 — /websites/moodledev_io o similar]"
-  query: "[PENDIENTE: context7]"
-  fecha: null
-  version_devuelta: "[PENDIENTE: context7]"
+  library_id: /websites/moodledev_io_5_2
+  query: "grade_update function signature itemnumber multiple grade items workshop pattern grade_item_update activity module"
+  fecha: 2026-05-28
+  version_devuelta: "Moodle 5.2 dev docs"
 fecha_consulta: 2026-05-28
 relevancia_para_mod_exelearning: "API canónica para empujar notas al gradebook. El parámetro `itemnumber` es la clave de la multi-itemnumber strategy."
 herramienta_ia:
@@ -56,6 +56,33 @@ Sí, vía `itemnumber > 0`. Patrón confirmado en `public/mod/workshop/lib.php`
 
 - REPO-004 — `public/mod/workshop/lib.php:1110-1130`
 - REPO-004 — `public/lib/gradelib.php`
+
+## Moodle 5.x: vista de "Course overview" con multi-items
+
+Evidencia Context7 (`/websites/moodledev_io_5_2` · 2026-05-28): a partir de Moodle 5.x,
+los plugins con múltiples grade items **deben** implementar
+`get_grade_item_names(array $items): array` en la clase de course overview, indexado
+por `grade_item->id`, para que el bloque "Course overview" muestre las columnas.
+Sin esto Moodle no sabe qué nombre dar a cada columna y oculta los items.
+
+Plantilla (de moodledev.io):
+
+```php
+#[\Override]
+protected function get_grade_item_names(array $items): array {
+    $names = [];
+    foreach ($items as $item) {
+        $stridentifier = ($item->itemnumber == 0)
+            ? 'submission_gradenoun'
+            : 'assessment_gradenoun';
+        $names[$item->id] = get_string($stridentifier, 'mod_YOURPLUGIN');
+    }
+    return $names;
+}
+```
+
+Aplicado a `mod_exelearning`: la implementación deberá devolver el `itemname` por
+`itemnumber` resolviendo contra `mdl_exelearning_grade_item` (ver AN-002).
 
 ## Riesgos / Limitaciones
 

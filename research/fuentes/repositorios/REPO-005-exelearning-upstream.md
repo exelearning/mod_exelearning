@@ -2,7 +2,7 @@
 id: REPO-005
 titulo: "eXeLearning — herramienta de autoría upstream"
 tipo: authoring-tool
-ruta_local: "[PENDIENTE: clonar en ../_repos/exelearning si se necesita análisis de código]"
+ruta_local: /Users/ernesto/Dropbox/Trabajo/ate/exelearning/exelearning
 url_upstream: https://exelearning.net/
 commit_consultado: null
 fecha_consulta: 2026-05-28
@@ -54,6 +54,39 @@ versión actual en `[PENDIENTE: TAREA-003 / EXP-001]`):
 - Actividad de rellenar huecos
 - Cloze / dropdown
 - SCORM Quiz (agrupador)
+
+## Integración SCORM observada (EXP-001)
+
+Fuentes en el clon local:
+
+- `public/app/common/scorm/SCORM_API_wrapper.js` — wrapper [pipwerks SCORM]
+  (estándar de facto, GPL-MIT compatible, sin dependencias).
+- `public/app/common/scorm/SCOFunctions.js`.
+- `symfony_legacy/public/app/common/scorm/{SCORM_API_wrapper.js,SCOFunctions.js}` —
+  rama legacy con misma estrategia.
+- `test/fixtures/export/*/<proyecto>_scorm/libs/` — fixtures de export SCORM.
+
+En el paquete extraído (`Manual de eXeLearning.elpx`):
+
+- `libs/common.js` instancia `pipwerks.SCORM` y emite `cmi.core.score.raw`,
+  `cmi.core.lesson_status` ("passed"/"failed"), `cmi.suspend_data` (estado
+  serializado del nodo).
+- Cada iDevice calificable expone su score local mediante variables `mOptions.scorep`
+  / `scorerp` (0..10).
+- **Crítico**: el `cmi.core.score.raw` que viaja al LMS es el **score agregado por nodo
+  (= por página)**, no por iDevice individual. La granularidad por iDevice **existe
+  client-side pero se pierde en el cable SCORM**.
+
+Implicación para `mod_exelearning`: para multi-grade-items hace falta aguas arriba
+exponer per-iDevice (PREG-002 confirma la necesidad).
+
+Existen dos exportadores SCORM separados:
+
+- `test/integration/export/scorm12-exporter.spec.ts`
+- `test/integration/export/scorm2004-exporter.spec.ts`
+
+Cualquier propuesta upstream debería modificar ambos consistentemente, o el de 2004
+con `cmi.objectives.{n}` para PREG-002.
 
 ## Capacidades respecto a `mod_exelearning`
 

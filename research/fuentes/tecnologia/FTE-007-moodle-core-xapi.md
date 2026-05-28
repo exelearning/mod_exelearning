@@ -6,10 +6,10 @@ version_consultada: "Moodle 4.x"
 enlaces_oficiales:
   - https://moodledev.io/docs/apis/subsystems/xapi
 context7:
-  library_id: "[PENDIENTE: context7]"
-  query: "[PENDIENTE: context7]"
-  fecha: null
-  version_devuelta: "[PENDIENTE: context7]"
+  library_id: /websites/moodledev_io_5_2
+  query: "core_xapi handler statement_to_event activity module xapi statement processing"
+  fecha: 2026-05-28
+  version_devuelta: "Moodle 5.2 dev docs"
 fecha_consulta: 2026-05-28
 relevancia_para_mod_exelearning: "Pieza central si DEC-0003 elige xAPI: handler que mod_exelearning extiende para recibir statements desde el iframe del paquete."
 herramienta_ia:
@@ -58,6 +58,51 @@ statement.
 - REPO-004 — `public/lib/xapi/classes/handler.php`
 - REPO-004 — `public/mod/h5pactivity/classes/xapi/handler.php`
 - REPO-004 — `public/mod/h5pactivity/classes/local/grader.php`
+
+## Webservice de entrada confirmado
+
+Evidencia Context7 (`/websites/moodledev_io_5_2`): el endpoint canónico es
+`core_xapi_statement_post`, no un endpoint propio del plugin. Recibe `component`
+(frankenstyle, p.ej. `mod_exelearning`) y `statements` (string JSON, statement único
+o array). Devuelve un array de booleanos paralelo a la entrada.
+
+```http
+POST /webservice/rest/server.php?wsfunction=core_xapi_statement_post
+```
+
+```json
+{
+  "component": "mod_exelearning",
+  "statements": "[{\"actor\":{...},\"verb\":{\"id\":\"http://adlnet.gov/expapi/verbs/answered\"},\"object\":{\"id\":\"https://exelearning.net/xapi/activity/idevice/<uuid>\"},\"result\":{\"score\":{\"scaled\":0.8}}}]"
+}
+```
+
+Plantilla canónica de handler (de moodledev.io 5.2):
+
+```php
+namespace mod_exelearning\xapi;
+
+use core_xapi\handler;
+use core_xapi\local\statement\statement;
+use core\event\base;
+
+class handler extends \core_xapi\handler {
+    public function statement_to_event(statement $statement): base {
+        // Convertir el statement en evento Moodle válido.
+        return \mod_exelearning\event\idevice_answered::create_from_statement($statement);
+    }
+    public function supports_group_actors(): bool {
+        return false;
+    }
+}
+```
+
+Responsabilidades de `statement_to_event()` (cita docs):
+1. Verificar permisos del usuario sobre el statement.
+2. Devolver un evento Moodle válido (que será disparado por el subsistema).
+3. Procesar el `result` (score → gradebook).
+
+Si el handler devuelve `null`, el statement queda como "no procesado".
 
 ## Riesgos / Limitaciones
 

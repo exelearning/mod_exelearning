@@ -7,10 +7,10 @@ enlaces_oficiales:
   - https://adlnet.gov/projects/xapi/
   - https://github.com/adlnet/xAPI-Spec
 context7:
-  library_id: "[PENDIENTE: context7]"
-  query: "[PENDIENTE: context7]"
-  fecha: null
-  version_devuelta: "[PENDIENTE: context7]"
+  library_id: /adlnet/xapi-spec
+  query: "statement format result score scaled raw object id activity definition"
+  fecha: 2026-05-28
+  version_devuelta: "xAPI 1.0.3 spec (ADL)"
 fecha_consulta: 2026-05-28
 relevancia_para_mod_exelearning: "Estándar granular para statements (actor, verb, object, result). Moodle lo soporta nativamente vía core_xapi. Candidato principal para tracking de items independientes."
 herramienta_ia:
@@ -52,6 +52,43 @@ nativo; xAPI sólo es el canal de tracking.
 ## Implementaciones de referencia consultadas
 
 - REPO-004 — `public/lib/xapi/`, `public/mod/h5pactivity/classes/xapi/handler.php`.
+
+## Statement de referencia (de la spec)
+
+Evidencia Context7 (`/adlnet/xapi-spec` · 2026-05-28). Ejemplo para una interacción
+tipo cuestionario:
+
+```json
+{
+  "actor": {"mbox": "mailto:learner@example.com", "objectType": "Agent"},
+  "verb":  {"id": "http://adlnet.gov/expapi/verbs/answered",
+            "display": {"en-US": "answered"}},
+  "object": {
+    "id": "http://example.com/quiz/question-1",
+    "objectType": "Activity",
+    "definition": {
+      "type": "http://adlnet.gov/expapi/activities/cmi.interaction",
+      "interactionType": "choice",
+      "correctResponsesPattern": ["http"],
+      "choices": [{"id":"http","description":{"en-US":"HTTP/HTTPS"}}]
+    }
+  },
+  "result": {"response": "http", "success": true}
+}
+```
+
+Score completo (de la spec):
+
+```json
+"result": {
+  "score": {"scaled": 0.95, "raw": 95, "min": 0, "max": 100},
+  "success": true, "completion": true, "duration": "PT1H30M"
+}
+```
+
+Para `mod_exelearning`, `object.id` será la IRI estable del iDevice (ver
+AN-002 / arquitectura) y `result.score.scaled` (0..1) se multiplicará por `grademax`
+del item correspondiente.
 
 ## Riesgos / Limitaciones
 
