@@ -112,6 +112,6 @@
         }
       ]
     },
-    { "step": "setLandingPage", "path": "/course/view.php?shortname=EXEDEMO" }
+    { "step": "setLandingPage", "path": "/course/view.php?id=2" }
   ]
 }
