@@ -1,0 +1,25 @@
+id: TAREA-006
+titulo: "Redactar ci.yml con matriz moodle-plugin-ci (Moodle 4.1/4.3/4.5/main × PHP 8.1-8.4 × pgsql/mariadb)"
+estado: Pending
+fecha: 2026-05-28
+agente: pendiente
+prioridad: alta
+objetivo: "Cerrar el hueco de CI: que cada PR/push corra lint/phpcs/phpmd/phpdoc/mustache/grunt/phpunit/behat contra varias versiones de Moodle y PHP."
+pasos:
+  - "Investigar matrices actuales de moodle-plugin-ci en plugins maduros (mod_attendance, mod_customcert, mod_zoom)."
+  - "Decidir versiones soportadas mínimas (¿Moodle 4.1 LTS o 4.3?)."
+  - "Redactar .github/workflows/ci.yml con job 'test' matriz."
+  - "Validar excludes (Moodle no soporta toda combinación PHP)."
+  - "Añadir badges al README del plugin."
+  - "Añadir codeql.yml + dependabot.yml."
+relacionados:
+  - DEC-0004
+  - AN-006
+  - REPO-001
+  - REPO-002
+criterios_aceptacion:
+  - "ci.yml en el repo del plugin con matriz definida."
+  - "Job 'test' aparece en la pestaña Actions y pasa contra al menos 2 combinaciones."
+  - "README muestra badge dinámico del build."
+  - "Cada combinación corre lint + phpunit; behat opcional documentado."
+notas: "Esta tarea no bloquea el inicio del plugin; el ci.yml puede llegar en el primer PR no-stub."

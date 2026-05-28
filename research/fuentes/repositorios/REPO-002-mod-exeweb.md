@@ -51,6 +51,16 @@ herramienta_ia:
 - Editor embebido: sí.
 - Backup/restore: del archivo, no de progreso de alumno.
 
+## Infraestructura de build / CI
+
+Idéntica a REPO-001 (mismo equipo, mismo template):
+
+- `Makefile` con los mismos targets (`up/down/lint/phpmd/test/behat/build-editor/
+  package/...`).
+- `.github/workflows/`: `release.yml`, `check-editor-releases.yml`,
+  `pr-playground-preview.yml`. **Sin `ci.yml` matriz.**
+- Misma sub-app `exelearning/` para editor embebido construida con `make build-editor`.
+
 ## Riesgos / Limitaciones
 
 - Pérdida de aislamiento de CSS si en el futuro se sirve sin iframe.

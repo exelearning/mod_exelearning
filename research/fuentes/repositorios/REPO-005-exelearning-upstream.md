@@ -1,9 +1,9 @@
 ---
 id: REPO-005
-titulo: "eXeLearning — herramienta de autoría upstream"
+titulo: "eXeLearning v4 — herramienta de autoría upstream"
 tipo: authoring-tool
-ruta_local: /Users/ernesto/Dropbox/Trabajo/ate/exelearning/exelearning
-url_upstream: https://exelearning.net/
+ruta_local: /Users/ernesto/Downloads/git/exelearning
+url_upstream: https://github.com/exelearning/exelearning
 commit_consultado: null
 fecha_consulta: 2026-05-28
 licencia: "GPL-2.0-or-later [PENDIENTE: confirmar en upstream]"
@@ -15,10 +15,15 @@ herramienta_ia:
 
 ## Hechos
 
-- eXeLearning produce paquetes publicados como sitio web estático (HTML/CSS/JS) y
-  también puede exportar a SCORM 1.2 / SCORM 2004 / IMS Common Cartridge / EPUB3.
-- Formato de proyecto: `.elp` / `.elpx`.
-- Los paquetes web ya incluyen el árbol de navegación (sidebar) implementado en JS.
+- **Versión objetivo: eXeLearning v4** (no v3/iteexe_online ni v2/iteexe).
+- Formato de proyecto **único**: `.elpx` (zip con `content.xml` + recursos).
+  El formato `.elp` (v2) **no es objetivo** de `mod_exelearning`.
+- Exporta a: sitio web estático, SCORM 1.2, SCORM 2004, IMS Common Cartridge, EPUB3,
+  pages (Fluxus), ELPX, "really-simple" (test).
+- Los paquetes web ya incluyen el árbol de navegación (sidebar) implementado en JS
+  vanilla + jQuery + Bootstrap (`libs/common.js`).
+- Stack del proyecto upstream: TypeScript + Bun + Symfony PHP (legacy bridge).
+- Repositorio: <https://github.com/exelearning/exelearning>.
 
 ## Estructura típica de un paquete publicado (web)
 
@@ -62,8 +67,6 @@ Fuentes en el clon local:
 - `public/app/common/scorm/SCORM_API_wrapper.js` — wrapper [pipwerks SCORM]
   (estándar de facto, GPL-MIT compatible, sin dependencias).
 - `public/app/common/scorm/SCOFunctions.js`.
-- `symfony_legacy/public/app/common/scorm/{SCORM_API_wrapper.js,SCOFunctions.js}` —
-  rama legacy con misma estrategia.
 - `test/fixtures/export/*/<proyecto>_scorm/libs/` — fixtures de export SCORM.
 
 En el paquete extraído (`Manual de eXeLearning.elpx`):

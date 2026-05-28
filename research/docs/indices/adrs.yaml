@@ -3,3 +3,4 @@ items:
   - id: 'DEC-0001', titulo: 'Metodología de evidencia y ADRs para mod_exelearning', estado: 'Aceptada', fecha: '2026-05-28', ruta: 'decisiones/adr/DEC-0001-metodologia-evidencia.md'
   - id: 'DEC-0002', titulo: 'Política de clones externos y compatibilidad de licencias', estado: 'Aceptada', fecha: '2026-05-28', ruta: 'decisiones/adr/DEC-0002-politica-clones-externos.md'
   - id: 'DEC-0003', titulo: 'Estándar de tracking y registro de múltiples grade items', estado: 'Propuesta', fecha: '2026-05-28', ruta: 'decisiones/adr/DEC-0003-estandar-tracking-y-multi-grade-items.md'
+  - id: 'DEC-0004', titulo: 'Build, empaquetado y CI: Makefile heredado + moodle-plugin-ci con matriz Moodle/PHP/DB', estado: 'Propuesta', fecha: '2026-05-28', ruta: 'decisiones/adr/DEC-0004-build-empaquetado-ci-tests.md'

@@ -61,6 +61,20 @@ herramienta_ia:
 - Editor embebido: sí, vía `exelearning/` y configuración `exescorm_embedded_editor_available()` + `$CFG->exeonlinebaseuri`.
 - Backup/restore: completo, incluye tracks.
 
+## Infraestructura de build / CI
+
+- `Makefile` con targets: `up/upd/down/pull/build/shell/clean/install-deps/lint/fix/
+  phpmd/test/behat/check-bun/fetch-editor-source/build-editor/build-editor-no-update/
+  clean-editor/package/help`. Docker-based (`check-docker`, `check-env`).
+- `.github/workflows/`:
+  - `release.yml` — `release.published` + `workflow_dispatch` → build editor +
+    `make package` + adjunta ZIP al release.
+  - `check-editor-releases.yml` — cron diario, detecta nuevo release de
+    eXeLearning y rebuilda el editor estático.
+  - `pr-playground-preview.yml` — preview deploy en PR.
+- **No tiene `ci.yml`** con matriz Moodle/PHP (AN-006). Hueco a llenar en
+  `mod_exelearning` vía DEC-0004 + TAREA-006.
+
 ## Riesgos / Limitaciones
 
 - Acoplamiento fuerte al modelo SCORM single-item; reusar `lib.php` directamente complica multi-itemnumber.

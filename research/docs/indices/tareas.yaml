@@ -5,3 +5,4 @@ items:
   - ruta: 'tareas/backlog/TAREA-003-exp-paquete-publicado.yaml', id: 'TAREA-003', titulo: 'EXP-001: estructura del paquete publicado por eXeLearning', estado: 'Pending', fecha: '2026-05-28'
   - ruta: 'tareas/backlog/TAREA-004-exp-multi-grade-items.yaml', id: 'TAREA-004', titulo: 'EXP-002: POC de multi-grade-items en Moodle 4.x', estado: 'Pending', fecha: '2026-05-28'
   - ruta: 'tareas/backlog/TAREA-005-cerrar-dec-0003.yaml', id: 'TAREA-005', titulo: 'Cerrar DEC-0003 con matriz cuantificada', estado: 'Pending', fecha: '2026-05-28'
+  - ruta: 'tareas/backlog/TAREA-006-ci-matriz-moodle-php.yaml', id: 'TAREA-006', titulo: 'Redactar ci.yml con matriz moodle-plugin-ci (Moodle 4.1/4.3/4.5/main × PHP 8.1-8.4 × pgsql/mariadb)', estado: 'Pending', fecha: '2026-05-28'

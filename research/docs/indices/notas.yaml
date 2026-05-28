@@ -3,4 +3,6 @@ items:
   - id: 'AN-001', titulo: 'Renderizado de la sidebar nativa de eXeLearning en Moodle', estado: None, fecha: '2026-05-28', ruta: 'analisis/notas/AN-001-sidebar-rendering.md'
   - id: 'AN-002', titulo: 'Patrón de múltiples grade items: mod_workshop como modelo', estado: None, fecha: '2026-05-28', ruta: 'analisis/notas/AN-002-multi-grade-items-workshop.md'
   - id: 'AN-003', titulo: 'Patrón xAPI: cómo mod_h5pactivity transforma statements en notas', estado: None, fecha: '2026-05-28', ruta: 'analisis/notas/AN-003-xapi-h5pactivity-pattern.md'
-  - id: 'AN-004', titulo: 'ELP / ELPX vs paquete publicado: qué consume mod_exelearning', estado: None, fecha: '2026-05-28', ruta: 'analisis/notas/AN-004-elpx-vs-zip.md'
+  - id: 'AN-004', titulo: 'Formato de entrada de mod_exelearning: ELPX v4 únicamente', estado: None, fecha: '2026-05-28', ruta: 'analisis/notas/AN-004-elpx-vs-zip.md'
+  - id: 'AN-005', titulo: 'El export SCORM 1.2 de eXeLearning emite 1 SCO por página: implicaciones para multi-grade-items', estado: None, fecha: '2026-05-28', ruta: 'analisis/notas/AN-005-scorm-sco-por-pagina.md'
+  - id: 'AN-006', titulo: 'Análisis de la infraestructura de build/CI de mod_exescorm y mod_exeweb', estado: None, fecha: '2026-05-28', ruta: 'analisis/notas/AN-006-build-ci-tests.md'

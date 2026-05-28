@@ -1,11 +1,16 @@
 # fixtures/
 
-Paquetes eXeLearning reales para pruebas reproducibles del plugin
-`mod_exelearning`. Todos los archivos de esta carpeta provienen del repositorio
-oficial de eXeLearning v3 (`iteexe_online`) — son las mismas fixtures que el propio
-proyecto utiliza en sus tests de integración. Se replican aquí para que los
-experimentos de `mod_exelearning` sean ejecutables sin necesidad de clonar
-eXeLearning.
+Paquetes **eXeLearning v4** reales para pruebas reproducibles del plugin
+`mod_exelearning`. Todos los archivos provienen del repositorio oficial
+[`github.com/exelearning/exelearning`](https://github.com/exelearning/exelearning)
+(rama de la **v4**) — son las mismas fixtures que el propio proyecto utiliza en
+sus tests de integración. Se replican aquí para que los experimentos de
+`mod_exelearning` sean ejecutables sin necesidad de clonar eXeLearning.
+
+> **Política de formato**: `mod_exelearning` trabaja **únicamente con archivos
+> `.elpx` (eXeLearning v4)** y con sus exports derivados (Web, SCORM 1.2,
+> SCORM 2004). Los archivos `.elp` (legacy v2) y la rama `iteexe_online` **no**
+> son objetivo del plugin y han sido deliberadamente excluidos de esta carpeta.
 
 > **Política de actualización**: cuando se actualice eXeLearning, regenerar estas
 > fixtures desde el upstream y registrar la fecha en este README. No editarlas a
@@ -13,19 +18,13 @@ eXeLearning.
 
 ## Origen upstream
 
-`/Users/ernesto/Downloads/git/exelearning/test/fixtures/` (alias canónico)
-o `/Users/ernesto/Dropbox/Trabajo/ate/exelearning/exelearning/test/fixtures/`.
+[`https://github.com/exelearning/exelearning`](https://github.com/exelearning/exelearning),
+rama v4. Clon local canónico: `/Users/ernesto/Downloads/git/exelearning/`.
+Subruta de fixtures: `test/fixtures/` y `test/fixtures/export/`.
 
 Fecha de la copia: **2026-05-28**.
 
 ## Contenido
-
-### `elp/` — proyectos editables formato legacy
-
-| Archivo | Tamaño | Notas |
-|---|---|---|
-| `basic-example.elp` | 533 KB | Proyecto mínimo, dos páginas, sólo texto. |
-| `latex.elp` | 381 KB | Incluye expresiones LaTeX → test del iDevice de matemáticas. |
 
 ### `elpx/` — proyectos editables formato v3 (zip de `content.xml` + recursos)
 
@@ -33,6 +32,7 @@ Fecha de la copia: **2026-05-28**.
 |---|---|---|
 | `arrows.elpx` | 455 KB | Sample minimal con jerarquía. |
 | `really-simple-test-project.elpx` | 1.2 MB | Sample canónico de pruebas: 6 páginas en árbol, solo iDevices `text`. |
+| `contenido-prueba-estilos-cata.elpx` | 2.1 MB | Sample real de mayor tamaño: 56 páginas, 7 tipos de iDevice (`text`, `udl-content`, `scrambled-list`, `rubric`, `interactive-video`, `form`, `download-source-file`). Provisto por el usuario el 2026-05-18. Bueno para probar estilos, catalogación, paginación, search box y `scrambled-list` (potencialmente calificable). |
 
 ### `web-export/really-simple_web/` — export "sitio web estático" del proyecto anterior
 
@@ -84,8 +84,6 @@ DST=$(git rev-parse --show-toplevel)/research/fixtures
 
 cp "$EXE/test/fixtures/really-simple-test-project.elpx" "$DST/elpx/"
 cp "$EXE/test/fixtures/arrows.elpx"                     "$DST/elpx/"
-cp "$EXE/test/fixtures/basic-example.elp"               "$DST/elp/"
-cp "$EXE/test/fixtures/latex.elp"                       "$DST/elp/"
 
 cp -R "$EXE/test/fixtures/export/really-simple/really-simple-test-project_scorm" \
       "$DST/scorm-export/really-simple_scorm12"

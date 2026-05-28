@@ -31,7 +31,17 @@ decisiones_bloqueantes:
     notas: >-
       Hipótesis: xAPI/cmi5 como canal de tracking + grade_update con itemnumber
       variable (patrón mod_workshop). Pendiente cerrar con matriz cuantificada y
-      EXP-001..EXP-003.
+      EXP-001..EXP-003. EXP-001 (2026-05-28) revela un Plan B realista:
+      el export SCORM 1.2 de eXeLearning v4 ya emite 1 SCO por página → habilita
+      multi-grade-items a nivel de página sin cambios upstream (ver AN-005).
+  DEC-0004:
+    titulo: "Build, empaquetado y CI con matriz Moodle/PHP/DB"
+    estado: Propuesta
+    ruta: decisiones/adr/DEC-0004-build-empaquetado-ci-tests.md
+    fecha: 2026-05-28
+    notas: >-
+      Heredar Makefile + 3 workflows de mod_exescorm/mod_exeweb y añadir ci.yml
+      con moodle-plugin-ci matriz Moodle 4.1/4.3/4.5/main × PHP 8.1-8.4 × pgsql/mariadb.
 
 tareas:
   TAREA-001:
@@ -71,5 +81,41 @@ tareas:
       - TAREA-002
       - TAREA-003
       - TAREA-004
+  TAREA-006:
+    fecha: 2026-05-28
+    titulo: "Redactar ci.yml con matriz moodle-plugin-ci"
+    estado: Pending
+    agente: pendiente
+    relacionados:
+      - DEC-0004
+      - AN-006
+      - REPO-001
+      - REPO-002
+  TAREA-002b:
+    fecha: 2026-05-28
+    titulo: "Context7 sobre Moodle Grade API + core_xapi + xAPI spec — completado"
+    estado: Done
+    agente: claude-code
+    relacionados:
+      - FTE-003
+      - FTE-006
+      - FTE-007
+    notas: "Sólo se cubren 3 de 8 FTEs; SCORM 1.2/2004/cmi5/LTI AGS pendientes."
+  TAREA-003b:
+    fecha: 2026-05-28
+    titulo: "EXP-001 parcial — inspección de fixtures ELPX/SCORM v4 desde disco"
+    estado: Done
+    agente: claude-code
+    relacionados:
+      - EXP-001
+      - PREG-001
+      - PREG-002
+      - AN-005
+      - "fixtures/elpx/really-simple-test-project.elpx"
+      - "fixtures/scorm-export/really-simple_scorm12/imsmanifest.xml"
+    notas: >-
+      Resolución parcial de PREG-001: el manifest SCORM 1.2 de eXeLearning v4 ya
+      contiene un SCO por página + content.xml con odePageId/odeIdeviceId estables.
+      Falta inspeccionar SCORM 2004 y un paquete con iDevices calificables.
 
 riesgos: {}
