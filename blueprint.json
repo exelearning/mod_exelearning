@@ -27,7 +27,7 @@
       "step": "installMoodlePlugin",
       "pluginType": "mod",
       "pluginName": "exelearning",
-      "url": "https://github.com/erseco/mod_exelearning/archive/refs/heads/main.zip"
+      "url": "https://github.com/ateeducacion/mod_exelearning/archive/refs/heads/main.zip"
     },
     {
       "step": "setConfigs",
@@ -107,7 +107,7 @@
           "itemid":   1,
           "filename": "actividad-evaluable.elpx",
           "data": {
-            "url": "https://raw.githubusercontent.com/erseco/mod_exelearning/main/research/fixtures/elpx/actividad-evaluable.elpx"
+            "url": "https://raw.githubusercontent.com/ateeducacion/mod_exelearning/main/research/fixtures/elpx/actividad-evaluable.elpx"
           }
         }
       ]
