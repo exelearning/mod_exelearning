@@ -15,7 +15,12 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Admin setting that renders the embedded editor management card.
+ * Admin setting widget for the embedded eXeLearning editor.
+ *
+ * Renders a status card with action buttons inside the admin settings page.
+ * Network I/O is executed through the plugin's AJAX services. In Moodle
+ * Playground, outbound requests are handled by the PHP WASM networking layer
+ * configured by the runtime.
  *
  * @package    mod_exelearning
  * @copyright  2025 eXeLearning
@@ -24,91 +29,110 @@
 
 namespace mod_exelearning\admin;
 
-defined('MOODLE_INTERNAL') || die();
-
-use admin_setting;
-
 /**
- * Custom admin setting that renders the embedded editor management UI.
+ * Custom admin setting that renders the embedded editor management widget.
  *
- * This is a read-only "setting" (it stores nothing itself) that renders the
- * admin card for installing/updating/repairing/uninstalling the embedded
- * editor. All actions happen through AJAX via the manage_embedded_editor
- * external service; this widget only renders the initial markup and wires up
- * the JS module.
+ * This setting stores no value itself (get_setting returns '' and
+ * write_setting always succeeds). Its sole purpose is to output the
+ * interactive status/action card into the admin settings page.
  */
-class admin_setting_embeddededitor extends admin_setting {
+class admin_setting_embeddededitor extends \admin_setting {
 
     /**
      * Constructor.
+     *
+     * @param string $visiblename Visible name shown as the setting label.
+     * @param string $description Short description shown below the label.
      */
-    public function __construct() {
-        $this->nosave = true;
-        parent::__construct(
-            'mod_exelearning/embeddededitor_manage',
-            get_string('embeddededitorstatus', 'mod_exelearning'),
-            '',
-            ''
-        );
+    public function __construct(string $visiblename, string $description) {
+        parent::__construct('exelearning/embeddededitorwidget', $visiblename, $description, '');
     }
 
     /**
-     * Always return true: there is no stored setting.
+     * Returns the current value of this setting.
      *
-     * @return mixed
-     */
-    public function get_setting() {
-        return true;
-    }
-
-    /**
-     * Never writes anything.
+     * This widget stores no persistent value; return empty string so
+     * admin_setting machinery treats it as "has a value" (not null).
      *
-     * @param mixed $data
-     * @return string Always empty (success).
+     * @return string Always empty string.
      */
-    public function write_setting($data) {
+    public function get_setting(): string {
         return '';
     }
 
     /**
-     * Render the admin card markup and wire up the JS module.
+     * Persists a new value for this setting (no-op).
      *
-     * @param mixed $data
-     * @param string $query
-     * @return string HTML.
+     * All real actions are performed via AJAX; the form submit path is unused.
+     *
+     * @param mixed $data Submitted form data (ignored).
+     * @return string Empty string signals success to the settings framework.
      */
-    public function output_html($data, $query = '') {
+    public function write_setting($data): string {
+        return '';
+    }
+
+    /**
+     * Render the embedded editor status widget as HTML.
+     *
+     * Reads locally-cached state only (no GitHub API call). The AMD module
+     * mod_exelearning/admin_embedded_editor is initialised with a JS context
+     * object so it can wire up action buttons and the "latest version" area.
+     *
+     * @param mixed  $data  Current setting value (unused).
+     * @param string $query Admin search query string (unused).
+     * @return string Rendered HTML for the widget.
+     */
+    public function output_html($data, $query = ''): string {
         global $PAGE, $OUTPUT;
 
         $status = \mod_exelearning\local\embedded_editor_source_resolver::get_status();
 
-        $installerversion = \mod_exelearning\local\embedded_editor_installer::get_installed_version();
-        $installedat = \mod_exelearning\local\embedded_editor_installer::get_installed_at();
+        // Determine source flags for the template.
+        $sourcemoodledata = ($status->active_source ===
+            \mod_exelearning\local\embedded_editor_source_resolver::SOURCE_MOODLEDATA);
+        $sourcebundled = ($status->active_source ===
+            \mod_exelearning\local\embedded_editor_source_resolver::SOURCE_BUNDLED);
+        $sourcenone = ($status->active_source ===
+            \mod_exelearning\local\embedded_editor_source_resolver::SOURCE_NONE);
 
+        // Determine which action buttons are available.
+        $caninstall   = !$status->moodledata_available;
+        $canupdate    = false; // JS will enable this after checking latest version.
+        $canuninstall = $status->moodledata_available;
+
+        // Build template context.
         $context = [
-            'moodledataAvailable' => $status->moodledata_available,
-            'moodledataVersion' => $status->moodledata_version ?? '',
-            'installedAt' => $installedat ?? '',
-            'bundledAvailable' => $status->bundled_available,
-            'activeSource' => $status->active_source,
-            'sesskey' => sesskey(),
-            'uploadUrl' => (new \moodle_url('/mod/exelearning/manage_embedded_editor_upload.php'))->out(false),
+            'sesskey'                  => sesskey(),
+            'active_source'            => $status->active_source,
+            'active_source_moodledata' => $sourcemoodledata,
+            'active_source_bundled'    => $sourcebundled,
+            'active_source_none'       => $sourcenone,
+            'moodledata_available'     => (bool) $status->moodledata_available,
+            'moodledata_version'       => $status->moodledata_version ?? '',
+            'moodledata_installed_at'  => $status->moodledata_installed_at ?? '',
+            'bundled_available'        => (bool) $status->bundled_available,
+            'can_install'              => $caninstall,
+            'can_update'               => $canupdate,
+            'can_uninstall'            => $canuninstall,
         ];
 
-        $html = $OUTPUT->render_from_template('mod_exelearning/admin_embedded_editor', $context);
+        // JS context passed to AMD init.
+        $jscontext = [
+            'sesskey'      => sesskey(),
+            'activesource' => $status->active_source,
+            'caninstall'   => $caninstall,
+            'canuninstall' => $canuninstall,
+        ];
 
-        $PAGE->requires->js_call_amd('mod_exelearning/admin_embedded_editor', 'init');
+        $PAGE->requires->js_call_amd('mod_exelearning/admin_embedded_editor', 'init', [$jscontext]);
 
-        return format_admin_setting(
-            $this,
-            $this->visiblename,
-            $html,
-            $this->description,
-            true,
-            '',
-            null,
-            $query
-        );
+        $widgethtml = $OUTPUT->render_from_template('mod_exelearning/admin_embedded_editor', $context);
+        $labelhtml = \html_writer::tag('label', s($this->visiblename));
+        $labelcolumn = \html_writer::div($labelhtml, 'form-label col-md-3 text-md-right');
+        $contentcolumn = \html_writer::div($widgethtml, 'form-setting col-md-9');
+        $rowhtml = \html_writer::div($labelcolumn . $contentcolumn, 'form-item row');
+
+        return \html_writer::div($rowhtml, 'mod_exelearning-admin-embedded-editor-setting');
     }
 }

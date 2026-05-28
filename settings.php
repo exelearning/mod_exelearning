@@ -53,7 +53,10 @@ if ($ADMIN->fulltree) {
     ));
 
     // Inline editor management card (AJAX install/update/repair/uninstall).
-    $settings->add(new \mod_exelearning\admin\admin_setting_embeddededitor());
+    $settings->add(new \mod_exelearning\admin\admin_setting_embeddededitor(
+        get_string('embeddededitorstatus', 'mod_exelearning'),
+        get_string('editormanagementhelp', 'mod_exelearning')
+    ));
 
     // -------------------------------------------------------------------------
     // Defined styles management (upload / enable / disable / lockdown).
