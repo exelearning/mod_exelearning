@@ -1,0 +1,229 @@
+<?php
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+/**
+ * Privacy provider for mod_exelearning (DEC-0007 attempt history).
+ *
+ * @package    mod_exelearning
+ * @copyright  2026 ATE (Área de Tecnología Educativa)
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
+namespace mod_exelearning\privacy;
+
+use core_privacy\local\metadata\collection;
+use core_privacy\local\request\approved_contextlist;
+use core_privacy\local\request\approved_userlist;
+use core_privacy\local\request\contextlist;
+use core_privacy\local\request\userlist;
+use core_privacy\local\request\writer;
+use core_privacy\local\request\helper;
+
+defined('MOODLE_INTERNAL') || die();
+
+/**
+ * Implements the Moodle privacy API for the attempt data stored by the plugin.
+ */
+class provider implements
+        \core_privacy\local\metadata\provider,
+        \core_privacy\local\request\plugin\provider,
+        \core_privacy\local\request\core_userlist_provider {
+
+    /**
+     * Describe the personal data stored by this plugin.
+     *
+     * @param collection $collection
+     * @return collection
+     */
+    public static function get_metadata(collection $collection): collection {
+        $collection->add_database_table('exelearning_attempt', [
+            'userid'       => 'privacy:metadata:exelearning_attempt:userid',
+            'attempt'      => 'privacy:metadata:exelearning_attempt:attempt',
+            'itemnumber'   => 'privacy:metadata:exelearning_attempt:itemnumber',
+            'rawscore'     => 'privacy:metadata:exelearning_attempt:rawscore',
+            'scaledscore'  => 'privacy:metadata:exelearning_attempt:scaledscore',
+            'status'       => 'privacy:metadata:exelearning_attempt:status',
+            'timecreated'  => 'privacy:metadata:exelearning_attempt:timecreated',
+            'timemodified' => 'privacy:metadata:exelearning_attempt:timemodified',
+        ], 'privacy:metadata:exelearning_attempt');
+
+        return $collection;
+    }
+
+    /**
+     * Get the list of contexts that contain user information for the given user.
+     *
+     * @param int $userid
+     * @return contextlist
+     */
+    public static function get_contexts_for_userid(int $userid): contextlist {
+        $contextlist = new contextlist();
+
+        $sql = "SELECT ctx.id
+                  FROM {exelearning_attempt} a
+                  JOIN {exelearning} e ON e.id = a.exelearningid
+                  JOIN {course_modules} cm ON cm.instance = e.id
+                  JOIN {modules} m ON m.id = cm.module AND m.name = :modname
+                  JOIN {context} ctx ON ctx.instanceid = cm.id AND ctx.contextlevel = :modlevel
+                 WHERE a.userid = :userid";
+        $contextlist->add_from_sql($sql, [
+            'modname'  => 'exelearning',
+            'modlevel' => CONTEXT_MODULE,
+            'userid'   => $userid,
+        ]);
+
+        return $contextlist;
+    }
+
+    /**
+     * Get the list of users within a specific context.
+     *
+     * @param userlist $userlist
+     */
+    public static function get_users_in_context(userlist $userlist): void {
+        $context = $userlist->get_context();
+        if (!$context instanceof \context_module) {
+            return;
+        }
+
+        $sql = "SELECT a.userid
+                  FROM {exelearning_attempt} a
+                  JOIN {exelearning} e ON e.id = a.exelearningid
+                  JOIN {course_modules} cm ON cm.instance = e.id
+                  JOIN {modules} m ON m.id = cm.module AND m.name = :modname
+                 WHERE cm.id = :cmid";
+        $userlist->add_from_sql('userid', $sql, [
+            'modname' => 'exelearning',
+            'cmid'    => $context->instanceid,
+        ]);
+    }
+
+    /**
+     * Export all user data for the approved contexts.
+     *
+     * @param approved_contextlist $contextlist
+     */
+    public static function export_user_data(approved_contextlist $contextlist): void {
+        global $DB;
+
+        if (empty($contextlist->count())) {
+            return;
+        }
+
+        $user = $contextlist->get_user();
+
+        foreach ($contextlist->get_contexts() as $context) {
+            if (!$context instanceof \context_module) {
+                continue;
+            }
+            $cm = get_coursemodule_from_id('exelearning', $context->instanceid);
+            if (!$cm) {
+                continue;
+            }
+
+            $attempts = $DB->get_records('exelearning_attempt',
+                    ['exelearningid' => $cm->instance, 'userid' => $user->id],
+                    'attempt ASC, itemnumber ASC');
+            if (!$attempts) {
+                continue;
+            }
+
+            $data = [];
+            foreach ($attempts as $a) {
+                $data[] = [
+                    'attempt'      => $a->attempt,
+                    'itemnumber'   => $a->itemnumber,
+                    'rawscore'     => $a->rawscore,
+                    'maxscore'     => $a->maxscore,
+                    'scaledscore'  => $a->scaledscore,
+                    'status'       => $a->status,
+                    'timecreated'  => \core_privacy\local\request\transform::datetime($a->timecreated),
+                    'timemodified' => \core_privacy\local\request\transform::datetime($a->timemodified),
+                ];
+            }
+
+            $contextdata = helper::get_context_data($context, $user);
+            $contextdata = (object) array_merge((array) $contextdata, ['attempts' => $data]);
+            writer::with_context($context)->export_data([], $contextdata);
+        }
+    }
+
+    /**
+     * Delete all user data for all users in the given context.
+     *
+     * @param \context $context
+     */
+    public static function delete_data_for_all_users_in_context(\context $context): void {
+        global $DB;
+
+        if (!$context instanceof \context_module) {
+            return;
+        }
+        $cm = get_coursemodule_from_id('exelearning', $context->instanceid);
+        if (!$cm) {
+            return;
+        }
+        $DB->delete_records('exelearning_attempt', ['exelearningid' => $cm->instance]);
+    }
+
+    /**
+     * Delete all user data for the user in the approved contexts.
+     *
+     * @param approved_contextlist $contextlist
+     */
+    public static function delete_data_for_user(approved_contextlist $contextlist): void {
+        global $DB;
+
+        $user = $contextlist->get_user();
+        foreach ($contextlist->get_contexts() as $context) {
+            if (!$context instanceof \context_module) {
+                continue;
+            }
+            $cm = get_coursemodule_from_id('exelearning', $context->instanceid);
+            if (!$cm) {
+                continue;
+            }
+            $DB->delete_records('exelearning_attempt',
+                    ['exelearningid' => $cm->instance, 'userid' => $user->id]);
+        }
+    }
+
+    /**
+     * Delete data for multiple users in a single context.
+     *
+     * @param approved_userlist $userlist
+     */
+    public static function delete_data_for_users(approved_userlist $userlist): void {
+        global $DB;
+
+        $context = $userlist->get_context();
+        if (!$context instanceof \context_module) {
+            return;
+        }
+        $cm = get_coursemodule_from_id('exelearning', $context->instanceid);
+        if (!$cm) {
+            return;
+        }
+        $userids = $userlist->get_userids();
+        if (empty($userids)) {
+            return;
+        }
+        [$insql, $inparams] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED);
+        $params = array_merge(['exelearningid' => $cm->instance], $inparams);
+        $DB->delete_records_select('exelearning_attempt',
+                "exelearningid = :exelearningid AND userid $insql", $params);
+    }
+}
