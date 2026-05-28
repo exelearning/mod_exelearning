@@ -1,0 +1,35 @@
+fecha: 2026-05-28
+sesion: noche-multi-grade-routing-preview
+agente: claude-code
+resumen: "Per-iDevice grade routing + modo preview validados end-to-end. Editor portado y build hecho; falta debug del bootstrap."
+
+acciones:
+  - "track.php: parsea cmi.suspend_data con regex `^(\\d+)\\. \"([^\"]*)\"; [^:]+: ([\\d.]+)%; [^:]+: ([\\d.]+)%\\.?$` y rutea per-iDevice por itemnumber. La indexación ideviceNumber=DOM index+1 (common.js:1154) coincide con nuestro itemnumber del registry (classes/local/package.php) → mapeo directo, no requiere objectid lookup."
+  - "Modo preview (DEC-0006) validado: track.php?mode=preview responde {ok:true, mode:'preview'} sin tocar gradebook. has_capability('moodle/course:manageactivities') decide si el modo se acepta; alumno común cae a grading silenciosamente. Protección verificada incluso con switch role to Student."
+  - "Editor embebido portado completo (DEC-0005): Makefile + .env.dist + 3 workflows GitHub Actions + editor/{index,save,static,styles}.php + classes/local/embedded_editor_installer + classes/external/manage_embedded_editor + manage_embedded_editor_upload.php + classes/exelearning_package_legacy.php + 6 amd/src/*.js + settings.php (versión minimal). Rename masivo sed + perl aplicado a 19 archivos. dist/static/ poblado (178 MB) reusando el build de /Users/ernesto/Downloads/git/exelearning."
+
+verificacion_e2e:
+  per_idevice_routing:
+    suspend_data_simulado: '1. "Verdadero o falso"; Puntuación: 80%; Peso: 100%.\t2. "Adivina"; Puntuación: 60%; Peso: 100%'
+    resultado_bd:
+      itemnumber_0: 70   # cmi.core.score.raw agregado
+      itemnumber_1: 80   # trueorfalse
+      itemnumber_2: 60   # guess
+  preview_mode:
+    request: 'POST track.php?mode=preview con cmi.core.score.raw=22'
+    response: '{"ok":true,"mode":"preview","rawscore":22}'
+    bd_timemodified_pre:  1779997916
+    bd_timemodified_post: 1779997916   # idéntico → no se escribió
+
+pendientes:
+  - "Editor: editor/index.php?id=N retorna 404 con exception. Causa probable: exelearning_embedded_editor_uses_local_assets() o load del index.html del editor estático falla porque la helper class espera estructura/rutas distintas. Necesita debug puntual (1-2 h)."
+  - "make build-editor: target completo (clonado + bun install + bun build:static) no se ejecutó porque reutilizamos el dist/static/ existente. Cuando sea release real conviene correrlo limpio."
+  - "Banner preview no se vio en Chrome cuando el usuario está con switchrole=student → comportamiento ESPERADO y deseable. Para verlo, return-to-normal-role antes de cargar preview."
+  - "El per-iDevice routing depende de orden DOM. Si el orden de iDevices en content.xml difiere del orden de renderizado, los itemnumbers podrían descuadrar. Confirmar con paquete real de varias páginas."
+
+relacionados:
+  - DEC-0003
+  - DEC-0005
+  - DEC-0006
+  - EXP-002
+  - AN-009
