@@ -106,6 +106,7 @@ function xmldb_exelearning_upgrade($oldversion) {
             $table->add_field('maxscore',      XMLDB_TYPE_NUMBER, '10,5', null, XMLDB_NOTNULL, null, '100');
             $table->add_field('scaledscore',   XMLDB_TYPE_NUMBER, '10,5', null, XMLDB_NOTNULL, null, '0');
             $table->add_field('status',        XMLDB_TYPE_CHAR, '20', null, XMLDB_NOTNULL, null, 'completed');
+            $table->add_field('sessiontoken',  XMLDB_TYPE_CHAR, '40', null, null, null, null);
             $table->add_field('timecreated',   XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
             $table->add_field('timemodified',  XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
 

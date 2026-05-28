@@ -153,6 +153,8 @@ if (!$mainfile) {
     $shimjs = <<<JS
 (function () {
     var errCode = '0', cmi = {}, dirty = false, autoTimer = null;
+    // Token único por carga de página: agrupa los auto-commits en un intento.
+    var session = '%SESSION%';
     function send(sync) {
         if (!dirty) { return true; }
         try {
@@ -160,7 +162,7 @@ if (!$mainfile) {
             // Síncrono en LMSFinish (alumno cierra la pestaña); async normalmente.
             xhr.open('POST', '%TRACKURL%', sync !== true);
             xhr.setRequestHeader('Content-Type', 'application/json');
-            xhr.send(JSON.stringify({ id: %CMID%, cmi: cmi }));
+            xhr.send(JSON.stringify({ id: %CMID%, session: session, cmi: cmi }));
             dirty = false;
             // En modo async no podemos chequear el status; asumimos OK.
             return sync === true ? (xhr.status >= 200 && xhr.status < 300) : true;
@@ -198,8 +200,9 @@ if (!$mainfile) {
     });
 })();
 JS;
-    $shimjs = str_replace(['%TRACKURL%', '%CMID%'],
-            [addslashes($trackurl), (int) $cm->id], $shimjs);
+    $attemptsession = random_string(20);
+    $shimjs = str_replace(['%TRACKURL%', '%CMID%', '%SESSION%'],
+            [addslashes($trackurl), (int) $cm->id, $attemptsession], $shimjs);
     echo html_writer::tag('script', $shimjs);
 
     // Iframe del paquete. Política de sandbox documentada en AN-008:
