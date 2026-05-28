@@ -152,6 +152,7 @@ $string['manage_editor_heading']  = 'Editor management';
 $string['manage_editor_link']     = 'Manage embedded editor';
 
 // Embedded editor management (inline in settings, ported from exelearning/mod_exeweb).
+$string['editwitheditor'] = 'Edit with eXeLearning';
 $string['embeddededitorsettings'] = 'Editor type';
 $string['embeddededitorstatus'] = 'Embedded editor';
 $string['noeditorinstalled'] = 'No editor installed';
