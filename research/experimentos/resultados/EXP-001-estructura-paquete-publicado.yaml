@@ -1,0 +1,79 @@
+id: EXP-001
+titulo: "Estructura del paquete publicado por eXeLearning (Web + SCORM 1.2)"
+objetivo: "Descomprimir paquetes reales y documentar la estructura, identificadores estables y mecanismo de tracking."
+estado: completado
+fecha: 2026-05-28
+hipotesis: "El paquete publicado expone identificadores estables por iDevice y/o por página, y un canal de tracking que mod_exelearning pueda consumir."
+tecnologia:
+  - ELPX v3
+  - SCORM 1.2
+  - pipwerks SCORM API wrapper
+repos_implicados:
+  - REPO-005
+commit_ref:
+  repo: exelearning (iteexe_online)
+  sha: "[PENDIENTE: registrar HEAD del clon canónico /Users/ernesto/Downloads/git/exelearning]"
+entorno:
+  so: "macOS Darwin 25.4.0"
+  versiones:
+    python3: "≥3.10"
+    unzip: "macOS default"
+setup_command: |
+  mkdir -p /tmp/exp001 && cd /tmp/exp001 \
+    && cp research/fixtures/elpx/really-simple-test-project.elpx . \
+    && cp -R research/fixtures/scorm-export/really-simple_scorm12 . \
+    && cp -R research/fixtures/web-export/really-simple_web .
+run_command: |
+  unzip -q really-simple-test-project.elpx -d elpx-ext && \
+  ls elpx-ext && \
+  grep -c '<odePageId>' elpx-ext/content.xml && \
+  grep -c 'adlcp:scormtype="sco"' really-simple_scorm12/imsmanifest.xml && \
+  grep -c 'pipwerks.SCORM' really-simple_web/libs/common.js really-simple_scorm12/libs/common.js
+metricas:
+  paginas_en_arbol_navegacion: 6
+  scos_en_imsmanifest: 6
+  ratio_sco_por_pagina: "1:1"
+  tipos_de_idevice_en_manual_completo: 40
+  tipos_de_idevice_en_really_simple: 1   # solo `text`
+  manifest_propietario_presente_en_scorm_export: true   # content.xml duplicado dentro del paquete SCORM
+  scorm_wrapper: "pipwerks.SCORM (libs/SCORM_API_wrapper.js + libs/SCOFunctions.js)"
+  ids_estables_por_pagina: true   # odePageId yyyymmddhhmmss<6CHARS> = SCO identifier (RES-…)
+  ids_estables_por_idevice: true  # odeIdeviceId con el mismo formato dentro de content.xml
+  granularidad_score_emitida_al_lms: "por SCO (= por página) vía cmi.core.score.raw agregada client-side"
+resultado: |
+  El paquete publicado de eXeLearning expone identificadores estables tanto a nivel
+  de página (`odePageId`) como a nivel de iDevice (`odeIdeviceId`) en su manifest
+  propietario `content.xml`. Crucialmente, el exportador SCORM 1.2 actual **ya emite
+  un SCO independiente por cada página** del árbol de navegación: en el sample
+  `really-simple-test-project_scorm`, 6 páginas → 6 SCOs (más un asset
+  `COMMON_FILES`). Esto significa que un consumidor SCORM puede registrar
+  hasta 6 grade items distintos (uno por página) **sin ningún cambio aguas arriba**.
+
+  La granularidad por iDevice individual, sin embargo, **se pierde en el cable
+  SCORM**: cada SCO agrega los scores de sus iDevices vía `cmi.core.score.raw`
+  emitida por `pipwerks.SCORM.set(...)` en `libs/common.js`. Para multi-grade
+  por iDevice habría que: (a) en SCORM 2004, mapear cada iDevice a un
+  `cmi.objectives.{n}.id`; (b) en xAPI, emitir un statement por iDevice. Ambas
+  rutas requieren cambio aguas arriba (PREG-002).
+
+  El export "sitio web estático" no incluye el wrapper SCORM ⇒ no emite tracking
+  per se; sólo computa scores client-side en cada iDevice.
+evidencias:
+  - research/fixtures/elpx/really-simple-test-project.elpx
+  - research/fixtures/scorm-export/really-simple_scorm12/imsmanifest.xml
+  - research/fixtures/web-export/really-simple_web/libs/common.js
+  - research/fixtures/README.md
+limitaciones:
+  - "Sólo se ha inspeccionado SCORM 1.2; falta replicar contra SCORM 2004 (PREG abierta)."
+  - "Sólo se ha inspeccionado un paquete sin iDevices calificables (really-simple). Confirmar contra Manual 3.0 (28 MB, ya identificado) para tipos quiz."
+  - "No se ha verificado si la herramienta de eXeLearning permite configurar `pp_singleSco=true` para colapsar a un único SCO."
+relacionados:
+  - REPO-005
+  - FTE-001
+  - FTE-002
+  - FTE-008
+  - AN-005
+  - PREG-001
+  - PREG-002
+  - DEC-0003
+  - TAREA-003
