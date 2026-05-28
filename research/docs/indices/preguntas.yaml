@@ -1,0 +1,4 @@
+# Índice autogenerado por tools/build_indexes.py — no editar a mano.
+items:
+  - ruta: 'tareas/preguntas/PREG-001-elp-vs-elpx-publicacion.yaml', id: 'PREG-001', estado: 'abierta', pregunta: '¿La publicación de eXeLearning expone identificadores estables por iDevice calificable, y en qué formatos (Web, SCORM 1.2, SCORM 2004, cmi5)?'
+  - ruta: 'tareas/preguntas/PREG-002-exelearning-cambios-aguas-arriba.yaml', id: 'PREG-002', estado: 'abierta', pregunta: '¿Qué cambios aguas arriba en eXeLearning facilitarían el soporte multi-grade-items en Moodle?'

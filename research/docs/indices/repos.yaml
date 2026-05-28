@@ -1,0 +1,7 @@
+# Índice autogenerado por tools/build_indexes.py — no editar a mano.
+items:
+  - id: 'REPO-001', titulo: 'mod_exescorm — fork de mod_scorm con extensiones eXeLearning', estado: None, fecha: None, ruta: 'fuentes/repositorios/REPO-001-mod-exescorm.md'
+  - id: 'REPO-002', titulo: 'mod_exeweb — visor de recursos eXeLearning sin calificación', estado: None, fecha: None, ruta: 'fuentes/repositorios/REPO-002-mod-exeweb.md'
+  - id: 'REPO-003', titulo: 'wp-exelearning — plugin de WordPress para insertar recursos eXeLearning', estado: None, fecha: None, ruta: 'fuentes/repositorios/REPO-003-wp-exelearning.md'
+  - id: 'REPO-004', titulo: 'Moodle core — referencias relevantes para mod_exelearning', estado: None, fecha: None, ruta: 'fuentes/repositorios/REPO-004-moodle-core.md'
+  - id: 'REPO-005', titulo: 'eXeLearning — herramienta de autoría upstream', estado: None, fecha: None, ruta: 'fuentes/repositorios/REPO-005-exelearning-upstream.md'

@@ -1,0 +1,21 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: ficha-repositorio (frontmatter YAML de REPO-NNN.md)
+type: object
+required: [id, titulo, tipo, ruta_local, licencia]
+properties:
+  id: { type: string, pattern: "^REPO-[0-9]{3}$" }
+  titulo: { type: string }
+  tipo:
+    enum: [moodle-plugin, wordpress-plugin, lms-core, authoring-tool, libreria, otro]
+  ruta_local: { type: string }
+  url_upstream: { type: string }
+  commit_consultado: { type: string }
+  fecha_consulta: { type: string, format: date }
+  licencia: { type: string }
+  rol_para_mod_exelearning: { type: string }
+  herramienta_ia:
+    type: object
+    properties:
+      interfaz: { type: string }
+      modelo: { type: string }
+additionalProperties: true

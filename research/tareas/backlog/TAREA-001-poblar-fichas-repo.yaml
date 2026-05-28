@@ -1,0 +1,21 @@
+id: TAREA-001
+titulo: "Poblar fichas REPO desde la exploración inicial"
+estado: Done
+fecha: 2026-05-28
+agente: claude-code
+prioridad: alta
+objetivo: "Crear REPO-001..REPO-005 transcribiendo evidencia de la exploración Phase 1."
+pasos:
+  - "Identificar rutas locales y URLs upstream de los repos."
+  - "Crear ficha por repo con plantilla."
+  - "Marcar campos sin evidencia directa como [PENDIENTE]."
+relacionados:
+  - REPO-001
+  - REPO-002
+  - REPO-003
+  - REPO-004
+  - REPO-005
+criterios_aceptacion:
+  - "Cinco fichas creadas, ninguna con error de schema."
+  - "Cada ficha enlaza al menos una ruta clave."
+notas: "Cerrada al cierre del bootstrap; los commits SHA quedan pendientes de TAREA-002."

@@ -1,0 +1,23 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: PREG-NNN.yaml
+type: object
+required: [id, pregunta, estado]
+properties:
+  id: { type: string, pattern: "^PREG-[0-9]{3}$" }
+  pregunta: { type: string }
+  estado:
+    enum: [abierta, en-investigacion, resuelta, descartada]
+  fecha_apertura: { type: string, format: date }
+  fecha_resolucion: { type: string, format: date }
+  contexto: { type: string }
+  hipotesis:
+    type: array
+    items: { type: string }
+  evidencias_necesarias:
+    type: array
+    items: { type: string }
+  resolucion: { type: string }
+  relacionados:
+    type: array
+    items: { type: string }
+additionalProperties: false

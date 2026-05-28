@@ -1,0 +1,28 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: ficha-fuente (frontmatter de FTE-NNN.md)
+type: object
+required: [id, titulo, categoria]
+properties:
+  id: { type: string, pattern: "^FTE-[0-9]{3}$" }
+  titulo: { type: string }
+  categoria:
+    enum: [estandar, api-moodle, api-otro, especificacion, formato-paquete, documentacion]
+  version_consultada: { type: string }
+  enlaces_oficiales:
+    type: array
+    items: { type: string }
+  context7:
+    type: object
+    properties:
+      library_id: { type: string }
+      query: { type: string }
+      fecha: { type: string, format: date }
+      version_devuelta: { type: string }
+  fecha_consulta: { type: string, format: date }
+  relevancia_para_mod_exelearning: { type: string }
+  herramienta_ia:
+    type: object
+    properties:
+      interfaz: { type: string }
+      modelo: { type: string }
+additionalProperties: true

@@ -1,0 +1,23 @@
+id: PREG-001
+pregunta: "¿La publicación de eXeLearning expone identificadores estables por iDevice calificable, y en qué formatos (Web, SCORM 1.2, SCORM 2004, cmi5)?"
+estado: abierta
+fecha_apertura: 2026-05-28
+contexto: |
+  El requisito de N grade items en gradebook depende de poder mapear cada iDevice
+  calificable a un `objectid` estable. La estabilidad debe sobrevivir re-uploads del
+  paquete sin que los grade items existentes pierdan identidad.
+hipotesis:
+  - "Los iDevices tienen `id` interno tipo `idevice-{uuid}` inyectado como `data-*` o como `id` en el HTML."
+  - "En SCORM 2004, los iDevices podrían materializarse como `cmi.objectives.{n}.id` declarados en el manifest."
+  - "En el export Web, los IDs son consistentes pero no expuestos como manifiesto consultable."
+evidencias_necesarias:
+  - "EXP-001: descomprimir paquete real y listar IDs encontrados."
+  - "Lectura del código de export de eXeLearning upstream (REPO-005) que genera el HTML / manifest."
+resolucion: ""
+relacionados:
+  - REPO-005
+  - FTE-001
+  - FTE-002
+  - FTE-008
+  - TAREA-003
+  - DEC-0003

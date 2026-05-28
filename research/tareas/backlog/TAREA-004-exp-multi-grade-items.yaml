@@ -1,0 +1,23 @@
+id: TAREA-004
+titulo: "EXP-002: POC de multi-grade-items en Moodle 4.x"
+estado: Pending
+fecha: 2026-05-28
+agente: pendiente
+prioridad: alta
+objetivo: "Demostrar en una instalación Moodle que un plugin de actividad mínimo puede registrar 2 grade items (itemnumber=0,1) que aparecen y actualizan correctamente en el libro de calificaciones."
+pasos:
+  - "Levantar Moodle 4.x local (docker o instalación nativa)."
+  - "Crear un plugin scratch `mod_gradeitemspoc` que en `<mod>_add_instance` invoque `grade_update` dos veces con itemnumber=0 y 1."
+  - "Crear actividad en curso de prueba, verificar gradebook."
+  - "Forzar update_grades con valores distintos por itemnumber."
+  - "Documentar en EXP-002.yaml: comando, commit, métricas (latencia, errores), capturas."
+relacionados:
+  - REPO-004
+  - FTE-006
+  - AN-002
+  - DEC-0003
+criterios_aceptacion:
+  - "Dos columnas en el libro de calificaciones, no agregadas."
+  - "Actualización idempotente comprobada."
+  - "Re-upload de paquete con item adicional añade itemnumber=2 sin romper notas previas."
+notas: ""

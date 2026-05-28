@@ -1,0 +1,81 @@
+# Matriz comparativa de estándares de tracking candidatos para mod_exelearning.
+# Estado: SIN VEREDICTO. Las puntuaciones cualitativas son provisionales y se
+# convertirán en cuantitativas como parte de TAREA-005 antes de cerrar DEC-0003.
+
+titulo: "Estándar de tracking + multi-grade-items"
+fecha: 2026-05-28
+decision_relacionada: DEC-0003
+estado: provisional
+
+# Escala cualitativa hasta cierre: -- | - | 0 | + | ++
+criterios:
+  multi_grade_items:
+    peso: 5
+    justificacion: "Requisito funcional duro de mod_exelearning."
+  preservacion_sidebar_nativa:
+    peso: 5
+    justificacion: "Requisito funcional duro: la sidebar de eXeLearning debe conservarse."
+  granularidad_score:
+    peso: 4
+    justificacion: "Cuánto detalle queda registrado por interacción."
+  soporte_moodle_nativo:
+    peso: 4
+    justificacion: "Reduce código del plugin y aprovecha el subsistema oficial."
+  adopcion_en_exelearning_actual:
+    peso: 4
+    justificacion: "Si eXeLearning ya emite el formato, evita cambios aguas arriba."
+  complejidad_implementacion:
+    peso: 3
+    justificacion: "Coste de desarrollo y mantenimiento del plugin."
+  futuro_vs_legacy:
+    peso: 2
+    justificacion: "Estabilidad a 5 años."
+
+opciones:
+  scorm_1_2:
+    multi_grade_items: "--"      # Único cmi.core.score.raw; multi-item es hack.
+    preservacion_sidebar_nativa: "+"  # TOC reconstruido en LMS o servir el index.html.
+    granularidad_score: "-"
+    soporte_moodle_nativo: "++"  # mod_scorm, mod_exescorm.
+    adopcion_en_exelearning_actual: "++"  # Exportación SCORM 1.2 estándar.
+    complejidad_implementacion: "+"
+    futuro_vs_legacy: "--"
+    notas: "Bajo riesgo, pero choca de frente con el requisito multi-grade-items."
+  scorm_2004:
+    multi_grade_items: "0"       # cmi.objectives.{n} permite varios, pero requiere convención eXeLearning.
+    preservacion_sidebar_nativa: "+"
+    granularidad_score: "+"
+    soporte_moodle_nativo: "+"   # Soporte histórico en mod_scorm.
+    adopcion_en_exelearning_actual: "+"  # Exportable, menos común que 1.2.
+    complejidad_implementacion: "0"
+    futuro_vs_legacy: "-"
+    notas: "Camino intermedio si los objectives se mapean a itemnumbers."
+  xapi:
+    multi_grade_items: "++"      # object.id por item; trivial multi-item.
+    preservacion_sidebar_nativa: "++"  # Ortogonal: la sidebar la pinta el paquete.
+    granularidad_score: "++"
+    soporte_moodle_nativo: "++"  # core_xapi nativo + mod_h5pactivity como modelo.
+    adopcion_en_exelearning_actual: "[PENDIENTE: EXP-001]"
+    complejidad_implementacion: "0"
+    futuro_vs_legacy: "++"
+    notas: "Mejor encaje teórico. Riesgo: requiere que eXeLearning emita statements (o shim JS)."
+  cmi5:
+    multi_grade_items: "++"      # 1 AU = 1 itemnumber.
+    preservacion_sidebar_nativa: "+"  # Course structure define TOC paralelo al de eXeLearning.
+    granularidad_score: "+"
+    soporte_moodle_nativo: "+"   # Vía core_xapi + parsing de cmi5.xml.
+    adopcion_en_exelearning_actual: "[PENDIENTE]"
+    complejidad_implementacion: "-"  # Parsing cmi5.xml + launch model añadido.
+    futuro_vs_legacy: "++"
+    notas: "Híbrido SCORM/xAPI. Cobertura nula confirmada en herramientas de autoría."
+  lti_1_3_ags:
+    multi_grade_items: "++"      # Line items nativos.
+    preservacion_sidebar_nativa: "--"  # Modelo tool-provider: contenido externo, no en Moodle.
+    granularidad_score: "++"
+    soporte_moodle_nativo: "++"
+    adopcion_en_exelearning_actual: "--"  # eXeLearning no es tool LTI hoy.
+    complejidad_implementacion: "--"
+    futuro_vs_legacy: "++"
+    notas: "Descartado para el caso 'subir paquete a Moodle'; reservado para 'lanzar eXeLearning Online externo'."
+
+veredicto: "PENDIENTE — se cierra en DEC-0003 tras EXP-001 (PREG-001) y EXP-002 (PREG-006-grade-multi)."

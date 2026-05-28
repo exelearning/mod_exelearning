@@ -1,0 +1,26 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: ADR (frontmatter de DEC-NNNN.md)
+type: object
+required: [id, titulo, estado, fecha]
+properties:
+  id: { type: string, pattern: "^DEC-[0-9]{4}$" }
+  titulo: { type: string }
+  estado:
+    enum: [Propuesta, Aceptada, Rechazada, Superseded]
+  fecha: { type: string, format: date }
+  agentes:
+    type: array
+    items: { type: string }
+  fuentes:
+    type: array
+    items: { type: string }
+  experimentos:
+    type: array
+    items: { type: string }
+  supersede: { type: string, pattern: "^DEC-[0-9]{4}$" }
+  herramienta_ia:
+    type: object
+    properties:
+      interfaz: { type: string }
+      modelo: { type: string }
+additionalProperties: true

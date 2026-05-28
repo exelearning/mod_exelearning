@@ -1,0 +1,9 @@
+id: PREG-NNN
+pregunta: ""
+estado: abierta   # abierta | en-investigacion | resuelta | descartada
+fecha_apertura: YYYY-MM-DD
+contexto: ""
+hipotesis: []
+evidencias_necesarias: []
+resolucion: ""
+relacionados: []

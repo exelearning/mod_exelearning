@@ -1,0 +1,10 @@
+# Índice autogenerado por tools/build_indexes.py — no editar a mano.
+items:
+  - id: 'FTE-001', titulo: 'SCORM 1.2', estado: None, fecha: None, ruta: 'fuentes/tecnologia/FTE-001-scorm-1-2.md'
+  - id: 'FTE-002', titulo: 'SCORM 2004 (4th Edition)', estado: None, fecha: None, ruta: 'fuentes/tecnologia/FTE-002-scorm-2004.md'
+  - id: 'FTE-003', titulo: 'xAPI (Experience API / Tin Can)', estado: None, fecha: None, ruta: 'fuentes/tecnologia/FTE-003-xapi.md'
+  - id: 'FTE-004', titulo: 'cmi5', estado: None, fecha: None, ruta: 'fuentes/tecnologia/FTE-004-cmi5.md'
+  - id: 'FTE-005', titulo: 'LTI 1.3 + Assignment and Grade Services (AGS)', estado: None, fecha: None, ruta: 'fuentes/tecnologia/FTE-005-lti-1-3-ags.md'
+  - id: 'FTE-006', titulo: 'Moodle Grade API (`lib/gradelib.php`)', estado: None, fecha: None, ruta: 'fuentes/tecnologia/FTE-006-moodle-grade-api.md'
+  - id: 'FTE-007', titulo: 'Moodle core_xapi', estado: None, fecha: None, ruta: 'fuentes/tecnologia/FTE-007-moodle-core-xapi.md'
+  - id: 'FTE-008', titulo: 'Formato de paquete publicado por eXeLearning', estado: None, fecha: None, ruta: 'fuentes/tecnologia/FTE-008-exelearning-export.md'

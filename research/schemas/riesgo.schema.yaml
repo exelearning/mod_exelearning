@@ -1,0 +1,17 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: RIE-NNN (entrada en status.yaml#/riesgos)
+type: object
+required: [titulo, severidad, estado]
+properties:
+  titulo: { type: string }
+  severidad:
+    enum: [baja, media, alta, critica]
+  probabilidad:
+    enum: [baja, media, alta]
+  estado:
+    enum: [identificado, mitigado, aceptado, materializado]
+  mitigacion: { type: string }
+  relacionados:
+    type: array
+    items: { type: string }
+additionalProperties: false

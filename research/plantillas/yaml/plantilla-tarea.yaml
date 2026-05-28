@@ -1,0 +1,13 @@
+id: TAREA-NNN
+titulo: ""
+estado: Pending   # Pending | In Progress | Done | Blocked | Cancelled
+fecha: YYYY-MM-DD
+agente: ""
+prioridad: media   # baja | media | alta | critica
+objetivo: ""
+pasos:
+  - ""
+relacionados: []   # REPO-NNN, FTE-NNN, AN-NNN, DEC-NNNN, PREG-NNN, EXP-NNN
+criterios_aceptacion:
+  - ""
+notas: ""

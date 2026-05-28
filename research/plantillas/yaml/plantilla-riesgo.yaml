@@ -1,0 +1,6 @@
+titulo: ""
+severidad: media   # baja | media | alta | critica
+probabilidad: media
+estado: identificado   # identificado | mitigado | aceptado | materializado
+mitigacion: ""
+relacionados: []

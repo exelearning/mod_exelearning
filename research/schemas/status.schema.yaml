@@ -1,0 +1,71 @@
+# JSON Schema (en YAML) para status.yaml
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: status
+type: object
+required: [metadata, decisiones_bloqueantes, tareas, riesgos]
+additionalProperties: false
+properties:
+  metadata:
+    type: object
+    required: [proyecto, fase, fecha_inicio, regla]
+    properties:
+      proyecto: { type: string }
+      fase: { type: string }
+      fecha_inicio: { type: string, format: date }
+      agente_actual: { type: string }
+      regla: { const: append-only }
+      clones_externos_convencion: { type: string }
+      blueprint_metodologico: { type: string }
+    additionalProperties: true
+  decisiones_bloqueantes:
+    type: object
+    patternProperties:
+      "^DEC-[0-9]{4}$":
+        type: object
+        required: [titulo, estado, ruta]
+        properties:
+          titulo: { type: string }
+          estado:
+            enum: [Propuesta, Aceptada, Rechazada, Superseded]
+          ruta: { type: string }
+          fecha: { type: string, format: date }
+          notas: { type: string }
+          supersede: { type: string, pattern: "^DEC-[0-9]{4}$" }
+        additionalProperties: false
+    additionalProperties: false
+  tareas:
+    type: object
+    patternProperties:
+      "^TAREA-[0-9]{3}$":
+        type: object
+        required: [titulo, estado]
+        properties:
+          fecha: { type: string, format: date }
+          titulo: { type: string }
+          estado:
+            enum: [Pending, "In Progress", Done, Blocked, Cancelled]
+          agente: { type: string }
+          relacionados:
+            type: array
+            items: { type: string }
+          notas: { type: string }
+        additionalProperties: false
+    additionalProperties: false
+  riesgos:
+    type: object
+    patternProperties:
+      "^RIE-[0-9]{3}$":
+        type: object
+        required: [titulo, severidad, estado]
+        properties:
+          titulo: { type: string }
+          severidad:
+            enum: [baja, media, alta, critica]
+          estado:
+            enum: [identificado, mitigado, aceptado, materializado]
+          mitigacion: { type: string }
+          relacionados:
+            type: array
+            items: { type: string }
+        additionalProperties: false
+    additionalProperties: false

@@ -1,0 +1,25 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: TAREA-NNN.yaml
+type: object
+required: [id, titulo, estado, fecha]
+properties:
+  id: { type: string, pattern: "^TAREA-[0-9]{3}$" }
+  titulo: { type: string }
+  estado:
+    enum: [Pending, "In Progress", Done, Blocked, Cancelled]
+  fecha: { type: string, format: date }
+  agente: { type: string }
+  prioridad:
+    enum: [baja, media, alta, critica]
+  objetivo: { type: string }
+  pasos:
+    type: array
+    items: { type: string }
+  relacionados:
+    type: array
+    items: { type: string }
+  criterios_aceptacion:
+    type: array
+    items: { type: string }
+  notas: { type: string }
+additionalProperties: false

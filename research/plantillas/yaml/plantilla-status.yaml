@@ -1,0 +1,10 @@
+metadata:
+  proyecto: mod_exelearning
+  fase: ""
+  fecha_inicio: YYYY-MM-DD
+  agente_actual: ""
+  regla: append-only
+
+decisiones_bloqueantes: {}
+tareas: {}
+riesgos: {}

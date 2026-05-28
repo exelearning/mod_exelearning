@@ -1,0 +1,33 @@
+fecha: 2026-05-28
+agente: claude-code
+resumen: "Bootstrap del repositorio de investigación de mod_exelearning."
+
+acciones:
+  - "Creada estructura de carpetas research/ con layout simplificado (no 00..11)."
+  - "Escrito AGENTS.md (raíz + research/) con reglas operativas y disciplina de evidencia."
+  - "Generadas 8 plantillas (markdown + yaml) y 5 checklists."
+  - "Generados 8 schemas YAML para validación estructural."
+  - "Pobladas 5 fichas REPO (mod_exescorm, mod_exeweb, wp-exelearning, moodle core, eXeLearning upstream)."
+  - "Pobladas 8 fichas FTE (SCORM 1.2/2004, xAPI, cmi5, LTI 1.3 AGS, Moodle Grade API, core_xapi, formato paquete eXeLearning). Consultas Context7 quedan como TAREA-002."
+  - "Escritas 4 notas de análisis (sidebar rendering, multi-grade-items, xAPI handler, ELP/ELPX vs ZIP)."
+  - "Creada matriz cualitativa de estándares de tracking (sin veredicto)."
+  - "Aceptadas DEC-0001 (metodología) y DEC-0002 (clones externos). DEC-0003 (estándar de tracking) en estado Propuesta."
+  - "Visión arquitectónica preliminar publicada como [HIPOTESIS]."
+  - "Tareas TAREA-001..005 y preguntas PREG-001/002 creadas."
+  - "Cumplimiento: stubs iniciales de accesibilidad, privacidad, licencias."
+  - "Tools: build_indexes.py y test_schema_validation.py. Dashboard index.html."
+
+fuentes_consultadas:
+  - /Users/ernesto/Downloads/git/learningml-ng/
+  - /Users/ernesto/Dropbox/Trabajo/ate/exelearning/mod_exescorm/
+  - /Users/ernesto/Dropbox/Trabajo/ate/exelearning/mod_exeweb/
+  - /Users/ernesto/Dropbox/Trabajo/ate/exelearning/wp-exelearning/
+  - /Users/ernesto/Downloads/git/moodle/
+  - /Users/ernesto/Downloads/git/moodle-plugins/
+
+bloqueos: []
+proximos_pasos:
+  - TAREA-002 (Context7 sobre estándares).
+  - TAREA-003 (EXP-001).
+  - TAREA-004 (EXP-002).
+  - TAREA-005 (cerrar DEC-0003).

@@ -1,0 +1,26 @@
+id: TAREA-002
+titulo: "Consultas Context7 para rellenar FTE-001..FTE-008"
+estado: Pending
+fecha: 2026-05-28
+agente: pendiente
+prioridad: alta
+objetivo: "Sustituir los `[PENDIENTE: context7]` de las FTE por consultas reales con library_id resuelto, query, fecha y versión devuelta."
+pasos:
+  - "Para cada FTE-001..FTE-008, ejecutar `resolve-library-id` con un término representativo."
+  - "Ejecutar `query-docs` con la pregunta clave del FTE."
+  - "Registrar `library_id`, `query`, `fecha`, `version_devuelta` en el frontmatter."
+  - "Citar fragmentos textuales relevantes en el cuerpo de la FTE."
+  - "Cuando Context7 no tenga la fuente (estándares ADL/IMS), documentar enlaces oficiales en `enlaces_oficiales` con fecha de consulta web."
+relacionados:
+  - FTE-001
+  - FTE-002
+  - FTE-003
+  - FTE-004
+  - FTE-005
+  - FTE-006
+  - FTE-007
+  - FTE-008
+criterios_aceptacion:
+  - "Ningún campo `context7.*` queda con `[PENDIENTE]` salvo justificación explícita."
+  - "Cada FTE cita al menos un fragmento textual de la fuente consultada."
+notas: ""

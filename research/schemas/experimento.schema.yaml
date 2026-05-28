@@ -1,0 +1,44 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: EXP-NNN.yaml
+type: object
+required: [id, titulo, objetivo, estado]
+properties:
+  id: { type: string, pattern: "^EXP-[0-9]{3}$" }
+  titulo: { type: string }
+  objetivo: { type: string }
+  estado:
+    enum: [planificado, en-ejecucion, completado, fallido, abandonado]
+  fecha: { type: string, format: date }
+  hipotesis: { type: string }
+  tecnologia:
+    type: array
+    items: { type: string }
+  repos_implicados:
+    type: array
+    items: { type: string }
+  commit_ref:
+    type: object
+    properties:
+      repo: { type: string }
+      sha: { type: string }
+  entorno:
+    type: object
+    properties:
+      so: { type: string }
+      versiones: { type: object, additionalProperties: { type: string } }
+  setup_command: { type: string }
+  run_command: { type: string }
+  metricas:
+    type: object
+    additionalProperties: true
+  resultado: { type: string }
+  evidencias:
+    type: array
+    items: { type: string }
+  limitaciones:
+    type: array
+    items: { type: string }
+  relacionados:
+    type: array
+    items: { type: string }
+additionalProperties: false

@@ -1,0 +1,23 @@
+id: TAREA-003
+titulo: "EXP-001: estructura del paquete publicado por eXeLearning"
+estado: Pending
+fecha: 2026-05-28
+agente: pendiente
+prioridad: alta
+objetivo: "Capturar un paquete real publicado por eXeLearning (Web y SCORM), descomprimirlo y documentar: estructura, motor JS de la sidebar, identificadores de iDevices calificables, presencia (o no) de statements xAPI."
+pasos:
+  - "Crear un proyecto de prueba en eXeLearning con 2 iDevices calificables (verdadero/falso + selección múltiple)."
+  - "Exportar a 'sitio web' y a 'SCORM 1.2' / 'SCORM 2004'."
+  - "Descomprimir y registrar el árbol de archivos en evidencias/EXP-001/."
+  - "Inspeccionar `index.html`, `lib/exe_player.js`, `imsmanifest.xml`."
+  - "Identificar el `id` HTML de cada iDevice y si emite eventos xAPI/postMessage."
+  - "Anotar versión exacta de eXeLearning usada."
+relacionados:
+  - REPO-005
+  - FTE-008
+  - PREG-001
+  - DEC-0003
+criterios_aceptacion:
+  - "Ficha EXP-001 completa con setup_command, run_command, métricas y limitaciones."
+  - "PREG-001 actualizada (o resuelta) con la evidencia."
+notas: ""

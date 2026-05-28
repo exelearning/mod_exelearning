@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>mod_exelearning · investigación</title>
+<style>
+  :root { color-scheme: light dark; --fg:#222; --bg:#fafafa; --muted:#666; --accent:#0a558c; }
+  @media (prefers-color-scheme: dark) {
+    :root { --fg:#eee; --bg:#181a1f; --muted:#aaa; --accent:#7ab8ff; }
+  }
+  body { font: 15px/1.45 system-ui, sans-serif; color: var(--fg); background: var(--bg); margin: 0; padding: 2rem 1.5rem; max-width: 980px; margin-inline:auto; }
+  h1 { margin-top: 0; }
+  h2 { margin-top: 2rem; border-bottom: 1px solid color-mix(in srgb, var(--fg) 18%, transparent); padding-bottom: .25rem; }
+  ul { padding-left: 1.2rem; }
+  li { margin: .15rem 0; }
+  code { background: color-mix(in srgb, var(--fg) 10%, transparent); padding: 1px 4px; border-radius: 3px; }
+  .muted { color: var(--muted); }
+  .pill { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 12px; background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+  a { color: var(--accent); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap: 1rem; }
+  .card { border: 1px solid color-mix(in srgb, var(--fg) 15%, transparent); border-radius: 8px; padding: .75rem 1rem; }
+  .err { color: #c14; }
+  .note { background: color-mix(in srgb, var(--accent) 10%, transparent); border-left: 3px solid var(--accent); padding: .5rem .75rem; border-radius: 4px; margin: 1rem 0; }
+</style>
+</head>
+<body>
+<h1>mod_exelearning · investigación</h1>
+<p class="muted">Dashboard estático. Sirve con <code>python3 -m http.server</code> desde <code>research/</code> para que cargue <code>status.yaml</code> y los índices.</p>
+
+<div class="note">Esta página lee <code>status.yaml</code> e índices YAML en <code>docs/indices/</code>. Si ves <span class="err">errores</span>, ejecuta <code>python3 tools/build_indexes.py</code>.</div>
+
+<h2>Estado <span id="phase" class="pill"></span></h2>
+<div id="state" class="grid"></div>
+
+<h2>Decisiones bloqueantes</h2>
+<ul id="decisiones"></ul>
+
+<h2>Tareas</h2>
+<ul id="tareas"></ul>
+
+<h2>Riesgos</h2>
+<ul id="riesgos"></ul>
+
+<h2>Índices</h2>
+<div class="grid">
+  <div class="card"><strong>REPOs</strong><ul id="idx-repos"></ul></div>
+  <div class="card"><strong>FTEs</strong><ul id="idx-fuentes"></ul></div>
+  <div class="card"><strong>Notas (AN)</strong><ul id="idx-notas"></ul></div>
+  <div class="card"><strong>ADRs</strong><ul id="idx-adrs"></ul></div>
+  <div class="card"><strong>Tareas</strong><ul id="idx-tareas"></ul></div>
+  <div class="card"><strong>Preguntas</strong><ul id="idx-preguntas"></ul></div>
+  <div class="card"><strong>Experimentos</strong><ul id="idx-experimentos"></ul></div>
+  <div class="card"><strong>Diario</strong><ul id="idx-diario"></ul></div>
+</div>
+
+<script>
+// Parser YAML muy simple para escenarios concretos de este dashboard.
+// Maneja: map plano, listas de strings simples, sub-mapas de 1 nivel para
+// status.yaml. Para casos complejos se confía en JSON-lite reescrito en build_indexes.
+async function fetchText(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(url + ': ' + r.status);
+  return r.text();
+}
+
+function indent(line) { return line.length - line.replace(/^\s+/, '').length; }
+
+function parseStatus(text) {
+  // Devuelve {metadata, decisiones_bloqueantes:{ID:{titulo,estado,ruta}}, tareas:{...}, riesgos:{...}}
+  const out = { metadata: {}, decisiones_bloqueantes: {}, tareas: {}, riesgos: {} };
+  let section = null, sub = null;
+  for (const raw of text.split('\n')) {
+    if (!raw.trim() || raw.trim().startsWith('#')) continue;
+    const ind = indent(raw);
+    const line = raw.trim();
+    if (ind === 0) {
+      const [k] = line.split(':');
+      section = k.trim();
+      if (!(section in out)) out[section] = {};
+      sub = null;
+      continue;
+    }
+    if (!section) continue;
+    if (ind === 2) {
+      const m = line.match(/^([A-Za-z_0-9-]+):\s*(.*)$/);
+      if (!m) continue;
+      if (section === 'metadata') {
+        out.metadata[m[1]] = (m[2] || '').replace(/^"|"$/g, '');
+      } else {
+        sub = m[1];
+        out[section][sub] = {};
+      }
+      continue;
+    }
+    if (ind >= 4 && sub) {
+      const m = line.match(/^([A-Za-z_0-9-]+):\s*(.*)$/);
+      if (m) out[section][sub][m[1]] = (m[2] || '').replace(/^"|"$/g, '');
+    }
+  }
+  return out;
+}
+
+function parseIndex(text) {
+  // build_indexes emite líneas: "  - id: 'X', titulo: 'Y', ..."
+  const items = [];
+  for (const raw of text.split('\n')) {
+    const m = raw.match(/^\s*-\s+(.*)$/);
+    if (!m) continue;
+    const obj = {};
+    for (const part of m[1].split(/,\s+(?=[a-z_]+:\s)/)) {
+      const mm = part.match(/^([a-z_]+):\s*(.*)$/);
+      if (!mm) continue;
+      let v = mm[2].trim();
+      if ((v.startsWith("'") && v.endsWith("'")) || (v.startsWith('"') && v.endsWith('"'))) v = v.slice(1,-1);
+      obj[mm[1]] = v;
+    }
+    items.push(obj);
+  }
+  return items;
+}
+
+function li(text, href) {
+  const el = document.createElement('li');
+  if (href) {
+    const a = document.createElement('a');
+    a.href = href; a.textContent = text;
+    el.appendChild(a);
+  } else {
+    el.textContent = text;
+  }
+  return el;
+}
+
+(async () => {
+  try {
+    const status = parseStatus(await fetchText('status.yaml'));
+    document.getElementById('phase').textContent = status.metadata.fase || '';
+
+    const stateGrid = document.getElementById('state');
+    for (const [k, v] of Object.entries(status.metadata)) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `<strong>${k}</strong><br><span class="muted">${v}</span>`;
+      stateGrid.appendChild(card);
+    }
+
+    const dec = document.getElementById('decisiones');
+    for (const [id, d] of Object.entries(status.decisiones_bloqueantes)) {
+      dec.appendChild(li(`${id} — ${d.titulo} (${d.estado})`, d.ruta));
+    }
+    const t = document.getElementById('tareas');
+    for (const [id, d] of Object.entries(status.tareas)) {
+      t.appendChild(li(`${id} — ${d.titulo} [${d.estado}]`));
+    }
+    const r = document.getElementById('riesgos');
+    if (Object.keys(status.riesgos).length === 0) r.appendChild(li('(ninguno registrado)'));
+    else for (const [id, d] of Object.entries(status.riesgos)) r.appendChild(li(`${id} — ${d.titulo} [${d.severidad}/${d.estado}]`));
+
+    const indices = ['repos','fuentes','notas','adrs','tareas','preguntas','experimentos','diario'];
+    for (const name of indices) {
+      const el = document.getElementById('idx-' + name);
+      try {
+        const items = parseIndex(await fetchText('docs/indices/' + name + '.yaml'));
+        if (items.length === 0) { el.appendChild(li('(vacío)')); continue; }
+        for (const it of items) {
+          const label = (it.id || it.fecha || '') + ' ' + (it.titulo || it.pregunta || '');
+          el.appendChild(li(label.trim(), it.ruta));
+        }
+      } catch (e) {
+        const li_ = document.createElement('li');
+        li_.className = 'err';
+        li_.textContent = 'no disponible (ejecutar build_indexes.py)';
+        el.appendChild(li_);
+      }
+    }
+  } catch (e) {
+    document.body.insertAdjacentHTML('beforeend', `<p class="err">Error: ${e.message}. Sirve desde un servidor local (CORS impide leer YAML desde file://).</p>`);
+  }
+})();
+</script>
+</body>
+</html>

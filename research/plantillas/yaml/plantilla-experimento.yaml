@@ -1,0 +1,21 @@
+id: EXP-NNN
+titulo: ""
+objetivo: ""
+estado: planificado   # planificado | en-ejecucion | completado | fallido | abandonado
+fecha: YYYY-MM-DD
+hipotesis: ""
+tecnologia: []
+repos_implicados: []
+commit_ref:
+  repo: ""
+  sha: ""
+entorno:
+  so: ""
+  versiones: {}
+setup_command: ""
+run_command: ""
+metricas: {}
+resultado: ""
+evidencias: []
+limitaciones: []
+relacionados: []

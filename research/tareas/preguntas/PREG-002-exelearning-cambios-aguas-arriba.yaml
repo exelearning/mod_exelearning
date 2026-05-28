@@ -1,0 +1,22 @@
+id: PREG-002
+pregunta: "¿Qué cambios aguas arriba en eXeLearning facilitarían el soporte multi-grade-items en Moodle?"
+estado: abierta
+fecha_apertura: 2026-05-28
+contexto: |
+  Si la publicación actual no expone identificadores estables ni statements xAPI,
+  conviene proponer cambios upstream para evitar parches frágiles en mod_exelearning.
+hipotesis:
+  - "Publicar un manifiesto adicional `exelearning-gradeitems.json` con `[{id, title, maxscore}]` por item calificable."
+  - "Emitir statements xAPI 1.0.3 desde el paquete publicado (via postMessage o vía fetch a un endpoint configurable)."
+  - "Añadir un perfil xAPI propio publicado por eXeLearning (`https://exelearning.net/xapi/profile/v1`) con definición de Activity Types y Verbs."
+  - "En SCORM 2004 export, materializar cada iDevice calificable como un `<objective>` con `id` estable."
+evidencias_necesarias:
+  - "Resultado de EXP-001 (qué emite hoy el paquete)."
+  - "Conversación con mantenedores de eXeLearning para confirmar disposición al cambio."
+resolucion: ""
+relacionados:
+  - REPO-005
+  - FTE-003
+  - FTE-008
+  - PREG-001
+  - DEC-0003

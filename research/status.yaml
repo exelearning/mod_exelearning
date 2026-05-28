@@ -1,0 +1,75 @@
+# status.yaml — Ledger append-only del repositorio de investigación.
+# Reglas: nunca se reescriben entradas existentes; sólo se añaden nuevas o se
+# actualiza el campo `estado` de una entrada existente (sin borrar historia previa).
+# Schema: schemas/status.schema.yaml
+
+metadata:
+  proyecto: mod_exelearning
+  fase: "0 - investigacion-bootstrap"
+  fecha_inicio: 2026-05-28
+  agente_actual: claude-code
+  regla: append-only
+  clones_externos_convencion: "../_repos"
+  blueprint_metodologico: /Users/ernesto/Downloads/git/learningml-ng
+
+decisiones_bloqueantes:
+  DEC-0001:
+    titulo: "Metodología de evidencia y ADRs"
+    estado: Aceptada
+    ruta: decisiones/adr/DEC-0001-metodologia-evidencia.md
+    fecha: 2026-05-28
+  DEC-0002:
+    titulo: "Política de clones externos y licencias"
+    estado: Aceptada
+    ruta: decisiones/adr/DEC-0002-politica-clones-externos.md
+    fecha: 2026-05-28
+  DEC-0003:
+    titulo: "Estándar de tracking y multi-grade-items"
+    estado: Propuesta
+    ruta: decisiones/adr/DEC-0003-estandar-tracking-y-multi-grade-items.md
+    fecha: 2026-05-28
+    notas: >-
+      Hipótesis: xAPI/cmi5 como canal de tracking + grade_update con itemnumber
+      variable (patrón mod_workshop). Pendiente cerrar con matriz cuantificada y
+      EXP-001..EXP-003.
+
+tareas:
+  TAREA-001:
+    fecha: 2026-05-28
+    titulo: "Poblar fichas REPO desde exploración inicial"
+    estado: Done
+    agente: claude-code
+    relacionados: [REPO-001, REPO-002, REPO-003, REPO-004, REPO-005]
+    notas: "Bootstrap. Datos transcritos de la exploración Phase 1."
+  TAREA-002:
+    fecha: 2026-05-28
+    titulo: "Consultas Context7 para FTE-001..FTE-008"
+    estado: Pending
+    agente: pendiente
+    relacionados: [FTE-001, FTE-002, FTE-003, FTE-004, FTE-005, FTE-006, FTE-007, FTE-008]
+    notas: "Los FTE quedaron con `[PENDIENTE: context7]` en campos verificables."
+  TAREA-003:
+    fecha: 2026-05-28
+    titulo: "EXP-001 paquete eXeLearning publicado: estructura del sidebar"
+    estado: Pending
+    agente: pendiente
+    relacionados: [AN-001, FTE-008, PREG-001]
+  TAREA-004:
+    fecha: 2026-05-28
+    titulo: "EXP-002 POC multi-grade-items siguiendo mod_workshop"
+    estado: Pending
+    agente: pendiente
+    relacionados: [AN-002, FTE-006]
+  TAREA-005:
+    fecha: 2026-05-28
+    titulo: "Cerrar DEC-0003 con matriz cuantificada"
+    estado: Pending
+    agente: pendiente
+    relacionados:
+      - DEC-0003
+      - analisis/matrices/matriz-estandar-tracking.yaml
+      - TAREA-002
+      - TAREA-003
+      - TAREA-004
+
+riesgos: {}
