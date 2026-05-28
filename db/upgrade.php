@@ -84,5 +84,42 @@ function xmldb_exelearning_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026052801, 'exelearning');
     }
 
+    // Stage 3 (2026052802): intentos (DEC-0007) — tabla exelearning_attempt +
+    // campo grademethod (agregación de intentos) en la instancia.
+    if ($oldversion < 2026052802) {
+
+        $instance = new xmldb_table('exelearning');
+        $grademethod = new xmldb_field('grademethod', XMLDB_TYPE_INTEGER, '4',
+                null, XMLDB_NOTNULL, null, '0', 'gradedisplaytype');
+        if (!$dbman->field_exists($instance, $grademethod)) {
+            $dbman->add_field($instance, $grademethod);
+        }
+
+        $table = new xmldb_table('exelearning_attempt');
+        if (!$dbman->table_exists($table)) {
+            $table->add_field('id',            XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+            $table->add_field('exelearningid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+            $table->add_field('userid',        XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+            $table->add_field('attempt',       XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '1');
+            $table->add_field('itemnumber',    XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+            $table->add_field('rawscore',      XMLDB_TYPE_NUMBER, '10,5', null, XMLDB_NOTNULL, null, '0');
+            $table->add_field('maxscore',      XMLDB_TYPE_NUMBER, '10,5', null, XMLDB_NOTNULL, null, '100');
+            $table->add_field('scaledscore',   XMLDB_TYPE_NUMBER, '10,5', null, XMLDB_NOTNULL, null, '0');
+            $table->add_field('status',        XMLDB_TYPE_CHAR, '20', null, XMLDB_NOTNULL, null, 'completed');
+            $table->add_field('timecreated',   XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+            $table->add_field('timemodified',  XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+
+            $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+            $table->add_key('exelearningid_fk', XMLDB_KEY_FOREIGN, ['exelearningid'], 'exelearning', ['id']);
+            $table->add_key('userid_fk', XMLDB_KEY_FOREIGN, ['userid'], 'user', ['id']);
+            $table->add_index('exelearningid_userid_attempt_item', XMLDB_INDEX_UNIQUE, ['exelearningid', 'userid', 'attempt', 'itemnumber']);
+            $table->add_index('exelearningid_userid', XMLDB_INDEX_NOTUNIQUE, ['exelearningid', 'userid']);
+
+            $dbman->create_table($table);
+        }
+
+        upgrade_mod_savepoint(true, 2026052802, 'exelearning');
+    }
+
     return true;
 }
