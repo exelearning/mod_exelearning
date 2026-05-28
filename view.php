@@ -177,11 +177,11 @@ if (!$mainfile) {
         echo s(implode(' · ', $labels));
         echo html_writer::end_div();
     }
-    // Resumen de participación + enlace al informe (DEC-0011 opción B, estilo
-    // Tarea): un vistazo de "cuántos han contestado" para el profesor, sin
-    // entrar al informe. Respeta grupos separados.
+    // Participation summary + report link (DEC-0011 option B, Assignment-style):
+    // an at-a-glance "how many have attempted" for the teacher without opening
+    // the report. Respects separate groups.
     if (has_capability('mod/exelearning:viewreport', $context)) {
-        // Usuarios visibles para este profesor (respeta grupos separados).
+        // Users visible to this teacher (respects separate groups).
         $currentgroup = groups_get_activity_group($cm, true);
         $enrolled = get_enrolled_users($context, 'mod/exelearning:savetrack',
                 (int) $currentgroup, 'u.id');
@@ -223,8 +223,8 @@ if (!$mainfile) {
                             (object) ['used' => $used, 'max' => $maxattempt])
                     : get_string('attemptsused', 'mod_exelearning', $used);
 
-            // Enriquecer con método de calificación + nota informada (DEC-0011
-            // opción C pulida: lo útil de SCORM sin reproducir su tabla).
+            // Enrich with grading method + reported grade (DEC-0011 option C
+            // refined: the useful parts of SCORM without its full table).
             $extras = [];
             if ($used > 0) {
                 $grademethod = (int) ($exelearning->grademethod
