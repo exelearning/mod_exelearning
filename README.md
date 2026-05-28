@@ -44,9 +44,6 @@ please open an issue at <https://github.com/ateeducacion/mod_exelearning/issues>
 * **PHP**: 8.1+ (whatever Moodle 4.5+ requires).
 * **Database**: any database supported by the Moodle release in use.
 * **Browser**: any modern, evergreen browser with JavaScript enabled.
-* **Required for _eXeLearning Online_ mode** (optional): an eXeLearning Online
-  instance and access to its configuration files / signing key. Not needed when
-  running the plugin in _Embedded editor_ mode (the default).
 
 ## Quick test (no install)
 
@@ -134,18 +131,18 @@ Go to:
 
     {your/moodle/dirroot}/admin/settings.php?section=modsettingexelearning
 
-The plugin exposes the following site-wide settings:
+The plugin exposes a single site-wide setting plus a link to the editor
+management page (see [DEC-0009](./research/decisiones/adr/DEC-0009-solo-editor-embebido.md)
+for the rationale of dropping the eXeLearning Online integration):
 
 * **Embedded eXeLearning editor**: `exelearning | embeddededitor`
-  * Toggles the in-browser eXeLearning editor for authors. Requires running
-    `make build-editor` to compile the static editor into `dist/static/`.
-* **Editor mode**: `exelearning | editormode`
-  * Choose between _Embedded_ (bundled static editor) and
-    _eXeLearning Online_ (external service).
-* **eXeLearning Online base URL**: `exelearning | exeonlinebaseuri`
-  * Only used when editor mode is _Online_. Leave empty to disable.
-* **HMAC signing key**: `exelearning | hmackey1`
-  * Shared secret used to sign the handshake with eXeLearning Online.
+  * Toggles the in-browser eXeLearning editor for authors. When enabled, the
+    activity form shows an _Edit with eXeLearning_ button. If the editor is
+    not installed yet, administrators can install it from the management page
+    below.
+* **Manage embedded editor**: link to `/mod/exelearning/manage_embedded_editor.php`
+  * Install / update / remove the editor (download the latest release from
+    GitHub or upload a ZIP). Configure default templates and styles.
 
 ## Embedded editor management
 

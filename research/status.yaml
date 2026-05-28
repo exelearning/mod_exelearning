@@ -44,9 +44,17 @@ decisiones_bloqueantes:
       con moodle-plugin-ci matriz Moodle 4.1/4.3/4.5/main × PHP 8.1-8.4 × pgsql/mariadb.
   DEC-0005:
     titulo: "Editor embebido eXeLearning heredado de mod_exeweb"
-    estado: Aceptada
+    estado: Superseded
     ruta: decisiones/adr/DEC-0005-editor-embebido-exelearning.md
     fecha: 2026-05-28
+    supersede: DEC-0009
+    notas: "Superseded por DEC-0009: sólo modo embebido (sin eXeLearning Online)."
+  DEC-0009:
+    titulo: "Sólo editor embebido (sin integración eXeLearning Online)"
+    estado: Aceptada
+    ruta: decisiones/adr/DEC-0009-solo-editor-embebido.md
+    fecha: 2026-05-28
+    notas: "Supersede DEC-0005. Quita editormode, exeonlinebaseuri, hmackey1. Toggle único + página Manage embedded editor."
   DEC-0006:
     titulo: "Modos preview (test) y grading (calificar)"
     estado: Aceptada

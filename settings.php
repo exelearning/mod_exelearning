@@ -17,8 +17,12 @@
 /**
  * mod_exelearning admin settings.
  *
- * Configuración mínima v1. El bloque "styles manager" + plantillas heredadas
- * de mod_exeweb se aplaza a futura iteración (DEC-0005).
+ * DEC-0009: sólo modo editor embebido. La integración con eXeLearning Online
+ * queda descartada para evitar dependencias externas. La instalación /
+ * actualización / configuración del editor (descargar release desde GitHub,
+ * subir un ZIP, gestionar plantillas y estilos) se hace desde la página
+ * `manage_embedded_editor.php`, con capability
+ * `mod/exelearning:manageembeddededitor`.
  *
  * @package    mod_exelearning
  * @copyright  2026 ATE (Área de Tecnología Educativa)
@@ -28,32 +32,19 @@
 defined('MOODLE_INTERNAL') || die();
 
 if ($ADMIN->fulltree) {
+    // Toggle del editor embebido.
     $settings->add(new admin_setting_configcheckbox(
             'exelearning/embeddededitor',
             get_string('embeddededitor', 'mod_exelearning'),
             get_string('embeddededitor_desc', 'mod_exelearning'),
             1));
 
-    $settings->add(new admin_setting_configselect(
-            'exelearning/editormode',
-            get_string('editormode', 'mod_exelearning'),
-            get_string('editormode_desc', 'mod_exelearning'),
-            'embedded',
-            [
-                'embedded' => get_string('editormode_embedded', 'mod_exelearning'),
-                'online'   => get_string('editormode_online',   'mod_exelearning'),
-            ]));
-
-    $settings->add(new admin_setting_configtext(
-            'exelearning/exeonlinebaseuri',
-            get_string('exeonline_baseuri', 'mod_exelearning'),
-            get_string('exeonline_baseuri_desc', 'mod_exelearning'),
-            '',
-            PARAM_URL));
-
-    $settings->add(new admin_setting_configpasswordunmask(
-            'exelearning/hmackey1',
-            get_string('exeonline_hmackey1', 'mod_exelearning'),
-            get_string('exeonline_hmackey1_desc', 'mod_exelearning'),
-            ''));
+    // Enlace a la página de gestión (instalar / actualizar / plantillas).
+    $manageurl = new moodle_url('/mod/exelearning/manage_embedded_editor.php');
+    $settings->add(new admin_setting_description(
+            'exelearning/manage_link',
+            get_string('manage_editor_heading', 'mod_exelearning'),
+            html_writer::link($manageurl,
+                    get_string('manage_editor_link', 'mod_exelearning'),
+                    ['class' => 'btn btn-secondary'])));
 }

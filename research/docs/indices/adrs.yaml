@@ -8,3 +8,4 @@ items:
   - id: 'DEC-0006', titulo: 'Modos de visualización: preview (test) y grading (calificar)', estado: 'Aceptada', fecha: '2026-05-28', ruta: 'decisiones/adr/DEC-0006-modos-preview-grading.md'
   - id: 'DEC-0007', titulo: 'Gestión de intentos: tabla propia + modelo h5pactivity (no SCORM)', estado: 'Propuesta', fecha: '2026-05-28', ruta: 'decisiones/adr/DEC-0007-gestion-intentos.md'
   - id: 'DEC-0008', titulo: 'Agregación de grade items: nota global, por iDevice o ambas (con global excluida)', estado: 'Propuesta', fecha: '2026-05-28', ruta: 'decisiones/adr/DEC-0008-grade-aggregation-y-feedback.md'
+  - id: 'DEC-0009', titulo: 'Sólo modo editor embebido. Sin integración eXeLearning Online', estado: 'Aceptada', fecha: '2026-05-28', ruta: 'decisiones/adr/DEC-0009-solo-editor-embebido.md'

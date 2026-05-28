@@ -80,14 +80,8 @@ $string['previewmode_desc']   = 'Nothing you do here will be saved to the gradeb
 $string['previewmode_enter']  = 'Try as a student (preview)';
 $string['previewmode_exit']   = 'Exit preview mode';
 
-// DEC-0005 settings.
-$string['embeddededitor']        = 'Embedded eXeLearning editor';
-$string['embeddededitor_desc']   = 'Enable the in-browser eXeLearning editor for authors. Requires running `make build-editor`.';
-$string['editormode']            = 'Editor mode';
-$string['editormode_desc']       = 'Where to load the eXeLearning editor from when teachers click "Edit".';
-$string['editormode_embedded']   = 'Embedded (bundled static editor)';
-$string['editormode_online']     = 'eXeLearning Online (external service)';
-$string['exeonline_baseuri']     = 'eXeLearning Online base URL';
-$string['exeonline_baseuri_desc'] = 'Only used when editor mode is "online". Leave empty to disable.';
-$string['exeonline_hmackey1']    = 'HMAC signing key';
-$string['exeonline_hmackey1_desc'] = 'Shared secret used to sign the handshake with eXeLearning Online.';
+// DEC-0009: only embedded editor (eXeLearning Online integration dropped).
+$string['embeddededitor']         = 'Embedded eXeLearning editor';
+$string['embeddededitor_desc']    = 'Enable the in-browser eXeLearning editor for authors. If enabled but the editor is not installed yet, administrators can install it from the management page below (download the latest release from GitHub or upload a ZIP).';
+$string['manage_editor_heading']  = 'Editor management';
+$string['manage_editor_link']     = 'Manage embedded editor';
