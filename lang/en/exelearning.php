@@ -85,6 +85,11 @@ $string['reviewmode_aftercompletion'] = 'After the activity is complete';
 $string['reviewmode_none']    = 'Never';
 $string['attemptsused']       = 'Attempts used: {$a}';
 $string['attemptsofmax']      = 'Attempts: {$a->used} of {$a->max}';
+$string['reportedgrade']      = 'Reported grade';
+
+// DEC-0011: teacher participation summary on the activity front page.
+$string['participation_summary']      = '{$a->attempted} of {$a->total} students have attempted this activity.';
+$string['participation_summary_mean'] = '{$a->attempted} of {$a->total} students have attempted this activity · average {$a->mean}%.';
 $string['maxattemptsreached'] = 'You have used all your allowed attempts for this activity.';
 $string['attemptdeleted']     = 'The attempt was deleted and the grade was recalculated.';
 

@@ -177,14 +177,36 @@ if (!$mainfile) {
         echo s(implode(' · ', $labels));
         echo html_writer::end_div();
     }
-    // Enlace al reporte de intentos (DEC-0007), sólo para gestores/profesores.
+    // Resumen de participación + enlace al informe (DEC-0011 opción B, estilo
+    // Tarea): un vistazo de "cuántos han contestado" para el profesor, sin
+    // entrar al informe. Respeta grupos separados.
     if (has_capability('mod/exelearning:viewreport', $context)) {
+        // Usuarios visibles para este profesor (respeta grupos separados).
+        $currentgroup = groups_get_activity_group($cm, true);
+        $enrolled = get_enrolled_users($context, 'mod/exelearning:savetrack',
+                (int) $currentgroup, 'u.id');
+        $userids = array_keys($enrolled);
+        $summary = \mod_exelearning\local\attempts::participation_summary(
+                $exelearning->id, $userids);
+
         $reporturl = new moodle_url('/mod/exelearning/report.php', ['id' => $cm->id]);
-        echo html_writer::div(
-                html_writer::link($reporturl,
-                        get_string('viewattemptsreport', 'mod_exelearning'),
-                        ['class' => 'btn btn-sm btn-outline-primary']),
-                'mb-3');
+        echo html_writer::start_div('alert alert-info d-flex justify-content-between align-items-center mb-3');
+        if ($summary['meanpercent'] === null) {
+            $text = get_string('participation_summary', 'mod_exelearning',
+                    (object) ['attempted' => $summary['attempted'], 'total' => $summary['total']]);
+        } else {
+            $text = get_string('participation_summary_mean', 'mod_exelearning',
+                    (object) [
+                        'attempted' => $summary['attempted'],
+                        'total'     => $summary['total'],
+                        'mean'      => format_float($summary['meanpercent'], 1),
+                    ]);
+        }
+        echo html_writer::tag('span', $text);
+        echo html_writer::link($reporturl,
+                get_string('viewattemptsreport', 'mod_exelearning'),
+                ['class' => 'btn btn-sm btn-outline-primary']);
+        echo html_writer::end_div();
     }
     // Resumen de intentos para el alumno (DEC-0007 fase 2).
     if (!$canpreview) {
@@ -200,6 +222,30 @@ if (!$mainfile) {
                     ? get_string('attemptsofmax', 'mod_exelearning',
                             (object) ['used' => $used, 'max' => $maxattempt])
                     : get_string('attemptsused', 'mod_exelearning', $used);
+
+            // Enriquecer con método de calificación + nota informada (DEC-0011
+            // opción C pulida: lo útil de SCORM sin reproducir su tabla).
+            $extras = [];
+            if ($used > 0) {
+                $grademethod = (int) ($exelearning->grademethod
+                        ?? \mod_exelearning\local\attempts::GRADE_HIGHEST);
+                $methodlabel = get_string(
+                        \mod_exelearning\local\attempts::grademethod_stringkey($grademethod),
+                        'mod_exelearning');
+                $extras[] = get_string('grademethod', 'mod_exelearning') . ': ' . $methodlabel;
+
+                $grademax = (float) ($exelearning->grademax ?? 100);
+                $scaled = \mod_exelearning\local\attempts::aggregate_scaled(
+                        $exelearning->id, $USER->id, 0, $grademethod);
+                if ($scaled !== null) {
+                    $extras[] = get_string('reportedgrade', 'mod_exelearning') . ': '
+                            . format_float($scaled * $grademax, 2) . ' / ' . format_float($grademax, 2);
+                }
+            }
+            if ($extras) {
+                $label .= ' · ' . implode(' · ', $extras);
+            }
+
             $class = ($maxattempt > 0 && $used >= $maxattempt)
                     ? 'alert alert-warning mb-3' : 'alert alert-secondary mb-3';
             echo html_writer::div($label, $class);

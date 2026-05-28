@@ -80,6 +80,65 @@ class attempts {
     }
 
     /**
+     * Lang string key for a grademethod value (for display, not just the form).
+     *
+     * @param int $grademethod
+     * @return string
+     */
+    public static function grademethod_stringkey(int $grademethod): string {
+        $options = self::grademethod_options();
+        return $options[$grademethod] ?? $options[self::GRADE_HIGHEST];
+    }
+
+    /**
+     * Teacher-facing participation summary for the activity front page
+     * (DEC-0011 option B, "Assignment-style" summary). Counts how many of the
+     * given users have at least one attempt and the mean overall scaled score.
+     *
+     * Group filtering is the caller's responsibility: pass the userids that the
+     * teacher is allowed to see (respecting separate groups).
+     *
+     * @param int $exelearningid
+     * @param int[] $userids Candidate users (enrolled students visible to the teacher).
+     * @return array{total:int, attempted:int, meanpercent:float|null}
+     */
+    public static function participation_summary(int $exelearningid, array $userids): array {
+        global $DB;
+
+        $total = count($userids);
+        if ($total === 0) {
+            return ['total' => 0, 'attempted' => 0, 'meanpercent' => null];
+        }
+
+        [$insql, $params] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED);
+        $params['exeid'] = $exelearningid;
+
+        // Distinct users with at least one overall (itemnumber=0) attempt.
+        $attempted = (int) $DB->count_records_sql(
+                "SELECT COUNT(DISTINCT userid) FROM {exelearning_attempt}
+                  WHERE exelearningid = :exeid AND itemnumber = 0 AND userid $insql",
+                $params);
+
+        // Mean of each user's best overall scaled score (0..1) → percent.
+        $best = $DB->get_records_sql(
+                "SELECT userid, MAX(scaledscore) AS best
+                   FROM {exelearning_attempt}
+                  WHERE exelearningid = :exeid AND itemnumber = 0 AND userid $insql
+               GROUP BY userid",
+                $params);
+        $meanpercent = null;
+        if (!empty($best)) {
+            $sum = 0.0;
+            foreach ($best as $row) {
+                $sum += (float) $row->best;
+            }
+            $meanpercent = ($sum / count($best)) * 100.0;
+        }
+
+        return ['total' => $total, 'attempted' => $attempted, 'meanpercent' => $meanpercent];
+    }
+
+    /**
      * All selectable aggregation methods, for the settings form.
      *
      * @return array<int,string> method constant => lang string key
