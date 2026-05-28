@@ -74,7 +74,7 @@ $id = required_param('id', PARAM_INT); // Course module ID.
 
 $cm = get_coursemodule_from_id('exelearning', $id, 0, false, MUST_EXIST);
 $course = $DB->get_record('course', ['id' => $cm->course], '*', MUST_EXIST);
-$exeweb = $DB->get_record('exelearning', ['id' => $cm->instance], '*', MUST_EXIST);
+$exelearning = $DB->get_record('exelearning', ['id' => $cm->instance], '*', MUST_EXIST);
 
 require_login($course, true, $cm);
 $context = context_module::instance($cm->id);
@@ -83,11 +83,11 @@ require_sesskey();
 
 $pageurl = new moodle_url('/mod/exelearning/editor/index.php', ['id' => $id, 'sesskey' => sesskey()]);
 $PAGE->set_url($pageurl);
-$PAGE->set_title(format_string($exeweb->name));
+$PAGE->set_title(format_string($exelearning->name));
 $PAGE->set_heading($course->fullname);
 
 // Build the package URL for the editor to import.
-$packageurl = exelearning_get_package_url($exeweb, $context);
+$packageurl = exelearning_get_package_url($exelearning, $context);
 
 // Build the save endpoint URL.
 $saveurl = new moodle_url('/mod/exelearning/editor/save.php');
@@ -129,7 +129,7 @@ $moodleconfig = json_encode([
     'sesskey' => sesskey(),
     'packageUrl' => $packageurl ? $packageurl->out(false) : '',
     'saveUrl' => $saveurl->out(false),
-    'activityName' => format_string($exeweb->name),
+    'activityName' => format_string($exelearning->name),
     'wwwroot' => $CFG->wwwroot,
     'editorBaseUrl' => $editorbaseurl,
 ]);

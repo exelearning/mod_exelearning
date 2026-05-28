@@ -39,7 +39,7 @@ $format = 'elpx';
 
 $cm = get_coursemodule_from_id('exelearning', $cmid, 0, false, MUST_EXIST);
 $course = $DB->get_record('course', ['id' => $cm->course], '*', MUST_EXIST);
-$exeweb = $DB->get_record('exelearning', ['id' => $cm->instance], '*', MUST_EXIST);
+$exelearning = $DB->get_record('exelearning', ['id' => $cm->instance], '*', MUST_EXIST);
 
 require_login($course, true, $cm);
 require_sesskey();
@@ -49,7 +49,7 @@ require_capability('moodle/course:manageactivities', $context);
 header('Content-Type: application/json; charset=utf-8');
 
 $newpackage = null;
-$newrevision = (int)$exeweb->revision + 1;
+$newrevision = (int)$exelearning->revision + 1;
 
 try {
     if (empty($_FILES['package'])) {
@@ -102,14 +102,14 @@ try {
             $mainfile->get_filename(),
             1
         );
-        $exeweb->entrypath = $mainfile->get_filepath();
-        $exeweb->entryname = $mainfile->get_filename();
+        $exelearning->entrypath = $mainfile->get_filepath();
+        $exelearning->entryname = $mainfile->get_filename();
     }
 
-    $exeweb->revision = $newrevision;
-    $exeweb->timemodified = time();
-    $exeweb->usermodified = $USER->id;
-    $DB->update_record('exelearning', $exeweb);
+    $exelearning->revision = $newrevision;
+    $exelearning->timemodified = time();
+    $exelearning->usermodified = $USER->id;
+    $DB->update_record('exelearning', $exelearning);
 
     // Delete old package revisions only after successful save.
     $packagefiles = $fs->get_area_files($context->id, 'mod_exelearning', 'package', false, 'itemid, filepath, filename', false);
@@ -121,7 +121,7 @@ try {
 
     echo json_encode([
         'success' => true,
-        'revision' => $exeweb->revision,
+        'revision' => $exelearning->revision,
         'format' => $format,
     ]);
 } catch (Throwable $e) {

@@ -6,3 +6,5 @@ items:
   - id: 'DEC-0004', titulo: 'Build, empaquetado y CI: Makefile heredado + moodle-plugin-ci con matriz Moodle/PHP/DB', estado: 'Propuesta', fecha: '2026-05-28', ruta: 'decisiones/adr/DEC-0004-build-empaquetado-ci-tests.md'
   - id: 'DEC-0005', titulo: 'Editor eXeLearning embebido: heredar la maquinaria de mod_exeweb', estado: 'Aceptada', fecha: '2026-05-28', ruta: 'decisiones/adr/DEC-0005-editor-embebido-exelearning.md'
   - id: 'DEC-0006', titulo: 'Modos de visualización: preview (test) y grading (calificar)', estado: 'Aceptada', fecha: '2026-05-28', ruta: 'decisiones/adr/DEC-0006-modos-preview-grading.md'
+  - id: 'DEC-0007', titulo: 'Gestión de intentos: tabla propia + modelo h5pactivity (no SCORM)', estado: 'Propuesta', fecha: '2026-05-28', ruta: 'decisiones/adr/DEC-0007-gestion-intentos.md'
+  - id: 'DEC-0008', titulo: 'Agregación de grade items: nota global, por iDevice o ambas (con global excluida)', estado: 'Propuesta', fecha: '2026-05-28', ruta: 'decisiones/adr/DEC-0008-grade-aggregation-y-feedback.md'

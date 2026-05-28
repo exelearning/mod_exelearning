@@ -78,10 +78,19 @@ issues_chrome_devtools:
   - "PENDIENTE (upstream eXeLearning): iDevice button `Games-SendScore` sin atributo name/id. PREG-003."
   - "PENDIENTE (Moodle core): 4 inputs sin id/name en Boost theme drawer/messaging. Fuera del alcance del plugin."
 limitaciones:
-  - "El bridge runtime (statements xAPI desde el iframe → core_xapi_post_statement) NO está implementado. Las columnas existen vacías; aún no hay manera de que el alumno reciba nota."
   - "Sólo iDevices del whitelist actual; los nuevos tipos requieren añadirse a package::GRADABLE_IDEVICE_TYPES."
   - "Borrar la cm desde la UI requiere completar exelearning_delete_instance — se verifica solo parcialmente."
   - "La sincronización de grade items depende de get_coursemodule_from_instance: durante add_instance hay que pasar contextid explícito (bug corregido)."
+  - "Per-iDevice routing mapea ideviceNumber=DOM_index+1 → itemnumber del registry. Si el orden en content.xml difiere del orden de render DOM, podrían descuadrar; verificar con paquete multi-página real."
+
+verificacion_runtime:
+  fecha: 2026-05-28-noche
+  bridge_scorm: "shim window.API + autocommit debounce 500 ms en LMSSetValue de score/status"
+  auto_init_pipwerks: "Inyectado en <head> de cada HTML extraído (lib.php::inject_scorm_loader) para que connection.isActive=true al cargar"
+  iframe_real_quiz: "Click 'Comprobar' trueorfalse → BD: rawgrade=100 para itemnumber=1, rawgrade=100 para itemnumber=0"
+  per_idevice_simulado: "suspend_data con 2 entradas (80%,60%) → BD: itemnumber=1=80, itemnumber=2=60, itemnumber=0=70"
+  modo_preview: "POST mode=preview con score=22 → response {ok:true,mode:'preview'}, timemodified de BD inalterado"
+  anti_bypass_alumno: "switch-to-student + ?mode=preview → cae a grading silenciosamente"
 relacionados:
   - DEC-0003
   - DEC-0004

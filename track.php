@@ -86,23 +86,74 @@ if ($ispreview) {
     die;
 }
 
+// Per-iDevice routing desde cmi.suspend_data.
+// eXeLearning v4 serializa `{N}. "{title}"; Puntuación: {S}%; Peso: {W}%`
+// separados por ".\t" donde N=index DOM+1. Eso coincide con nuestro itemnumber
+// asignado por el orden en content.xml (classes/local/package.php).
+$suspend = $cmi['cmi.suspend_data'] ?? '';
+$peritem = [];
+if (is_string($suspend) && $suspend !== '') {
+    foreach (preg_split('~\.\t~', $suspend) as $line) {
+        $line = trim($line);
+        if ($line === '') {
+            continue;
+        }
+        if (preg_match('~^(\d+)\.\s"([^"]*)";\s[^:]+:\s([\d.]+)%;\s[^:]+:\s([\d.]+)%\.?$~',
+                $line, $m)) {
+            $peritem[(int) $m[1]] = [
+                'title'    => $m[2],
+                'scorepct' => (float) $m[3], // 0..100
+                'weighted' => (float) $m[4],
+            ];
+        }
+    }
+}
+
+$itemdetailsbase = [
+    'gradetype' => GRADE_TYPE_VALUE,
+    'grademax'  => $exelearning->grademax ?? 100,
+    'grademin'  => $exelearning->grademin ?? 0,
+    'display'   => (int) ($exelearning->gradedisplaytype ?? GRADE_DISPLAY_TYPE_DEFAULT),
+];
+
+// 1) Notas por iDevice (itemnumber > 0).
+$persaved = [];
+if ($peritem) {
+    $rows = $DB->get_records('exelearning_grade_item',
+            ['exelearningid' => $exelearning->id, 'deleted' => 0],
+            'itemnumber ASC', 'itemnumber, name, objectid');
+    foreach ($peritem as $itemnumber => $info) {
+        if (!isset($rows[$itemnumber])) {
+            continue;
+        }
+        $rawitem = ($info['scorepct'] / 100.0)
+                * (float) ($exelearning->grademax ?? 100);
+        grade_update('mod/exelearning', $exelearning->course, 'mod', 'exelearning',
+                $exelearning->id, $itemnumber,
+                (object) ['userid' => $USER->id, 'rawgrade' => $rawitem],
+                $itemdetailsbase + ['itemname' => $rows[$itemnumber]->name]);
+        $persaved[$itemnumber] = $rawitem;
+    }
+}
+
+// 2) Nota agregada (itemnumber=0).
 $grade = (object) [
     'userid'    => $USER->id,
     'rawgrade'  => $score,
-    'feedback'  => $status ? 'lesson_status=' . s($status) : null,
+    // DEC-0008: no exponer la cadena CMI cruda como retroalimentación. El
+    // estado funcional vive en `mdl_exelearning_attempt.success` cuando
+    // implementemos DEC-0007.
+    'feedback'  => null,
 ];
 
 $result = grade_update('mod/exelearning', $exelearning->course, 'mod',
-        'exelearning', $exelearning->id, 0, $grade, [
+        'exelearning', $exelearning->id, 0, $grade, $itemdetailsbase + [
             'itemname'  => clean_param($exelearning->name, PARAM_NOTAGS),
-            'gradetype' => GRADE_TYPE_VALUE,
-            'grademax'  => $exelearning->grademax ?? 100,
-            'grademin'  => $exelearning->grademin ?? 0,
-            'display'   => (int) ($exelearning->gradedisplaytype ?? GRADE_DISPLAY_TYPE_DEFAULT),
         ]);
 
 echo json_encode([
     'ok' => $result === GRADE_UPDATE_OK,
     'rawscore' => $score,
     'status' => $status,
+    'peritem' => $persaved,
 ]);

@@ -3,20 +3,23 @@
   "preferredVersions": { "php": "8.3", "moodle": "5.0" },
   "landingPage": "/course/view.php?id=2",
   "constants": {
-    "ADMIN_USER": "admin",
-    "ADMIN_PASS": "password",
-    "ADMIN_EMAIL": "admin@example.com"
+    "ADMIN_USER":  "admin",
+    "ADMIN_PASS":  "password",
+    "ADMIN_EMAIL": "admin@example.com",
+    "STUDENT_PASS": "Demo!2026",
+    "TEACHER_USER": "teacher_demo",
+    "TEACHER_PASS": "Demo!2026"
   },
   "steps": [
     {
       "step": "installMoodle",
       "options": {
-        "adminUser": "{{ADMIN_USER}}",
-        "adminPass": "{{ADMIN_PASS}}",
+        "adminUser":  "{{ADMIN_USER}}",
+        "adminPass":  "{{ADMIN_PASS}}",
         "adminEmail": "{{ADMIN_EMAIL}}",
-        "siteName": "mod_exelearning Playground",
-        "locale": "es",
-        "timezone": "Europe/Madrid"
+        "siteName":   "mod_exelearning Playground",
+        "locale":     "es",
+        "timezone":   "Europe/Madrid"
       }
     },
     { "step": "login", "username": "{{ADMIN_USER}}" },
@@ -30,90 +33,85 @@
       "step": "setConfigs",
       "configs": [
         { "name": "editormode",   "value": "embedded",      "plugin": "exelearning" },
-        { "name": "displayoptions","value": "1,5,6",        "plugin": "exelearning" },
         { "name": "display",      "value": "1",             "plugin": "exelearning" },
-        { "name": "framesize",    "value": "130",           "plugin": "exelearning" },
-        { "name": "printintro",   "value": "1",             "plugin": "exelearning" },
-        { "name": "showdate",     "value": "0",             "plugin": "exelearning" },
-        { "name": "popupwidth",   "value": "620",           "plugin": "exelearning" },
-        { "name": "popupheight",  "value": "450",           "plugin": "exelearning" }
+        { "name": "printintro",   "value": "1",             "plugin": "exelearning" }
       ]
     },
-    { "step": "createCategory", "name": "Test Courses" },
+    { "step": "createCategory", "name": "Demo eXeLearning" },
     {
       "step": "createCourse",
-      "fullname": "mod_exelearning Test Course",
-      "shortname": "EXELEARNING01",
-      "category": "Test Courses",
-      "summary": "Test course for the mod_exelearning plugin: validates package upload, sidebar preservation and multi-grade-items per resource."
+      "fullname":  "Demo eXeLearning · ejemplo de uso",
+      "shortname": "EXEDEMO",
+      "category":  "Demo eXeLearning",
+      "summary":   "Curso demo con una actividad mod_exelearning y dos alumnos matriculados."
     },
     {
       "step": "createUser",
-      "username": "student",
-      "password": "password",
-      "email": "student@example.com",
-      "firstname": "Demo",
-      "lastname": "Student"
+      "username":  "{{TEACHER_USER}}",
+      "password":  "{{TEACHER_PASS}}",
+      "email":     "teacher_demo@example.test",
+      "firstname": "Profesor",
+      "lastname":  "Demo"
+    },
+    {
+      "step": "createUser",
+      "username":  "alumno1",
+      "password":  "{{STUDENT_PASS}}",
+      "email":     "alumno1@example.test",
+      "firstname": "Alumno",
+      "lastname":  "Uno"
+    },
+    {
+      "step": "createUser",
+      "username":  "alumno2",
+      "password":  "{{STUDENT_PASS}}",
+      "email":     "alumno2@example.test",
+      "firstname": "Alumno",
+      "lastname":  "Dos"
     },
     {
       "step": "enrolUser",
-      "username": "{{ADMIN_USER}}",
-      "course": "EXELEARNING01",
-      "role": "editingteacher"
+      "username": "{{TEACHER_USER}}",
+      "course":   "EXEDEMO",
+      "role":     "editingteacher"
     },
     {
       "step": "enrolUser",
-      "username": "student",
-      "course": "EXELEARNING01",
-      "role": "student"
+      "username": "alumno1",
+      "course":   "EXEDEMO",
+      "role":     "student"
+    },
+    {
+      "step": "enrolUser",
+      "username": "alumno2",
+      "course":   "EXEDEMO",
+      "role":     "student"
     },
     {
       "step": "createSection",
-      "course": "EXELEARNING01",
-      "name": "Example eXeLearning Activities"
+      "course": "EXEDEMO",
+      "name":   "Actividades evaluables"
     },
     {
       "step": "addModule",
-      "module": "exelearning",
-      "course": "EXELEARNING01",
+      "module":  "exelearning",
+      "course":  "EXEDEMO",
       "section": 1,
-      "name": "Really Simple — sample sin items calificables",
-      "intro": "Paquete ELPX mínimo (6 páginas, sólo iDevices `text`). Sirve para validar el render de la sidebar nativa de eXeLearning.",
-      "exeorigin": "local",
+      "name":    "Actividad evaluable (demo)",
+      "intro":   "Cuestionario demo con dos iDevices calificables (trueorfalse + guess).",
       "revision": 1,
-      "display": 1,
+      "display":  1,
       "files": [
         {
           "filearea": "package",
-          "itemid": 1,
-          "filename": "really-simple-test-project.elpx",
+          "itemid":   1,
+          "filename": "actividad-evaluable.elpx",
           "data": {
-            "url": "https://raw.githubusercontent.com/exelearning/exelearning/main/test/fixtures/really-simple-test-project.elpx"
+            "url": "https://raw.githubusercontent.com/erseco/mod_exelearning/main/research/fixtures/elpx/actividad-evaluable.elpx"
           }
         }
       ]
     },
-    {
-      "step": "addModule",
-      "module": "exelearning",
-      "course": "EXELEARNING01",
-      "section": 1,
-      "name": "Contenido de estilos y catalogación — sample mediano",
-      "intro": "Paquete ELPX de 56 páginas con 7 tipos de iDevice (incluye `scrambled-list` potencialmente calificable). Para validar paginación, search box y multi-grade-items.",
-      "exeorigin": "local",
-      "revision": 1,
-      "display": 1,
-      "files": [
-        {
-          "filearea": "package",
-          "itemid": 1,
-          "filename": "contenido-prueba-estilos-cata.elpx",
-          "data": {
-            "url": "https://raw.githubusercontent.com/exelearning/exelearning/main/test/fixtures/un-contenido-de-ejemplo-para-probar-estilos-y-catalogacion.elpx"
-          }
-        }
-      ]
-    },
-    { "step": "setLandingPage", "path": "/course/view.php?id=2" }
+    { "step": "setLandingPage", "path": "/course/view.php?shortname=EXEDEMO" }
   ]
 }

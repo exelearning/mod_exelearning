@@ -43,11 +43,13 @@ services:
       PRE_CONFIGURE_COMMANDS: |
         echo 'This is a pre-configure command'
       POST_CONFIGURE_COMMANDS: |
-        echo 'This is a post-configure command'
-        echo 'Forcing upgrade to re-install exe plugin...'
+        echo 'mod_exelearning: post-configure'
+        echo 'Forcing upgrade to install plugin...'
         php admin/cli/upgrade.php --non-interactive
         php admin/cli/cfg.php --component=exelearning --name=exeonlinebaseuri --set=http://localhost:${APP_PORT}
         php admin/cli/cfg.php --component=exelearning --name=hmackey1 --set=${APP_SECRET}
+        echo 'Seeding demo course + students + activity...'
+        php mod/exelearning/scripts/setup_demo.php || echo 'setup_demo.php finished with non-zero exit (ignoring)'
     ports:
       - 80:8080
     volumes:

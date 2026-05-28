@@ -42,6 +42,33 @@ decisiones_bloqueantes:
     notas: >-
       Heredar Makefile + 3 workflows de mod_exescorm/mod_exeweb y añadir ci.yml
       con moodle-plugin-ci matriz Moodle 4.1/4.3/4.5/main × PHP 8.1-8.4 × pgsql/mariadb.
+  DEC-0005:
+    titulo: "Editor embebido eXeLearning heredado de mod_exeweb"
+    estado: Aceptada
+    ruta: decisiones/adr/DEC-0005-editor-embebido-exelearning.md
+    fecha: 2026-05-28
+  DEC-0006:
+    titulo: "Modos preview (test) y grading (calificar)"
+    estado: Aceptada
+    ruta: decisiones/adr/DEC-0006-modos-preview-grading.md
+    fecha: 2026-05-28
+    notas: "Verificado end-to-end: track.php?mode=preview no toca gradebook; switch-to-student cae a grading silenciosamente."
+  DEC-0007:
+    titulo: "Gestión de intentos: tabla propia + modelo h5pactivity"
+    estado: Propuesta
+    ruta: decisiones/adr/DEC-0007-gestion-intentos.md
+    fecha: 2026-05-28
+    notas: "Híbrido h5pactivity + multi-itemnumber. Schema completo en el ADR. Implementación queda para TAREA-023+."
+  DEC-0008:
+    titulo: "Agregación de grade items y retroalimentación"
+    estado: Propuesta
+    ruta: decisiones/adr/DEC-0008-grade-aggregation-y-feedback.md
+    fecha: 2026-05-28
+    notas: >-
+      3 modos (overall/peritem/both) para evitar doble conteo del overall +
+      items individuales. Recomendación: `both` con grade_category propia +
+      overall excluido del total del curso. Implementación queda para TAREA-027.
+      Feedback `lesson_status=passed` eliminado YA (1 línea en track.php).
 
 tareas:
   TAREA-001:

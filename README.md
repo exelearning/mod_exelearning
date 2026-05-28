@@ -62,6 +62,32 @@ usuario `user` / contraseña `1234` (configurables en `.env`). El plugin
 `mod_exelearning` aparecerá en *Administración del sitio → Plugins → Módulos
 de actividad*.
 
+### Seed automático de demo
+
+`POST_CONFIGURE_COMMANDS` lanza `scripts/setup_demo.php` que crea, de forma
+idempotente:
+
+- Categoría `Demo eXeLearning`.
+- Curso `EXEDEMO — Demo eXeLearning · ejemplo de uso`.
+- Profesor `teacher_demo` (contraseña `Demo!2026`) matriculado como editing teacher.
+- Estudiantes `alumno1`, `alumno2` (contraseña `Demo!2026`) matriculados como student.
+- Actividad `Actividad evaluable (demo)` cargada con el fixture
+  [`research/fixtures/elpx/actividad-evaluable.elpx`](./research/fixtures/elpx/actividad-evaluable.elpx)
+  (2 iDevices calificables: trueorfalse + guess).
+
+Al ejecutar `docker compose up -d`, el log muestra al final las URLs de acceso:
+
+```
+=== setup_demo terminado ===
+  Curso:       http://localhost/course/view.php?id=4
+  Actividad:   http://localhost/mod/exelearning/view.php?id=17
+  Profesor:    teacher_demo / Demo!2026
+  Estudiantes: alumno1, alumno2 / Demo!2026
+```
+
+Para regenerar la demo sin reinstalar Moodle:
+`docker compose exec moodle php /var/www/html/mod/exelearning/scripts/setup_demo.php`.
+
 Para tirar el entorno y conservar datos: `docker compose down`. Para borrar
 también los volúmenes: `docker compose down -v`.
 
