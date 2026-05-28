@@ -20,6 +20,7 @@
         <FIELD NAME="grademax"      TYPE="number" LENGTH="10" DECIMALS="5" NOTNULL="true" DEFAULT="100" SEQUENCE="false" COMMENT="Max score per gradable iDevice (default 100)."/>
         <FIELD NAME="grademin"      TYPE="number" LENGTH="10" DECIMALS="5" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="gradedisplaytype" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="GRADE_DISPLAY_TYPE_* constant; 0=DEFAULT (inherit course), 1=REAL, 2=PERCENTAGE, 3=LETTER, 12=REAL_PERCENTAGE."/>
+        <FIELD NAME="grademethod"   TYPE="int"  LENGTH="4"   NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Attempt aggregation for the gradebook: 0=highest, 1=average, 2=first, 3=last, 4=lowest (DEC-0007)."/>
         <FIELD NAME="timecreated"   TYPE="int"  LENGTH="10"  NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="timemodified"  TYPE="int"  LENGTH="10"  NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="usermodified"  TYPE="int"  LENGTH="10"  NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
@@ -55,6 +56,31 @@
       <INDEXES>
         <INDEX NAME="exelearningid_itemnumber" UNIQUE="true" FIELDS="exelearningid, itemnumber"/>
         <INDEX NAME="exelearningid_objectid"   UNIQUE="true" FIELDS="exelearningid, objectid"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="exelearning_attempt" COMMENT="One row per user submission per gradable item. Keeps attempt history (DEC-0007), mirroring mod_h5pactivity/mod_scorm.">
+      <FIELDS>
+        <FIELD NAME="id"             TYPE="int"  LENGTH="10"  NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="exelearningid"  TYPE="int"  LENGTH="10"  NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="userid"         TYPE="int"  LENGTH="10"  NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="attempt"        TYPE="int"  LENGTH="10"  NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="1-based attempt number per user and activity."/>
+        <FIELD NAME="itemnumber"     TYPE="int"  LENGTH="10"  NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="0=overall aggregated, &gt;0=gradable iDevice (matches exelearning_grade_item.itemnumber)."/>
+        <FIELD NAME="rawscore"       TYPE="number" LENGTH="10" DECIMALS="5" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="maxscore"       TYPE="number" LENGTH="10" DECIMALS="5" NOTNULL="true" DEFAULT="100" SEQUENCE="false"/>
+        <FIELD NAME="scaledscore"    TYPE="number" LENGTH="10" DECIMALS="5" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="rawscore/maxscore in 0..1."/>
+        <FIELD NAME="status"         TYPE="char" LENGTH="20"  NOTNULL="true" DEFAULT="completed" SEQUENCE="false" COMMENT="completed|passed|failed|incomplete."/>
+        <FIELD NAME="timecreated"    TYPE="int"  LENGTH="10"  NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified"   TYPE="int"  LENGTH="10"  NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="exelearningid_fk" TYPE="foreign" FIELDS="exelearningid" REFTABLE="exelearning" REFFIELDS="id"/>
+        <KEY NAME="userid_fk" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="exelearningid_userid_attempt_item" UNIQUE="true" FIELDS="exelearningid, userid, attempt, itemnumber"/>
+        <INDEX NAME="exelearningid_userid" UNIQUE="false" FIELDS="exelearningid, userid"/>
       </INDEXES>
     </TABLE>
 
