@@ -62,6 +62,14 @@ $PAGE->set_title(format_string($exelearning->name));
 $PAGE->set_heading(format_string($course->fullname));
 $PAGE->set_context($context);
 
+// Inicializar el AMD del editor embebido sólo cuando el botón "Editar" se va a
+// mostrar (gestor + editor instalado). El listener escucha clicks en
+// [data-action="mod_exelearning/editor-open"].
+$showeditorbutton = $canpreview && exelearning_embedded_editor_enabled();
+if ($showeditorbutton) {
+    $PAGE->requires->js_call_amd('mod_exelearning/editor_modal', 'init', []);
+}
+
 $fs = get_file_storage();
 $mainfile = $fs->get_file($context->id, 'mod_exelearning', 'content',
         (int) $exelearning->revision, '/', 'index.html');
@@ -114,6 +122,33 @@ if ($canpreview) {
                         ['class' => 'btn btn-sm btn-outline-secondary']),
                 'mb-3');
     }
+}
+
+// Botón "Editar con eXeLearning": abre el editor embebido en un overlay/modal
+// (gestionado por amd/src/editor_modal.js). Sólo para gestores y cuando hay un
+// editor instalado. Los atributos data-* deben coincidir EXACTAMENTE con los
+// que lee editor_modal.js::init()/open().
+if ($showeditorbutton) {
+    $editorurl = new moodle_url('/mod/exelearning/editor/index.php',
+            ['id' => $cm->id, 'sesskey' => sesskey()]);
+    $editorsaveurl = new moodle_url('/mod/exelearning/editor/save.php');
+    $editorpackageurl = exelearning_get_package_url($exelearning, $context);
+    echo html_writer::div(
+            html_writer::tag('button',
+                    '<i class="fa fa-pencil mr-1" aria-hidden="true"></i> '
+                    . get_string('editwitheditor', 'mod_exelearning'),
+                    [
+                        'type' => 'button',
+                        'class' => 'btn btn-sm btn-primary',
+                        'data-action' => 'mod_exelearning/editor-open',
+                        'data-cmid' => $cm->id,
+                        'data-editorurl' => $editorurl->out(false),
+                        'data-packageurl' => $editorpackageurl ? $editorpackageurl->out(false) : '',
+                        'data-saveurl' => $editorsaveurl->out(false),
+                        'data-sesskey' => sesskey(),
+                        'data-activityname' => format_string($exelearning->name),
+                    ]),
+            'mb-3');
 }
 
 if (!$mainfile) {

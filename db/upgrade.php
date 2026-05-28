@@ -146,5 +146,18 @@ function xmldb_exelearning_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026052803, 'exelearning');
     }
 
+    // Stage 5 (2026052804): asegurar el campo gradepass (DEC-0010). En install.xml
+    // ya existe para instalaciones nuevas; este savepoint cubre los sitios que
+    // actualizaron por 2026052802/03 antes de que gradepass se añadiera a esa fase.
+    if ($oldversion < 2026052804) {
+        $instance = new xmldb_table('exelearning');
+        $gradepass = new xmldb_field('gradepass', XMLDB_TYPE_NUMBER, '10,5',
+                null, XMLDB_NOTNULL, null, '0', 'grademin');
+        if (!$dbman->field_exists($instance, $gradepass)) {
+            $dbman->add_field($instance, $gradepass);
+        }
+        upgrade_mod_savepoint(true, 2026052804, 'exelearning');
+    }
+
     return true;
 }

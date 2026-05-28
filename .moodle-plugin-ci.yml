@@ -1,0 +1,28 @@
+# moodle-plugin-ci configuration.
+#
+# The primary way moodle-plugin-ci excludes files from the static-analysis
+# commands (codechecker/phpcs, phpdoc, phplint, phpcpd, phpmd, mustache) is:
+#   1. thirdpartylibs.xml          -> honoured by ALL code-analysis commands.
+#   2. .phpcs.xml.dist             -> exclude-pattern rules for phpcs.
+#   3. IGNORE_PATHS / IGNORE_NAMES -> environment variables in the CI workflow
+#                                     (and per-command COMMANDNAME_IGNORE_*).
+#
+# This file records the recommended ignore values so they are version-tracked
+# and can be wired into the workflow env. Bundled editor (dist/static) and the
+# pipwerks SCORM wrappers are already declared in thirdpartylibs.xml.
+#
+# Suggested CI workflow env values:
+#   IGNORE_PATHS: 'dist,research,amd/build,node_modules,vendor'
+#   IGNORE_NAMES: '*.min.php,*.min.js,*.min.css'
+
+filter:
+  notPaths:
+    - dist
+    - research
+    - amd/build
+    - node_modules
+    - vendor
+  notNames:
+    - "*.min.php"
+    - "*.min.js"
+    - "*.min.css"

@@ -91,6 +91,7 @@ $string['attemptdeleted']     = 'The attempt was deleted and the grade was recal
 // DEC-0007: attempts report.
 $string['attempts']          = 'Attempts';
 $string['attempt']           = 'Attempt';
+$string['reports']           = 'Reports';
 $string['attemptsreport']    = 'Attempts report';
 $string['viewattemptsreport'] = 'View attempts report';
 $string['noattempts']        = 'No attempts have been recorded yet.';

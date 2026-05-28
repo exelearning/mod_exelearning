@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Admin setting: upload an eXeLearning style ZIP package.
+ * Admin setting that accepts style ZIP uploads and auto-installs them.
  *
  * @package    mod_exelearning
  * @copyright  2025 eXeLearning
@@ -26,104 +26,130 @@ namespace mod_exelearning\admin;
 
 defined('MOODLE_INTERNAL') || die();
 
-use admin_setting;
+use mod_exelearning\local\styles_service;
 
 /**
- * Renders a styles upload control on the styles admin page.
+ * Inline filemanager setting for the Styles admin section.
  *
- * This setting performs the upload immediately (on its own POST) and stores
- * nothing in config itself.
+ * Reuses Moodle's native `admin_setting_configstoredfile` only for its
+ * filemanager rendering. Persistence is handled here because our pipeline
+ * is fire-and-forget: dropped ZIPs are extracted into moodledata by
+ * {@see styles_service::install_from_zip()} and then deleted from the
+ * filearea, so the parent's "remember the last filepath in config" flow
+ * would either be wrong (config points at a file we already removed) or
+ * trip the parent's `errorsetting` validation when the page is resaved
+ * without changes.
  */
-class admin_setting_stylesupload extends admin_setting {
+class admin_setting_stylesupload extends \admin_setting_configstoredfile {
 
     /**
-     * Constructor.
-     */
-    public function __construct() {
-        $this->nosave = true;
-        parent::__construct(
-            'mod_exelearning/stylesupload',
-            get_string('stylesupload_label', 'mod_exelearning'),
-            get_string('stylesupload_hint', 'mod_exelearning'),
-            ''
-        );
-    }
-
-    /**
-     * No stored value.
+     * @var string Component that owns the style upload filearea.
      *
-     * @return mixed
+     * `admin_setting_configstoredfile` derives the component from the
+     * first segment of the setting name ('exelearning/styles_drops' →
+     * 'exelearning') and uses it when moving the draft into the plugin file
+     * area, so we must read from the same component here or the saved ZIP
+     * stays invisible to the registry walker.
      */
-    public function get_setting() {
-        return true;
-    }
+    public const COMPONENT = 'exelearning';
+
+    /** @var string Filearea used to receive drops before extraction. */
+    public const FILEAREA = 'styles_drops';
 
     /**
-     * Never writes anything via the normal settings pipeline.
+     * Report a non-null stored value so this setting is never flagged as
+     * "new" on `admin/upgradesettings.php`.
      *
-     * @param mixed $data
+     * `admin_setting_configstoredfile` reads the file id from plugin config,
+     * but our `write_setting()` deletes the staged ZIP after extraction and
+     * never persists anything in `config_plugins`. Without this override,
+     * `get_setting()` keeps returning `null`, so Moodle's
+     * `admin_output_new_settings_by_page()` re-renders the upload widget on
+     * every plugin upgrade, trapping the admin in an upgrade-settings loop.
+     *
+     * The widget itself does not need a stored value to render — it always
+     * starts from a fresh draft area — so returning an empty string is
+     * functionally equivalent to "nothing pending".
+     *
      * @return string
      */
-    public function write_setting($data) {
+    public function get_setting() {
         return '';
     }
 
     /**
-     * Render the upload form.
+     * Stage any uploaded drafts into the plugin filearea and extract them.
      *
-     * @param mixed $data
-     * @param string $query
-     * @return string
+     * We bypass `admin_setting_configstoredfile::write_setting()` because
+     * that path persists the submitted file's path in plugin config and
+     * trips an `errorsetting` validation when the form is saved a second
+     * time without changes — by then the cached config still points at a
+     * file `consume_pending_uploads()` already extracted and removed.
+     * Since we never read the config value back, just move the drafts and
+     * return success regardless of whether anything was attached.
+     *
+     * @param string $data The draft item id.
+     * @return string Always empty (success); install errors surface as notifications.
      */
-    public function output_html($data, $query = '') {
-        $uploadurl = new \moodle_url('/mod/exelearning/admin/styles.php');
-        $maxbytes = \mod_exelearning\local\styles_service::get_max_zip_size();
+    public function write_setting($data) {
+        if (is_numeric($data) && (int) $data > 0) {
+            $options = $this->get_options();
+            $component = is_null($this->plugin) ? 'core' : $this->plugin;
+            file_save_draft_area_files(
+                $data,
+                $options['context']->id,
+                $component,
+                $this->filearea,
+                $this->itemid,
+                $options
+            );
+        }
+        $summary = $this->consume_pending_uploads();
+        foreach ($summary['installed'] as $title) {
+            \core\notification::success(
+                get_string('stylesupload_success', 'mod_exelearning', $title)
+            );
+        }
+        foreach ($summary['errors'] as $error) {
+            \core\notification::error($error);
+        }
+        return '';
+    }
 
-        $html = '';
-        $html .= \html_writer::start_tag('form', [
-            'method' => 'post',
-            'action' => $uploadurl->out(false),
-            'enctype' => 'multipart/form-data',
-            'class' => 'mod-exelearning-styles-upload-form',
-        ]);
-        $html .= \html_writer::empty_tag('input', [
-            'type' => 'hidden',
-            'name' => 'sesskey',
-            'value' => sesskey(),
-        ]);
-        $html .= \html_writer::empty_tag('input', [
-            'type' => 'hidden',
-            'name' => 'action',
-            'value' => 'upload',
-        ]);
-        $html .= \html_writer::empty_tag('input', [
-            'type' => 'hidden',
-            'name' => 'MAX_FILE_SIZE',
-            'value' => (string) $maxbytes,
-        ]);
-        $html .= \html_writer::empty_tag('input', [
-            'type' => 'file',
-            'name' => 'stylezip',
-            'accept' => '.zip',
-            'class' => 'form-control-file',
-            'required' => 'required',
-        ]);
-        $html .= ' ';
-        $html .= \html_writer::tag('button', get_string('stylesupload_label', 'mod_exelearning'), [
-            'type' => 'submit',
-            'class' => 'btn btn-primary',
-        ]);
-        $html .= \html_writer::end_tag('form');
-
-        return format_admin_setting(
-            $this,
-            $this->visiblename,
-            $html,
-            $this->description,
-            true,
-            '',
-            null,
-            $query
+    /**
+     * Walk the filearea, install each ZIP, and drop files we successfully
+     * consumed so the next render starts clean.
+     *
+     * @return array{installed: string[], errors: string[]}
+     */
+    protected function consume_pending_uploads(): array {
+        $summary = ['installed' => [], 'errors' => []];
+        $fs = get_file_storage();
+        $context = \context_system::instance();
+        $files = $fs->get_area_files(
+            $context->id, self::COMPONENT, self::FILEAREA,
+            0, 'sortorder, id', false
         );
+        if (empty($files)) {
+            return $summary;
+        }
+        $tmpdir = make_request_directory();
+        foreach ($files as $file) {
+            $filename = $file->get_filename();
+            $tmppath = $tmpdir . '/' . clean_param($filename, PARAM_FILE);
+            try {
+                $file->copy_content_to($tmppath);
+                $entry = styles_service::install_from_zip($tmppath, $filename);
+                $summary['installed'][] = $entry['title'] ?? $entry['name'];
+                $file->delete();
+            } catch (\Throwable $e) {
+                $summary['errors'][] = $filename . ': ' . $e->getMessage();
+            } finally {
+                if (is_file($tmppath)) {
+                    @unlink($tmppath);
+                }
+            }
+        }
+        return $summary;
     }
 }

@@ -67,8 +67,21 @@ if ($ADMIN->fulltree) {
         get_string('stylesmanager_intro', 'mod_exelearning')
     ));
 
-    // Upload a new style ZIP.
-    $settings->add(new \mod_exelearning\admin\admin_setting_stylesupload());
+    // Upload a new style ZIP (native filemanager; auto-installs on save).
+    $settings->add(new \mod_exelearning\admin\admin_setting_stylesupload(
+        'exelearning/styles_drops',
+        get_string('stylesupload_label', 'mod_exelearning'),
+        get_string('stylesupload_hint', 'mod_exelearning',
+            display_size(\mod_exelearning\local\styles_service::get_max_zip_size())),
+        'styles_drops',
+        0,
+        [
+            'accepted_types' => ['.zip'],
+            'maxbytes' => \mod_exelearning\local\styles_service::get_max_zip_size(),
+            'maxfiles' => -1,
+            'subdirs' => 0,
+        ]
+    ));
 
     // List of uploaded styles with enable/disable/delete actions.
     $settings->add(new \mod_exelearning\admin\admin_setting_stylesuploaded());

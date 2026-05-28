@@ -348,6 +348,58 @@ function exelearning_view(stdClass $exelearning, stdClass $course,
 }
 
 /**
+ * Añade la pestaña "Informes" a la navegación de la actividad, como mod_scorm.
+ *
+ * Aparece en la navegación secundaria del módulo para quien tenga la capability
+ * mod/exelearning:viewreport, enlazando al informe de intentos (report.php).
+ *
+ * @param settings_navigation $settings
+ * @param navigation_node $node
+ */
+function exelearning_extend_settings_navigation(settings_navigation $settings,
+        navigation_node $node): void {
+    global $PAGE;
+
+    $context = $PAGE->cm->context ?? null;
+    if (!$context || !has_capability('mod/exelearning:viewreport', $context)) {
+        return;
+    }
+
+    $url = new moodle_url('/mod/exelearning/report.php', ['id' => $PAGE->cm->id]);
+    $reportnode = navigation_node::create(
+            get_string('reports', 'mod_exelearning'),
+            $url,
+            navigation_node::TYPE_SETTING,
+            null,
+            'exelearningreport',
+            new pix_icon('i/report', ''));
+
+    // Insertar antes del nodo de roles/permisos si existe, como hace SCORM.
+    if ($beforekey = exelearning_navigation_before_key($node)) {
+        $node->add_node($reportnode, $beforekey);
+    } else {
+        $node->add_node($reportnode);
+    }
+}
+
+/**
+ * Devuelve la clave del primer nodo "administrativo" de la navegación del módulo
+ * (roles/permisos/filtros) para insertar "Informes" justo antes, replicando el
+ * orden de mod_scorm.
+ *
+ * @param navigation_node $node
+ * @return string|null
+ */
+function exelearning_navigation_before_key(navigation_node $node): ?string {
+    foreach (['roleassign', 'roles', 'permissions', 'filtermanagement'] as $key) {
+        if ($node->get($key)) {
+            return $key;
+        }
+    }
+    return null;
+}
+
+/**
  * Guarda el ELPX subido en filearea 'package' y lo extrae a 'content/{revision}/'.
  *
  * @param stdClass $data Datos del formulario (con `coursemodule`, `package` draftid, `revision`).
@@ -722,4 +774,64 @@ function exelearning_grade_item_name(stdClass $instance, stdClass $detected): st
         return $base . ' · ' . $page . ' · ' . $type;
     }
     return $base . ' · ' . $type;
+}
+
+// -----------------------------------------------------------------------------
+// Embedded eXeLearning editor support (portado de mod_exeweb).
+//
+// Estas funciones son los enganches que consume el editor embebido
+// (editor/index.php, editor/save.php y el botón "Editar" de view.php).
+// -----------------------------------------------------------------------------
+
+/**
+ * Devuelve la URL del ELPX almacenado en la filearea 'package' de una instancia.
+ *
+ * Portado de mod_exeweb::exeweb_get_package_url() y adaptado a este plugin:
+ * filearea 'package', component 'mod_exelearning'. El itemid se toma del fichero
+ * almacenado (las subidas del editor usan itemid = revision; las del formulario
+ * usan itemid = 0) para construir una URL servible vía exelearning_pluginfile().
+ *
+ * @param stdClass $exelearning Registro de la instancia.
+ * @param context $context Contexto del módulo.
+ * @return moodle_url|null URL al fichero del paquete, o null si no existe.
+ */
+function exelearning_get_package_url($exelearning, $context) {
+    $fs = get_file_storage();
+    $files = $fs->get_area_files($context->id, 'mod_exelearning', 'package', false,
+            'itemid DESC, sortorder DESC, id ASC', false);
+    $package = reset($files);
+    if (!$package) {
+        return null;
+    }
+    return moodle_url::make_pluginfile_url(
+        $context->id,
+        'mod_exelearning',
+        'package',
+        $package->get_itemid(),
+        $package->get_filepath(),
+        $package->get_filename()
+    );
+}
+
+/**
+ * Devuelve la ruta absoluta al index.html del editor embebido instalado.
+ *
+ * Wrapper de embedded_editor_source_resolver::get_index_source() (moodledata →
+ * bundled → null). Portado de mod_exeweb::exeweb_get_embedded_editor_index_source().
+ *
+ * @return string|null Ruta a index.html, o null si no hay editor disponible.
+ */
+function exelearning_get_embedded_editor_index_source(): ?string {
+    return \mod_exelearning\local\embedded_editor_source_resolver::get_index_source();
+}
+
+/**
+ * Indica si hay un editor embebido disponible (moodledata o bundled).
+ *
+ * Usado por view.php para decidir si muestra el botón "Editar con eXeLearning".
+ *
+ * @return bool True si existe una fuente local válida del editor.
+ */
+function exelearning_embedded_editor_enabled(): bool {
+    return \mod_exelearning\local\embedded_editor_source_resolver::has_local_source();
 }

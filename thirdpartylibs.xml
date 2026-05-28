@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<libraries>
+  <library>
+    <location>dist/static</location>
+    <name>eXeLearning embedded editor</name>
+    <description>Pre-built static assets of the eXeLearning v4 authoring editor, bundled to run embedded inside Moodle.</description>
+    <version>4</version>
+    <license>GPL</license>
+    <licenseversion>3.0+</licenseversion>
+  </library>
+  <library>
+    <location>assets/scorm/SCORM_API_wrapper.js</location>
+    <name>pipwerks SCORM API Wrapper</name>
+    <description>pipwerks SCORM wrapper used to bridge gradable iDevices with the LMS SCORM runtime.</description>
+    <version>1.1.20121006</version>
+    <license>MIT</license>
+  </library>
+  <library>
+    <location>assets/scorm/SCOFunctions.js</location>
+    <name>pipwerks SCO Functions</name>
+    <description>pipwerks helper functions wrapping the SCORM API wrapper for gradable iDevices.</description>
+    <version>1.1.20121006</version>
+    <license>MIT</license>
+  </library>
+</libraries>

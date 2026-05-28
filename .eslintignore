@@ -1,0 +1,6 @@
+dist/
+research/
+node_modules/
+vendor/
+amd/build/
+**/*.min.js

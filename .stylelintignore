@@ -1,0 +1,5 @@
+dist/
+research/
+node_modules/
+vendor/
+**/*.min.css

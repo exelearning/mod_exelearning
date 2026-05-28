@@ -30,7 +30,6 @@ define('AJAX_SCRIPT', true);
 
 require('../../../config.php');
 require_once($CFG->dirroot . '/mod/exelearning/lib.php');
-require_once($CFG->dirroot . '/mod/exelearning/locallib.php');
 
 use mod_exelearning\exelearning_package_legacy;
 

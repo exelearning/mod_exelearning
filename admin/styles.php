@@ -42,20 +42,7 @@ $PAGE->set_heading(get_string('stylesmanager', 'mod_exelearning'));
 $returnurl = new moodle_url('/mod/exelearning/admin/styles.php');
 
 if ($action !== '' && confirm_sesskey()) {
-    if ($action === 'upload') {
-        $file = $_FILES['stylezip'] ?? null;
-        if (!is_array($file) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-            \core\notification::error(get_string('stylesupload_failed', 'mod_exelearning'));
-            redirect($returnurl);
-        }
-        try {
-            $entry = styles_service::install_from_zip($file['tmp_name'], $file['name'] ?? '');
-            \core\notification::success(get_string('stylesupload_success', 'mod_exelearning', $entry['id'] ?? ''));
-        } catch (\moodle_exception $e) {
-            \core\notification::error($e->getMessage());
-        }
-        redirect($returnurl);
-    } else if ($action === 'enable' || $action === 'disable') {
+    if ($action === 'enable' || $action === 'disable') {
         $slug = required_param('slug', PARAM_RAW);
         styles_service::set_uploaded_enabled($slug, $action === 'enable');
         \core\notification::success(get_string('changessaved'));
@@ -78,8 +65,21 @@ echo $OUTPUT->heading(get_string('stylesmanager', 'mod_exelearning'));
 
 echo \html_writer::tag('p', get_string('stylesmanager_intro', 'mod_exelearning'));
 
-// Upload form.
-$upload = new \mod_exelearning\admin\admin_setting_stylesupload();
+// Upload form (native filemanager; auto-installs the dropped ZIP on save).
+$upload = new \mod_exelearning\admin\admin_setting_stylesupload(
+    'exelearning/styles_drops',
+    get_string('stylesupload_label', 'mod_exelearning'),
+    get_string('stylesupload_hint', 'mod_exelearning',
+        display_size(styles_service::get_max_zip_size())),
+    'styles_drops',
+    0,
+    [
+        'accepted_types' => ['.zip'],
+        'maxbytes' => styles_service::get_max_zip_size(),
+        'maxfiles' => -1,
+        'subdirs' => 0,
+    ]
+);
 echo $upload->output_html('');
 
 // Uploaded styles list.

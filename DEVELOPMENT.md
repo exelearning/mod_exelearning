@@ -1,0 +1,112 @@
+# Development
+
+Developer notes for running the automated tests and the full CI validation
+suite of `mod_exelearning` locally. The plugin is tested the same way the core
+`mod_scorm` / `mod_h5pactivity` activities are: PHPUnit + Behat + the
+`moodle-plugin-ci` linters.
+
+The plugin must live at `mod/exelearning` inside a Moodle checkout (a
+`moodle-plugin-ci` install does this for you, and the bundled Docker stack
+mounts it there automatically).
+
+## PHPUnit
+
+Initialise the PHPUnit environment once (creates the test DB and configures the
+test runner):
+
+```bash
+php admin/tool/phpunit/cli/init.php
+```
+
+Run only this plugin's tests:
+
+```bash
+# All tests in the plugin's test suite.
+vendor/bin/phpunit --filter mod_exelearning
+
+# A single test file.
+vendor/bin/phpunit mod/exelearning/tests/lib_test.php
+vendor/bin/phpunit mod/exelearning/tests/attempts_test.php
+vendor/bin/phpunit mod/exelearning/tests/privacy/provider_test.php
+```
+
+Re-run `init.php` whenever `db/install.xml`, `version.php` or capabilities
+change so the test database is rebuilt.
+
+The tests rely on the data generator in `tests/generator/lib.php`, which builds
+each instance from the real ELPX fixture
+`research/fixtures/elpx/actividad-evaluable.elpx` (two gradable iDevices:
+`trueorfalse` + `guess`).
+
+## Behat
+
+Initialise the Behat environment once:
+
+```bash
+php admin/tool/behat/cli/init.php
+```
+
+Run only this plugin's scenarios:
+
+```bash
+vendor/bin/behat --tags @mod_exelearning
+```
+
+The scenarios use Chrome via Selenium (they are tagged `@javascript`). Make
+sure a Selenium server with Chrome is running, or pass the appropriate profile
+(`--profile chrome`). Re-run `init.php` after adding or editing feature files so
+Behat regenerates its step cache.
+
+## moodle-plugin-ci (full CI suite)
+
+CI runs the exact pipeline defined in `.github/workflows/ci.yml`. To reproduce
+it locally, install [`moodle-plugin-ci`](https://moodlehq.github.io/moodle-plugin-ci/)
+and run each step against the plugin:
+
+```bash
+moodle-plugin-ci phplint
+moodle-plugin-ci phpmd
+moodle-plugin-ci phpcs --max-warnings 0
+moodle-plugin-ci phpdoc --max-warnings 0
+moodle-plugin-ci validate
+moodle-plugin-ci savepoints
+moodle-plugin-ci mustache
+moodle-plugin-ci grunt --max-lint-warnings 0
+moodle-plugin-ci phpunit --fail-on-warning
+moodle-plugin-ci behat --profile chrome
+```
+
+Path exclusions for the linters live in:
+
+- `.moodle-plugin-ci.yml` &mdash; `filter.notPaths` / `notNames` for
+  phpcs/phpmd/phplint/phpdoc/phpcpd.
+- `.phpcs.xml.dist` &mdash; the `moodle` ruleset with `dist/`, `research/`,
+  `node_modules/`, `vendor/`, `amd/build/` and `*.min.*` excluded.
+- `.eslintignore` / `.stylelintignore` &mdash; used by `grunt`.
+- `thirdpartylibs.xml` &mdash; declares `dist/static` (embedded editor) and the
+  pipwerks SCORM wrappers in `assets/scorm/` as third-party code so `validate`
+  does not flag them.
+
+## Docker
+
+The repository ships a Docker stack (`docker-compose.yml`) whose `moodle`
+service mounts the plugin at `/var/www/html/mod/exelearning`.
+
+```bash
+# Start the stack.
+docker compose up -d
+
+# Open a shell in the Moodle container.
+docker compose exec moodle bash
+
+# Then, from inside the container (cwd /var/www/html):
+php admin/tool/phpunit/cli/init.php
+vendor/bin/phpunit --filter mod_exelearning
+
+php admin/tool/behat/cli/init.php
+vendor/bin/behat --tags @mod_exelearning
+```
+
+Behat needs a browser driver reachable from the container; add a Selenium
+service to the compose stack or point Behat at an external Selenium/Chrome
+instance.
