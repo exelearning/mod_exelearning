@@ -328,13 +328,35 @@ function exelearning_save_and_extract_package(stdClass $data): void {
             'mod_exelearning', 'package', 0,
             ['subdirs' => 0, 'maxfiles' => 1]);
 
-    // 2) Localizar el ZIP recién guardado.
-    $files = $fs->get_area_files($context->id, 'mod_exelearning', 'package', 0,
+    // 2) Extraer el ZIP recién guardado al filearea de contenido.
+    exelearning_extract_stored_package($context->id, (int) $data->revision);
+}
+
+/**
+ * Extrae a `content/{revision}/` el ELPX ya almacenado en `package/0/`.
+ *
+ * Separado de exelearning_save_and_extract_package() para poder re-ejecutarse
+ * SIN un draft itemid (p.ej. el self-heal de view.php cuando una subida
+ * programática como el `addModule` del Playground dejó el paquete en
+ * filearea 'package' pero no extrajo/sincronizó). Idempotente: limpia el
+ * contenido previo y vuelve a extraer.
+ *
+ * @param int $contextid
+ * @param int $revision
+ */
+function exelearning_extract_stored_package(int $contextid, int $revision): void {
+    $fs = get_file_storage();
+
+    // Localizar el ZIP almacenado.
+    $files = $fs->get_area_files($contextid, 'mod_exelearning', 'package', 0,
             'sortorder, filepath, filename', false);
     $package = reset($files);
     if (!$package instanceof \stored_file) {
         return;
     }
+
+    $data = (object) ['revision' => $revision];
+    $context = (object) ['id' => $contextid];
 
     // 3) Limpiar contenido previo y extraer al revision actual.
     $fs->delete_area_files($context->id, 'mod_exelearning', 'content');

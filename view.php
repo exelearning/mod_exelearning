@@ -66,6 +66,25 @@ $fs = get_file_storage();
 $mainfile = $fs->get_file($context->id, 'mod_exelearning', 'content',
         (int) $exelearning->revision, '/', 'index.html');
 
+// Self-heal para subidas programáticas (p.ej. `addModule` del Moodle
+// Playground): si el ELPX está en filearea 'package' pero el contenido no se
+// extrajo o los grade items no se detectaron (porque esa vía no pasó por
+// exelearning_add_instance), recuperarlo aquí. Idempotente: sólo actúa cuando
+// falta algo, así que no penaliza la vista normal.
+$packagefiles = $fs->get_area_files($context->id, 'mod_exelearning', 'package', 0, 'id', false);
+if (!empty($packagefiles)) {
+    if (!$mainfile) {
+        exelearning_extract_stored_package($context->id, (int) $exelearning->revision);
+        $mainfile = $fs->get_file($context->id, 'mod_exelearning', 'content',
+                (int) $exelearning->revision, '/', 'index.html');
+    }
+    $hasgradable = $DB->record_exists_select('exelearning_grade_item',
+            'exelearningid = ? AND deleted = 0 AND itemnumber > 0', [$exelearning->id]);
+    if (!$hasgradable) {
+        exelearning_sync_grade_items($exelearning->id, $context->id);
+    }
+}
+
 echo $OUTPUT->header();
 echo $OUTPUT->heading(format_string($exelearning->name));
 
