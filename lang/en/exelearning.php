@@ -35,6 +35,7 @@ $string['exelearning:addinstance']           = 'Add a new eXeLearning resource';
 $string['exelearning:view']                  = 'View an eXeLearning resource';
 $string['exelearning:savetrack']             = 'Save tracking interactions';
 $string['exelearning:viewreport']            = 'View reports';
+$string['exelearning:deleteattempt']         = 'Delete student attempts';
 $string['exelearning:manageembeddededitor']  = 'Manage the embedded eXeLearning editor settings';
 
 $string['package']       = 'Package file (.elpx)';
@@ -67,6 +68,26 @@ $string['grademethod_first']      = 'First attempt';
 $string['grademethod_last']       = 'Last attempt';
 $string['grademethod_lowest']     = 'Lowest attempt';
 
+// DEC-0008: gradebook columns model.
+$string['grademodel']         = 'Gradebook columns';
+$string['grademodel_help']    = 'Choose how this activity reports to the gradebook. "Overall only": one aggregated column (like SCORM). "Per iDevice only": one column per gradable iDevice. "Both": an overall column plus one per iDevice, with the overall excluded from the course total so the student is not graded twice for the same work.';
+$string['grademodel_overall'] = 'Overall only';
+$string['grademodel_peritem'] = 'Per iDevice only';
+$string['grademodel_both']    = 'Both (overall excluded from course total)';
+
+// DEC-0007 phase 2: attempt limit + review.
+$string['maxattempt']         = 'Attempts allowed';
+$string['maxattempt_help']    = 'Maximum number of attempts a student may submit. Set to 0 for unlimited attempts. One attempt corresponds to one page-load session of the activity.';
+$string['reviewmode']         = 'Students may review attempts';
+$string['reviewmode_help']    = 'Controls whether students can see a summary of their own previous attempts on the activity page.';
+$string['reviewmode_always']  = 'Always';
+$string['reviewmode_aftercompletion'] = 'After the activity is complete';
+$string['reviewmode_none']    = 'Never';
+$string['attemptsused']       = 'Attempts used: {$a}';
+$string['attemptsofmax']      = 'Attempts: {$a->used} of {$a->max}';
+$string['maxattemptsreached'] = 'You have used all your allowed attempts for this activity.';
+$string['attemptdeleted']     = 'The attempt was deleted and the grade was recalculated.';
+
 // DEC-0007: attempts report.
 $string['attempts']          = 'Attempts';
 $string['attempt']           = 'Attempt';
@@ -80,6 +101,8 @@ $string['report_overall']    = 'Overall';
 $string['report_score']      = 'Score';
 $string['report_status']     = 'Status';
 $string['report_date']       = 'Submitted';
+$string['report_actions']    = 'Actions';
+$string['deleteattempt']     = 'Delete attempt';
 $string['nopermissionreport'] = 'You do not have permission to view the attempts report for this activity.';
 
 $string['areacontent']      = 'Extracted package files';

@@ -131,18 +131,18 @@ Go to:
 
     {your/moodle/dirroot}/admin/settings.php?section=modsettingexelearning
 
-The plugin exposes a single site-wide setting plus a link to the editor
-management page (see [DEC-0009](./research/decisiones/adr/DEC-0009-solo-editor-embebido.md)
-for the rationale of dropping the eXeLearning Online integration):
+All settings live on a single admin page (see
+[DEC-0009](./research/decisiones/adr/DEC-0009-solo-editor-embebido.md) for the
+rationale of dropping the eXeLearning Online integration — only the embedded
+editor remains):
 
-* **Embedded eXeLearning editor**: `exelearning | embeddededitor`
-  * Toggles the in-browser eXeLearning editor for authors. When enabled, the
-    activity form shows an _Edit with eXeLearning_ button. If the editor is
-    not installed yet, administrators can install it from the management page
-    below.
-* **Manage embedded editor**: link to `/mod/exelearning/manage_embedded_editor.php`
-  * Install / update / remove the editor (download the latest release from
-    GitHub or upload a ZIP). Configure default templates and styles.
+* **Embedded editor management** (inline widget): install / update / repair /
+  uninstall the editor, downloading the latest release from GitHub
+  (`exelearning/exelearning`) without leaving the settings page.
+* **Styles**: upload eXeLearning style packages (`.zip`), enable/disable the
+  editor's built-in styles, and optionally block users from importing styles
+  bundled inside an `.elpx`. A dedicated _Styles_ admin page lists and manages
+  them.
 
 ## Embedded editor management
 
@@ -165,10 +165,18 @@ gradable iDevices from `content.xml`. The current default emits:
 * One overall column per activity (`itemnumber=0`).
 * One column per detected gradable iDevice (`itemnumber=1..N`).
 
-The aggregation model is configurable per activity (see
-[DEC-0008](./research/decisiones/adr/DEC-0008-grade-aggregation-y-feedback.md)
-for the design): overall-only, per-iDevice-only, or both with overall excluded
-from the course total (recommended default to avoid double counting).
+The gradebook columns model is configurable per activity (see
+[DEC-0008](./research/decisiones/adr/DEC-0008-grade-aggregation-y-feedback.md)):
+**overall only**, **per-iDevice only**, or **both** with the overall excluded
+from the course total (default, avoids double counting).
+
+Each submission is stored as an **attempt** (see
+[DEC-0007](./research/decisiones/adr/DEC-0007-gestion-intentos.md)); the
+gradebook value is the configured aggregation (highest / average / first / last
+/ lowest). You can cap the number of attempts, let students review their past
+attempts, and delete attempts from the teacher report (the grade is
+recalculated). Completion can require a passing grade (SCORM-style, see
+[DEC-0010](./research/decisiones/adr/DEC-0010-finalizacion-estilo-scorm.md)).
 
 Grading runtime uses a SCORM 1.2 bridge: a small `window.API` shim installed by
 `view.php` accepts `LMSSetValue` calls from the iDevice's bundled pipwerks
@@ -179,11 +187,12 @@ xAPI support via `core_xapi` is on the roadmap.
 
 See `research/decisiones/adr/` for the full set of ADRs. Highlights:
 
-* [DEC-0003](./research/decisiones/adr/DEC-0003-estandar-tracking-y-multi-grade-items.md) — tracking standard and multi-grade-items.
-* [DEC-0005](./research/decisiones/adr/DEC-0005-editor-embebido-exelearning.md) — embedded editor inherited from `mod_exeweb`.
-* [DEC-0006](./research/decisiones/adr/DEC-0006-modos-preview-grading.md) — preview vs grading modes.
-* [DEC-0007](./research/decisiones/adr/DEC-0007-gestion-intentos.md) — multi-attempt support.
-* [DEC-0008](./research/decisiones/adr/DEC-0008-grade-aggregation-y-feedback.md) — overall vs per-iDevice grade aggregation.
+* [DEC-0003](./research/decisiones/adr/DEC-0003-estandar-tracking-y-multi-grade-items.md) — tracking standard and multi-grade-items (xAPI: proposed).
+* [DEC-0006](./research/decisiones/adr/DEC-0006-modos-preview-grading.md) — preview vs grading modes (done).
+* [DEC-0007](./research/decisiones/adr/DEC-0007-gestion-intentos.md) — multi-attempt support (done).
+* [DEC-0008](./research/decisiones/adr/DEC-0008-grade-aggregation-y-feedback.md) — overall vs per-iDevice grade aggregation (done).
+* [DEC-0009](./research/decisiones/adr/DEC-0009-solo-editor-embebido.md) — embedded editor only, no eXeLearning Online (done).
+* [DEC-0010](./research/decisiones/adr/DEC-0010-finalizacion-estilo-scorm.md) — SCORM-style completion by passing grade (done).
 
 ## Development
 

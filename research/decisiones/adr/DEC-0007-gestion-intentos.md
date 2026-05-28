@@ -201,8 +201,12 @@ Ficheros: `classes/local/attempts.php`, `db/{install.xml,upgrade.php}`
 `backup/moodle2/*`, `lang/en/exelearning.php`. Finalización por aprobado en
 [[DEC-0010]].
 
-Diferido a iteración futura: `maxattempt` (límite de intentos) y `reviewmode`
-(revisión read-only de intentos previos); botón "borrar intento" en el report.
+**Fase 2 (misma sesión)**: implementados `maxattempt` (límite de intentos,
+0=ilimitado, enforced en `track.php`), `reviewmode`
+(none/always/aftercompletion, resumen al alumno en `view.php`) y **borrar
+intento** en `report.php` (capability `mod/exelearning:deleteattempt` +
+`exelearning_recalculate_user_grades()`). Campos nuevos en la instancia:
+`maxattempt`, `reviewmode` (version 2026052803).
 
 ## Seguimiento
 

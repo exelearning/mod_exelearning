@@ -85,6 +85,33 @@ class mod_exelearning_mod_form extends moodleform_mod {
         $mform->setDefault('grademethod', \mod_exelearning\local\attempts::GRADE_HIGHEST);
         $mform->addHelpButton('grademethod', 'grademethod', 'mod_exelearning');
 
+        // Modelo de columnas en el libro de calificaciones (DEC-0008).
+        $mform->addElement('select', 'grademodel',
+                get_string('grademodel', 'mod_exelearning'), [
+                    EXELEARNING_GRADEMODEL_OVERALL => get_string('grademodel_overall', 'mod_exelearning'),
+                    EXELEARNING_GRADEMODEL_PERITEM => get_string('grademodel_peritem', 'mod_exelearning'),
+                    EXELEARNING_GRADEMODEL_BOTH    => get_string('grademodel_both', 'mod_exelearning'),
+                ]);
+        $mform->setDefault('grademodel', EXELEARNING_GRADEMODEL_BOTH);
+        $mform->addHelpButton('grademodel', 'grademodel', 'mod_exelearning');
+
+        // Límite de intentos por alumno (DEC-0007 fase 2): 0 = ilimitados.
+        $mform->addElement('text', 'maxattempt',
+                get_string('maxattempt', 'mod_exelearning'), ['size' => '6']);
+        $mform->setType('maxattempt', PARAM_INT);
+        $mform->setDefault('maxattempt', 0);
+        $mform->addHelpButton('maxattempt', 'maxattempt', 'mod_exelearning');
+
+        // Revisión de intentos por el alumno (DEC-0007 fase 2).
+        $reviewoptions = [];
+        foreach (\mod_exelearning\local\attempts::reviewmode_options() as $val => $strkey) {
+            $reviewoptions[$val] = get_string($strkey, 'mod_exelearning');
+        }
+        $mform->addElement('select', 'reviewmode',
+                get_string('reviewmode', 'mod_exelearning'), $reviewoptions);
+        $mform->setDefault('reviewmode', \mod_exelearning\local\attempts::REVIEW_ALWAYS);
+        $mform->addHelpButton('reviewmode', 'reviewmode', 'mod_exelearning');
+
         // Cómo se muestra la nota en el gradebook (numérico, porcentaje, letra).
         // Moodle ALMACENA siempre numérico; este selector sólo afecta a la
         // visualización por columna (gradedisplaytype del grade_item).

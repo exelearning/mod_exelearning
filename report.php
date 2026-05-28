@@ -43,6 +43,25 @@ $PAGE->set_title(format_string($exelearning->name) . ': ' . get_string('attempts
 $PAGE->set_heading(format_string($course->fullname));
 $PAGE->set_context($context);
 
+// Borrar intento (DEC-0007 fase 2): elimina todas las filas de un (userid,
+// attempt) y recalcula la nota del alumno desde el histórico restante.
+$deleteuser = optional_param('deleteuser', 0, PARAM_INT);
+$deleteattempt = optional_param('deleteattempt', 0, PARAM_INT);
+if ($deleteuser && $deleteattempt && confirm_sesskey()
+        && has_capability('mod/exelearning:deleteattempt', $context)) {
+    $DB->delete_records('exelearning_attempt', [
+        'exelearningid' => $exelearning->id,
+        'userid'        => $deleteuser,
+        'attempt'       => $deleteattempt,
+    ]);
+    exelearning_recalculate_user_grades($exelearning, $deleteuser);
+    redirect(new moodle_url('/mod/exelearning/report.php', ['id' => $cm->id]),
+            get_string('attemptdeleted', 'mod_exelearning'), null,
+            \core\output\notification::NOTIFY_SUCCESS);
+}
+
+$candelete = has_capability('mod/exelearning:deleteattempt', $context);
+
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('attemptsreport', 'mod_exelearning'));
 
@@ -80,6 +99,9 @@ $table->head = [
     get_string('report_status', 'mod_exelearning'),
     get_string('report_date', 'mod_exelearning'),
 ];
+if ($candelete) {
+    $table->head[] = get_string('report_actions', 'mod_exelearning');
+}
 $table->attributes['class'] = 'generaltable';
 
 foreach ($attempts as $a) {
@@ -88,7 +110,7 @@ foreach ($attempts as $a) {
     $itemlabel = $itemnames[(int) $a->itemnumber]
             ?? ('#' . $a->itemnumber);
     $score = format_float((float) $a->rawscore, 2) . ' / ' . format_float((float) $a->maxscore, 2);
-    $table->data[] = [
+    $row = [
         s($username),
         $a->attempt,
         $itemlabel,
@@ -96,6 +118,24 @@ foreach ($attempts as $a) {
         s($a->status),
         userdate($a->timemodified),
     ];
+    if ($candelete) {
+        // El enlace de borrado sólo en la fila overall (itemnumber=0) para no
+        // repetirlo por cada iDevice; borra el intento completo del alumno.
+        if ((int) $a->itemnumber === 0) {
+            $delurl = new moodle_url('/mod/exelearning/report.php', [
+                'id'            => $cm->id,
+                'deleteuser'    => $a->userid,
+                'deleteattempt' => $a->attempt,
+                'sesskey'       => sesskey(),
+            ]);
+            $row[] = html_writer::link($delurl,
+                    get_string('deleteattempt', 'mod_exelearning'),
+                    ['class' => 'btn btn-sm btn-outline-danger']);
+        } else {
+            $row[] = '';
+        }
+    }
+    $table->data[] = $row;
 }
 
 echo html_writer::table($table);

@@ -122,5 +122,29 @@ function xmldb_exelearning_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026052802, 'exelearning');
     }
 
+    // Stage 4 (2026052803): grademodel (DEC-0008) + maxattempt/reviewmode
+    // (DEC-0007 fase 2) en la instancia.
+    if ($oldversion < 2026052803) {
+        $instance = new xmldb_table('exelearning');
+
+        $grademodel = new xmldb_field('grademodel', XMLDB_TYPE_INTEGER, '4',
+                null, XMLDB_NOTNULL, null, '2', 'grademethod');
+        if (!$dbman->field_exists($instance, $grademodel)) {
+            $dbman->add_field($instance, $grademodel);
+        }
+        $maxattempt = new xmldb_field('maxattempt', XMLDB_TYPE_INTEGER, '10',
+                null, XMLDB_NOTNULL, null, '0', 'grademodel');
+        if (!$dbman->field_exists($instance, $maxattempt)) {
+            $dbman->add_field($instance, $maxattempt);
+        }
+        $reviewmode = new xmldb_field('reviewmode', XMLDB_TYPE_INTEGER, '4',
+                null, XMLDB_NOTNULL, null, '1', 'maxattempt');
+        if (!$dbman->field_exists($instance, $reviewmode)) {
+            $dbman->add_field($instance, $reviewmode);
+        }
+
+        upgrade_mod_savepoint(true, 2026052803, 'exelearning');
+    }
+
     return true;
 }

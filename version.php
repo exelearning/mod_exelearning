@@ -24,8 +24,8 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version   = 2026052802;       // YYYYMMDDXX.
-$plugin->release   = '0.4.0-dev';
+$plugin->version   = 2026052803;       // YYYYMMDDXX.
+$plugin->release   = '0.5.0-dev';
 $plugin->requires  = 2024100700;       // Moodle 4.5 LTS+.
 $plugin->component = 'mod_exelearning';
 $plugin->cron      = 0;

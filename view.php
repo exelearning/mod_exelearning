@@ -151,6 +151,50 @@ if (!$mainfile) {
                         ['class' => 'btn btn-sm btn-outline-primary']),
                 'mb-3');
     }
+    // Resumen de intentos para el alumno (DEC-0007 fase 2).
+    if (!$canpreview) {
+        $myattempts = $DB->get_records('exelearning_attempt', [
+            'exelearningid' => $exelearning->id,
+            'userid'        => $USER->id,
+            'itemnumber'    => 0,
+        ], 'attempt ASC');
+        $used = count($myattempts);
+        $maxattempt = (int) ($exelearning->maxattempt ?? 0);
+        if ($used > 0 || $maxattempt > 0) {
+            $label = ($maxattempt > 0)
+                    ? get_string('attemptsofmax', 'mod_exelearning',
+                            (object) ['used' => $used, 'max' => $maxattempt])
+                    : get_string('attemptsused', 'mod_exelearning', $used);
+            $class = ($maxattempt > 0 && $used >= $maxattempt)
+                    ? 'alert alert-warning mb-3' : 'alert alert-secondary mb-3';
+            echo html_writer::div($label, $class);
+        }
+        // Revisión de intentos previos, según reviewmode.
+        $reviewmode = (int) ($exelearning->reviewmode
+                ?? \mod_exelearning\local\attempts::REVIEW_ALWAYS);
+        $iscomplete = false;
+        $cinfo = new completion_info($course);
+        if ($cinfo->is_enabled($cm)) {
+            $cdata = $cinfo->get_data($cm, false, $USER->id);
+            $iscomplete = in_array((int) $cdata->completionstate,
+                    [COMPLETION_COMPLETE, COMPLETION_COMPLETE_PASS], true);
+        }
+        $canreview = ($reviewmode === \mod_exelearning\local\attempts::REVIEW_ALWAYS)
+                || ($reviewmode === \mod_exelearning\local\attempts::REVIEW_AFTERCOMPLETION
+                        && $iscomplete);
+        if ($canreview && $used > 0) {
+            $list = [];
+            foreach ($myattempts as $ma) {
+                $list[] = get_string('report_attempt', 'mod_exelearning') . ' ' . $ma->attempt
+                        . ': ' . format_float((float) $ma->rawscore, 2)
+                        . ' / ' . format_float((float) $ma->maxscore, 2);
+            }
+            echo html_writer::tag('details',
+                    html_writer::tag('summary', get_string('attempts', 'mod_exelearning'))
+                    . html_writer::alist($list),
+                    ['class' => 'mb-3']);
+        }
+    }
     // SCORM 1.2 shim: inyecta window.API en la ventana padre del iframe.
     // pipwerks SCORM (que usan los iDevices de eXeLearning v4) hace
     // `findAPI()` recorriendo `window.parent` buscando un objeto `API` con

@@ -116,6 +116,7 @@ if (is_string($suspend) && $suspend !== '') {
 
 $grademax = (float) ($exelearning->grademax ?? 100);
 $grademethod = (int) ($exelearning->grademethod ?? \mod_exelearning\local\attempts::GRADE_HIGHEST);
+$grademodel = (int) ($exelearning->grademodel ?? EXELEARNING_GRADEMODEL_BOTH);
 $itemdetailsbase = [
     'gradetype' => GRADE_TYPE_VALUE,
     'grademax'  => $exelearning->grademax ?? 100,
@@ -126,6 +127,24 @@ $itemdetailsbase = [
 // Resolver el número de intento (uno por carga de página).
 $attempt = \mod_exelearning\local\attempts::resolve_attempt_number(
         $exelearning->id, $USER->id, $sessiontoken);
+
+// Límite de intentos (DEC-0007 fase 2): si esta carga de página inaugura un
+// intento nuevo y el alumno ya agotó maxattempt, rechazar sin grabar.
+$maxattempt = (int) ($exelearning->maxattempt ?? 0);
+if ($maxattempt > 0) {
+    $sessionknown = ($sessiontoken !== '') && $DB->record_exists('exelearning_attempt',
+            ['exelearningid' => $exelearning->id, 'userid' => $USER->id, 'sessiontoken' => $sessiontoken]);
+    $priorcount = \mod_exelearning\local\attempts::count_user_attempts($exelearning->id, $USER->id);
+    if (!$sessionknown && $priorcount >= $maxattempt) {
+        echo json_encode([
+            'ok'      => false,
+            'error'   => 'maxattemptsreached',
+            'attempts' => $priorcount,
+            'maxattempt' => $maxattempt,
+        ]);
+        die;
+    }
+}
 
 // 1) Intentos + nota agregada por iDevice (itemnumber > 0).
 $persaved = [];
@@ -144,10 +163,14 @@ if ($peritem) {
         $scaled = \mod_exelearning\local\attempts::aggregate_scaled(
                 $exelearning->id, $USER->id, (int) $itemnumber, $grademethod);
         $finalitem = ($scaled === null) ? $rawitem : ($scaled * $grademax);
-        grade_update('mod/exelearning', $exelearning->course, 'mod', 'exelearning',
-                $exelearning->id, $itemnumber,
-                (object) ['userid' => $USER->id, 'rawgrade' => $finalitem],
-                $itemdetailsbase + ['itemname' => $rows[$itemnumber]->name]);
+        // En modo "sólo overall" no se publican columnas por iDevice (DEC-0008),
+        // pero el intento SÍ se registra para el report.
+        if ($grademodel !== EXELEARNING_GRADEMODEL_OVERALL) {
+            grade_update('mod/exelearning', $exelearning->course, 'mod', 'exelearning',
+                    $exelearning->id, $itemnumber,
+                    (object) ['userid' => $USER->id, 'rawgrade' => $finalitem],
+                    $itemdetailsbase + ['itemname' => $rows[$itemnumber]->name]);
+        }
         $persaved[$itemnumber] = $finalitem;
     }
 }
@@ -169,10 +192,15 @@ $grade = (object) [
     'feedback'  => null,
 ];
 
-$result = grade_update('mod/exelearning', $exelearning->course, 'mod',
-        'exelearning', $exelearning->id, 0, $grade, $itemdetailsbase + [
-            'itemname'  => clean_param($exelearning->name, PARAM_NOTAGS),
-        ]);
+// En modo "sólo por iDevice" no existe columna overall (DEC-0008).
+if ($grademodel === EXELEARNING_GRADEMODEL_PERITEM) {
+    $result = GRADE_UPDATE_OK;
+} else {
+    $result = grade_update('mod/exelearning', $exelearning->course, 'mod',
+            'exelearning', $exelearning->id, 0, $grade, $itemdetailsbase + [
+                'itemname'  => clean_param($exelearning->name, PARAM_NOTAGS),
+            ]);
+}
 
 // Recalcular finalización: con "exigir nota para aprobar" (completionpassgrade,
 // estilo SCORM) Moodle marca completada la actividad al alcanzar la nota de

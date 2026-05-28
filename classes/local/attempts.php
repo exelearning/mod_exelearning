@@ -44,6 +44,41 @@ class attempts {
     /** @var int Aggregation: lowest scaled score across attempts. */
     public const GRADE_LOWEST = 4;
 
+    /** @var int Review: students never see their past attempts. */
+    public const REVIEW_NONE = 0;
+    /** @var int Review: students can always review their past attempts. */
+    public const REVIEW_ALWAYS = 1;
+    /** @var int Review: students review only once the activity is complete. */
+    public const REVIEW_AFTERCOMPLETION = 2;
+
+    /**
+     * Selectable review modes, for the settings form.
+     *
+     * @return array<int,string> mode constant => lang string key
+     */
+    public static function reviewmode_options(): array {
+        return [
+            self::REVIEW_ALWAYS          => 'reviewmode_always',
+            self::REVIEW_AFTERCOMPLETION => 'reviewmode_aftercompletion',
+            self::REVIEW_NONE            => 'reviewmode_none',
+        ];
+    }
+
+    /**
+     * Count distinct attempts a user has on an activity (for maxattempt).
+     *
+     * @param int $exelearningid
+     * @param int $userid
+     * @return int
+     */
+    public static function count_user_attempts(int $exelearningid, int $userid): int {
+        global $DB;
+        return (int) $DB->count_records_sql(
+                "SELECT COUNT(DISTINCT attempt) FROM {exelearning_attempt}
+                  WHERE exelearningid = ? AND userid = ?",
+                [$exelearningid, $userid]);
+    }
+
     /**
      * All selectable aggregation methods, for the settings form.
      *

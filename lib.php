@@ -32,6 +32,11 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+// DEC-0008: modelo de columnas en el libro de calificaciones.
+define('EXELEARNING_GRADEMODEL_OVERALL', 0); // Sólo nota global (itemnumber=0).
+define('EXELEARNING_GRADEMODEL_PERITEM', 1); // Sólo una columna por iDevice.
+define('EXELEARNING_GRADEMODEL_BOTH', 2);    // Ambas, con overall excluido del total.
+
 /**
  * Features supported by this module.
  *
@@ -80,6 +85,15 @@ function exelearning_add_instance($data, $mform = null) {
     if (!isset($data->grademethod)) {
         $data->grademethod = \mod_exelearning\local\attempts::GRADE_HIGHEST;
     }
+    if (!isset($data->grademodel)) {
+        $data->grademodel = EXELEARNING_GRADEMODEL_BOTH;
+    }
+    if (!isset($data->maxattempt)) {
+        $data->maxattempt = 0;
+    }
+    if (!isset($data->reviewmode)) {
+        $data->reviewmode = \mod_exelearning\local\attempts::REVIEW_ALWAYS;
+    }
 
     $data->id = $DB->insert_record('exelearning', $data);
 
@@ -120,6 +134,15 @@ function exelearning_update_instance($data, $mform = null) {
     }
     if (!isset($data->grademethod)) {
         $data->grademethod = \mod_exelearning\local\attempts::GRADE_HIGHEST;
+    }
+    if (!isset($data->grademodel)) {
+        $data->grademodel = EXELEARNING_GRADEMODEL_BOTH;
+    }
+    if (!isset($data->maxattempt)) {
+        $data->maxattempt = 0;
+    }
+    if (!isset($data->reviewmode)) {
+        $data->reviewmode = \mod_exelearning\local\attempts::REVIEW_ALWAYS;
     }
 
     $DB->update_record('exelearning', $data);
@@ -520,12 +543,21 @@ function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null
         return;
     }
 
-    // Grade item canónico (itemnumber=0).
-    exelearning_grade_item_update($instance);
+    $grademodel = (int) ($instance->grademodel ?? EXELEARNING_GRADEMODEL_BOTH);
+
+    // Grade item canónico (itemnumber=0) según el modelo de calificación (DEC-0008).
+    if ($grademodel === EXELEARNING_GRADEMODEL_PERITEM) {
+        // Sólo por iDevice: el overall no debe existir en el libro.
+        grade_update('mod/exelearning', $instance->course, 'mod', 'exelearning',
+                $instance->id, 0, null, ['deleted' => true]);
+    } else {
+        exelearning_grade_item_update($instance);
+    }
 
     // Detección.
     $detected = (new \mod_exelearning\local\package($elpx))->detect_gradable_idevices();
     if ($detected === []) {
+        // En modo BOTH no hay items por iDevice → el overall no necesita excluirse.
         return;
     }
 
@@ -569,14 +601,21 @@ function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null
         }
         $seen[$d->objectid] = true;
 
-        grade_update('mod/exelearning', $instance->course, 'mod', 'exelearning',
-                $instance->id, $itemnumber, null, [
-                    'itemname'  => $name,
-                    'gradetype' => GRADE_TYPE_VALUE,
-                    'grademax'  => $instance->grademax ?? 100,
-                    'grademin'  => $instance->grademin ?? 0,
-                    'display'   => (int) ($instance->gradedisplaytype ?? GRADE_DISPLAY_TYPE_DEFAULT),
-                ]);
+        if ($grademodel === EXELEARNING_GRADEMODEL_OVERALL) {
+            // Sólo overall: no exponer columnas por iDevice en el libro
+            // (la fila se conserva para el report de intentos).
+            grade_update('mod/exelearning', $instance->course, 'mod', 'exelearning',
+                    $instance->id, $itemnumber, null, ['deleted' => true]);
+        } else {
+            grade_update('mod/exelearning', $instance->course, 'mod', 'exelearning',
+                    $instance->id, $itemnumber, null, [
+                        'itemname'  => $name,
+                        'gradetype' => GRADE_TYPE_VALUE,
+                        'grademax'  => $instance->grademax ?? 100,
+                        'grademin'  => $instance->grademin ?? 0,
+                        'display'   => (int) ($instance->gradedisplaytype ?? GRADE_DISPLAY_TYPE_DEFAULT),
+                    ]);
+        }
     }
 
     // Marcar como deleted los items previos que ya no aparecen.
@@ -586,6 +625,85 @@ function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null
             $row->timemodified = time();
             $DB->update_record('exelearning_grade_item', $row);
         }
+    }
+
+    // Modo BOTH (DEC-0008): el overall se muestra pero NO suma al total del
+    // curso (evita el doble conteo overall + iDevices).
+    if ($grademodel === EXELEARNING_GRADEMODEL_BOTH) {
+        exelearning_exclude_overall_from_total($instance);
+    }
+}
+
+/**
+ * Excluye el grade item overall (itemnumber=0) del total del curso fijando su
+ * peso a 0 en la agregación Natural (modo BOTH, DEC-0008). El overall sigue
+ * visible como "total de la actividad" pero no se suma dos veces.
+ *
+ * @param stdClass $instance
+ */
+function exelearning_exclude_overall_from_total(stdClass $instance): void {
+    global $CFG;
+    require_once($CFG->libdir . '/grade/grade_item.php');
+
+    $gi = \grade_item::fetch([
+        'itemtype'     => 'mod',
+        'itemmodule'   => 'exelearning',
+        'iteminstance' => $instance->id,
+        'itemnumber'   => 0,
+        'courseid'     => $instance->course,
+    ]);
+    if (!$gi) {
+        return;
+    }
+    $gi->weightoverride = 1;
+    $gi->aggregationcoef2 = 0;
+    $gi->update();
+}
+
+/**
+ * Recalcula las notas del libro de un alumno desde su histórico de intentos,
+ * respetando grademethod y grademodel. Usado tras borrar un intento (DEC-0007
+ * fase 2). Si un item ya no tiene intentos, limpia su nota (rawgrade=null).
+ *
+ * @param stdClass $instance
+ * @param int $userid
+ */
+function exelearning_recalculate_user_grades(stdClass $instance, int $userid): void {
+    global $CFG, $DB;
+    require_once($CFG->libdir . '/gradelib.php');
+
+    $grademax = (float) ($instance->grademax ?? 100);
+    $grademethod = (int) ($instance->grademethod ?? \mod_exelearning\local\attempts::GRADE_HIGHEST);
+    $grademodel = (int) ($instance->grademodel ?? EXELEARNING_GRADEMODEL_BOTH);
+    $base = [
+        'gradetype' => GRADE_TYPE_VALUE,
+        'grademax'  => $grademax,
+        'grademin'  => $instance->grademin ?? 0,
+        'display'   => (int) ($instance->gradedisplaytype ?? GRADE_DISPLAY_TYPE_DEFAULT),
+    ];
+
+    $items = [0 => clean_param($instance->name, PARAM_NOTAGS)];
+    $rows = $DB->get_records('exelearning_grade_item',
+            ['exelearningid' => $instance->id, 'deleted' => 0], 'itemnumber', 'itemnumber, name');
+    foreach ($rows as $r) {
+        $items[(int) $r->itemnumber] = $r->name;
+    }
+
+    foreach ($items as $itemnumber => $name) {
+        if ($itemnumber === 0 && $grademodel === EXELEARNING_GRADEMODEL_PERITEM) {
+            continue;
+        }
+        if ($itemnumber > 0 && $grademodel === EXELEARNING_GRADEMODEL_OVERALL) {
+            continue;
+        }
+        $scaled = \mod_exelearning\local\attempts::aggregate_scaled(
+                $instance->id, $userid, $itemnumber, $grademethod);
+        $grade = (object) [
+            'userid'   => $userid,
+            'rawgrade' => ($scaled === null) ? null : ($scaled * $grademax),
+        ];
+        grade_update('mod/exelearning', $instance->course, 'mod', 'exelearning',
+                $instance->id, $itemnumber, $grade, $base + ['itemname' => $name]);
     }
 }
 

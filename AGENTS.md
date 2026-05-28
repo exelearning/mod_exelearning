@@ -37,16 +37,18 @@ Reglas operativas de investigación: [`research/AGENTS.md`](./research/AGENTS.md
 - README estilo `mod_exeweb`, dependabot, composer.json.
 
 ### Pendiente (orden sugerido)
-1. **TAREA-027 (DEC-0008)**: implementar selector `grademodel` (`overall` / `peritem` /
-   `both` con `grade_category` propia y overall excluido del total del curso). Resuelve
-   el doble conteo actual (3 columnas suman 65% por una actividad).
-2. **Settings del editor como `mod_exeweb`**: falta la página `manage_embedded_editor.php`
-   (settings.php enlaza a ella pero no existe → 404) + AMD del modal + la parte de
-   "estilos definidos". El instalador GitHub + external API ya están portados.
-3. **TAREA-021**: debug `editor/index.php?id=N` devuelve 404.
-4. Intentos: pendiente `maxattempt` + `reviewmode` + "borrar intento" en el report (DEC-0007).
-5. Cierre DEC-0003 con matriz cuantificada → Aceptada.
-6. CI: `ci.yml` con matriz moodle-plugin-ci (DEC-0004).
+1. **TAREA-021**: `editor/index.php?id=N` devuelve 404 (lanzar editor embebido por actividad).
+2. Cierre DEC-0003 con matriz cuantificada → Aceptada (xAPI nativo `core_xapi`).
+3. Verificación e2e por navegador de: completado tras aprobar, grademodel both/overall/peritem
+   en el libro, límite de intentos y revisión del alumno.
+
+### Hecho en sesión 2026-05-28 (tarde-noche, claude-opus-4-8)
+- DEC-0008 `grademodel` (selector overall/peritem/both, both excluye overall del total).
+- DEC-0007 fase 2: `maxattempt` + `reviewmode` + borrar intento en `report.php` (cap
+  `mod/exelearning:deleteattempt`) + recálculo `exelearning_recalculate_user_grades`.
+- Editor embebido **inline en settings** + **estilos definidos** portados de
+  `exelearning/mod_exeweb` (DEC-0009: sin modo online). Página rota eliminada.
+- CI `ci.yml` con matriz moodle-plugin-ci (DEC-0004).
 
 ## Decisiones clave (ver `research/decisiones/adr/`)
 
@@ -59,7 +61,7 @@ Reglas operativas de investigación: [`research/AGENTS.md`](./research/AGENTS.md
 | DEC-0005 | **Superseded** by DEC-0009 | Editor embebido (versión con online) |
 | DEC-0006 | Aceptada | Modos preview/grading |
 | DEC-0007 | **Aceptada** | Intentos: tabla plana `exelearning_attempt` + `grademethod` (implementado) |
-| DEC-0008 | Propuesta | Agregación grades: `overall`/`peritem`/`both` |
+| DEC-0008 | **Aceptada** | Selector `grademodel` `overall`/`peritem`/`both` (both excluye overall del total) |
 | DEC-0009 | Aceptada | **Sólo editor embebido**; eliminado eXeLearning Online / hmac |
 | DEC-0010 | **Aceptada** | Finalización estilo SCORM = core `completionpassgrade` + `gradepass` |
 

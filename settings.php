@@ -19,9 +19,9 @@
  *
  * DEC-0009: sólo modo editor embebido. La integración con eXeLearning Online
  * queda descartada para evitar dependencias externas. La instalación /
- * actualización / configuración del editor (descargar release desde GitHub,
- * subir un ZIP, gestionar plantillas y estilos) se hace desde la página
- * `manage_embedded_editor.php`, con capability
+ * actualización / reparación / desinstalación del editor (descargando una
+ * release desde GitHub) y la gestión de estilos definidos se realizan
+ * íntegramente desde esta misma página de ajustes, con la capability
  * `mod/exelearning:manageembeddededitor`.
  *
  * @package    mod_exelearning
@@ -31,20 +31,53 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-if ($ADMIN->fulltree) {
-    // Toggle del editor embebido.
-    $settings->add(new admin_setting_configcheckbox(
-            'exelearning/embeddededitor',
-            get_string('embeddededitor', 'mod_exelearning'),
-            get_string('embeddededitor_desc', 'mod_exelearning'),
-            1));
+// Register the styles management external page so it can be linked from the
+// settings page and reached directly. Must be added before the $fulltree
+// guard so it is always registered in the admin tree.
+$ADMIN->add('modsettings', new admin_externalpage(
+    'mod_exelearning_styles',
+    get_string('stylesmanager', 'mod_exelearning'),
+    new moodle_url('/mod/exelearning/admin/styles.php'),
+    'mod/exelearning:manageembeddededitor'
+));
 
-    // Enlace a la página de gestión (instalar / actualizar / plantillas).
-    $manageurl = new moodle_url('/mod/exelearning/manage_embedded_editor.php');
-    $settings->add(new admin_setting_description(
-            'exelearning/manage_link',
-            get_string('manage_editor_heading', 'mod_exelearning'),
-            html_writer::link($manageurl,
-                    get_string('manage_editor_link', 'mod_exelearning'),
-                    ['class' => 'btn btn-secondary'])));
+if ($ADMIN->fulltree) {
+
+    // -------------------------------------------------------------------------
+    // Embedded editor management (install / update / repair / uninstall).
+    // -------------------------------------------------------------------------
+    $settings->add(new admin_setting_heading(
+        'mod_exelearning/embeddededitorheading',
+        get_string('embeddededitorsettings', 'mod_exelearning'),
+        get_string('editormanagementhelp', 'mod_exelearning')
+    ));
+
+    // Inline editor management card (AJAX install/update/repair/uninstall).
+    $settings->add(new \mod_exelearning\admin\admin_setting_embeddededitor());
+
+    // -------------------------------------------------------------------------
+    // Defined styles management (upload / enable / disable / lockdown).
+    // -------------------------------------------------------------------------
+    $settings->add(new admin_setting_heading(
+        'mod_exelearning/stylesheading',
+        get_string('stylesmanager', 'mod_exelearning'),
+        get_string('stylesmanager_intro', 'mod_exelearning')
+    ));
+
+    // Upload a new style ZIP.
+    $settings->add(new \mod_exelearning\admin\admin_setting_stylesupload());
+
+    // List of uploaded styles with enable/disable/delete actions.
+    $settings->add(new \mod_exelearning\admin\admin_setting_stylesuploaded());
+
+    // List of built-in themes with enable/disable toggles.
+    $settings->add(new \mod_exelearning\admin\admin_setting_stylesbuiltins());
+
+    // Block importing/installing styles from project content.
+    $settings->add(new admin_setting_configcheckbox(
+        'exelearning/stylesblockimport',
+        get_string('stylesblockimport', 'mod_exelearning'),
+        get_string('stylesblockimport_desc', 'mod_exelearning'),
+        0
+    ));
 }

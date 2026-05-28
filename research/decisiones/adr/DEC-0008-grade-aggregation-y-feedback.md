@@ -1,7 +1,7 @@
 ---
 id: DEC-0008
 titulo: "Agregación de grade items: nota global, por iDevice o ambas (con global excluida)"
-estado: Propuesta
+estado: Aceptada
 fecha: 2026-05-28
 agentes:
   - erseco
@@ -173,3 +173,28 @@ Negativas:
 - TAREA-029: documentar el modelo en `lang/en/exelearning.php` con strings
   de ayuda claros.
 - TAREA-030: testear backup/restore con `grade_category` propia.
+
+## Actualización — Implementado (2026-05-28, claude-opus-4-8)
+
+Estado → **Aceptada**. Implementado el **selector `grademodel`** (campo int en
+`exelearning`, default `2 = both`) con las tres ramas en
+`exelearning_sync_grade_items()` y, en espejo, en `track.php`:
+
+- `overall (0)`: `grade_update` sólo del `itemnumber=0`; los `>0` se marcan
+  `deleted` en gradelib pero las filas `exelearning_grade_item` se conservan
+  para el report.
+- `peritem (1)`: `grade_update` sólo de los `>0`; el `itemnumber=0` se borra del
+  libro.
+- `both (2)`: emite todos y **excluye el overall del total del curso** con la vía
+  ligera `grade_item->weightoverride=1` + `aggregationcoef2=0`
+  (`exelearning_exclude_overall_from_total()`), en lugar de crear una
+  `grade_category` propia. Simplificación consciente sobre la opción C del ADR:
+  evita la complejidad de categoría + su backup/restore; funciona con la
+  agregación Natural (default de Moodle). Si en el futuro se requiere exclusión
+  bajo cualquier método de agregación, migrar a `grade_category`.
+
+`feedback` ya es `null` en `track.php` (TAREA-028 hecho). Strings de ayuda en
+`lang/en/exelearning.php` (`grademodel*`). Formulario: selector en `mod_form.php`.
+Diferido: testeo de backup con la exclusión (el backup actual incluye la
+instancia con `grademodel`, así que el modelo se restaura; la marca de peso 0 se
+re-aplica al re-sincronizar).
