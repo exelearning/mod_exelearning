@@ -66,6 +66,20 @@ $config = [
 
 \core\session\manager::set_user(get_admin());
 
+// Workaround para erseco/alpine-moodle:v5.0.7: el observer de mod_forum
+// (mod_forum_observer::course_created) lee $CFG->forum_announcementsubscription
+// y $CFG->forum_announcementmaxattachments y, si no están seteados, inserta
+// NULL en `forcesubscribe`/`maxattachments` de mdl_forum → exception.
+// Fijamos defaults razonables ANTES de create_course().
+if (!isset($CFG->forum_announcementsubscription)) {
+    set_config('forum_announcementsubscription', '1'); // FORUM_FORCESUBSCRIBE.
+    $CFG->forum_announcementsubscription = '1';
+}
+if (!isset($CFG->forum_announcementmaxattachments)) {
+    set_config('forum_announcementmaxattachments', '9');
+    $CFG->forum_announcementmaxattachments = '9';
+}
+
 // --- 1) Categoría ---------------------------------------------------------
 
 $category = $DB->get_record('course_categories', ['name' => $config['category_name']]);
@@ -140,7 +154,21 @@ $ensure_user = function (array $u, string $pass, int $roleid) use ($course, $cou
     $instance = $DB->get_record('enrol', ['courseid' => $course->id, 'enrol' => 'manual'], '*');
     if (!$instance) {
         $courseobj = $DB->get_record('course', ['id' => $course->id], '*', MUST_EXIST);
-        $instanceid = $enrol->add_default_instance($courseobj);
+        // En Moodle 5.0.7 + erseco/alpine-moodle, los defaults globales pueden
+        // no estar seteados → add_default_instance() inserta NULL en `status`
+        // y la fila falla. Pasamos campos explícitos.
+        $fields = [
+            'status'           => ENROL_INSTANCE_ENABLED,
+            'enrolperiod'      => 0,
+            'expirynotify'     => 0,
+            'notifyall'        => 0,
+            'expirythreshold'  => 86400,
+            'roleid'           => 0,
+            'customint1'       => 0,
+            'enrolstartdate'   => 0,
+            'enrolenddate'     => 0,
+        ];
+        $instanceid = $enrol->add_instance($courseobj, $fields);
         $instance = $DB->get_record('enrol', ['id' => $instanceid], '*', MUST_EXIST);
     }
     if (!is_enrolled($coursecontext, $user, '', true)) {
