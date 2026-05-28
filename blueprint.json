@@ -101,6 +101,10 @@
       "intro":   "Cuestionario demo con dos iDevices calificables (trueorfalse + guess).",
       "revision": 1,
       "display":  1,
+      "gradepass": 50,
+      "completion": 2,
+      "completionusegrade": 1,
+      "completionpassgrade": 1,
       "files": [
         {
           "filearea": "package",
@@ -108,6 +112,50 @@
           "filename": "actividad-evaluable.elpx",
           "data": {
             "url": "https://raw.githubusercontent.com/ateeducacion/mod_exelearning/main/research/fixtures/elpx/actividad-evaluable.elpx"
+          }
+        }
+      ]
+    },
+    {
+      "step": "addModule",
+      "module":  "scorm",
+      "course":  "EXEDEMO",
+      "section": 1,
+      "name":    "Actividad SCORM evaluable (demo)",
+      "intro":   "Paquete SCORM 1.2 de ejemplo (exportado desde eXeLearning). Soporta intentos múltiples y finalización por aprobado.",
+      "gradepass": 50,
+      "completion": 2,
+      "completionusegrade": 1,
+      "completionpassgrade": 1,
+      "files": [
+        {
+          "filearea": "packagefile",
+          "itemid":   1,
+          "filename": "actividad-evaluable_scorm.zip",
+          "data": {
+            "url": "https://raw.githubusercontent.com/ateeducacion/mod_exelearning/main/research/fixtures/scorm/actividad-evaluable_scorm.zip"
+          }
+        }
+      ]
+    },
+    {
+      "step": "addModule",
+      "module":  "h5pactivity",
+      "course":  "EXEDEMO",
+      "section": 1,
+      "name":    "Actividad H5P evaluable (demo)",
+      "intro":   "Conjunto de preguntas H5P (varias tareas evaluables con intentos múltiples y finalización por aprobado).",
+      "gradepass": 50,
+      "completion": 2,
+      "completionusegrade": 1,
+      "completionpassgrade": 1,
+      "files": [
+        {
+          "filearea": "packagefile",
+          "itemid":   1,
+          "filename": "question-set-demo.h5p",
+          "data": {
+            "url": "https://raw.githubusercontent.com/ateeducacion/mod_exelearning/main/research/fixtures/h5p/question-set-demo.h5p"
           }
         }
       ]

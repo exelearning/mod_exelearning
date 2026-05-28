@@ -142,6 +142,15 @@ if (!$mainfile) {
         echo s(implode(' · ', $labels));
         echo html_writer::end_div();
     }
+    // Enlace al reporte de intentos (DEC-0007), sólo para gestores/profesores.
+    if (has_capability('mod/exelearning:viewreport', $context)) {
+        $reporturl = new moodle_url('/mod/exelearning/report.php', ['id' => $cm->id]);
+        echo html_writer::div(
+                html_writer::link($reporturl,
+                        get_string('viewattemptsreport', 'mod_exelearning'),
+                        ['class' => 'btn btn-sm btn-outline-primary']),
+                'mb-3');
+    }
     // SCORM 1.2 shim: inyecta window.API en la ventana padre del iframe.
     // pipwerks SCORM (que usan los iDevices de eXeLearning v4) hace
     // `findAPI()` recorriendo `window.parent` buscando un objeto `API` con

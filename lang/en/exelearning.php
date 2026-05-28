@@ -55,6 +55,33 @@ $string['gradedisplay_percentage']       = 'Percentage';
 $string['gradedisplay_letter']           = 'Letter (A, B, …)';
 $string['gradedisplay_real_percentage']  = 'Real and percentage';
 
+$string['gradepass']       = 'Grade to pass';
+$string['gradepass_help']  = 'The minimum overall grade required to pass. When the "Require passing grade" completion condition is enabled, the activity is marked complete (SCORM-style) once the student reaches this grade. Leave at 0 to disable pass-based completion.';
+
+// DEC-0007: attempt aggregation.
+$string['grademethod']            = 'Attempts grading method';
+$string['grademethod_help']       = 'When a student submits more than once, this controls which value reaches the gradebook: the highest, the average, the first, the most recent (last), or the lowest of all attempts. Mirrors mod_scorm / mod_quiz.';
+$string['grademethod_highest']    = 'Highest attempt';
+$string['grademethod_average']    = 'Average of attempts';
+$string['grademethod_first']      = 'First attempt';
+$string['grademethod_last']       = 'Last attempt';
+$string['grademethod_lowest']     = 'Lowest attempt';
+
+// DEC-0007: attempts report.
+$string['attempts']          = 'Attempts';
+$string['attempt']           = 'Attempt';
+$string['attemptsreport']    = 'Attempts report';
+$string['viewattemptsreport'] = 'View attempts report';
+$string['noattempts']        = 'No attempts have been recorded yet.';
+$string['report_user']       = 'User';
+$string['report_attempt']    = 'Attempt';
+$string['report_item']       = 'Item';
+$string['report_overall']    = 'Overall';
+$string['report_score']      = 'Score';
+$string['report_status']     = 'Status';
+$string['report_date']       = 'Submitted';
+$string['nopermissionreport'] = 'You do not have permission to view the attempts report for this activity.';
+
 $string['areacontent']      = 'Extracted package files';
 $string['areapackage']      = 'Original package file (.elpx)';
 $string['packagenotfound']  = 'The eXeLearning package could not be found or has not finished extracting yet.';
@@ -63,7 +90,16 @@ $string['detecteditems']    = 'Gradable iDevices detected:';
 $string['viewstub']      = 'This is a placeholder view. The full mod_exelearning render (iframe + sidebar + xAPI bridge) is under construction. See <code>research/</code> in the plugin source for the design history.';
 $string['noexelearningactivities'] = 'There are no eXeLearning resources in this course yet.';
 
-$string['privacy:metadata'] = 'mod_exelearning does not store personal data by itself yet. Gradebook and xAPI interactions are handled by Moodle core subsystems.';
+// Privacy (DEC-0007): the plugin stores per-user attempt history.
+$string['privacy:metadata:exelearning_attempt'] = 'Attempt records for each submission a user makes on an eXeLearning gradable item.';
+$string['privacy:metadata:exelearning_attempt:userid'] = 'The user who made the attempt.';
+$string['privacy:metadata:exelearning_attempt:attempt'] = 'The sequential attempt number.';
+$string['privacy:metadata:exelearning_attempt:itemnumber'] = 'The gradable item (0 = overall, >0 = a specific iDevice).';
+$string['privacy:metadata:exelearning_attempt:rawscore'] = 'The raw score obtained in the attempt.';
+$string['privacy:metadata:exelearning_attempt:scaledscore'] = 'The score scaled to 0..1.';
+$string['privacy:metadata:exelearning_attempt:status'] = 'The status of the attempt (completed, passed, failed, incomplete).';
+$string['privacy:metadata:exelearning_attempt:timecreated'] = 'When the attempt was first recorded.';
+$string['privacy:metadata:exelearning_attempt:timemodified'] = 'When the attempt was last updated.';
 
 // Strings generadas para multi-grade-items (mod_exelearning\grades\gradeitems).
 // Moodle 5 form_trait pide get_string("grade_<itemname>_name", $component) por

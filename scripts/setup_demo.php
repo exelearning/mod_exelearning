@@ -193,70 +193,187 @@ foreach ($config['students'] as $s) {
     $ensure_user($s, $config['student_pass'], $studentroleid);
 }
 
-// --- 4) Actividad mod_exelearning ---------------------------------------
+// --- 4) Actividades demo (idempotentes) ---------------------------------
 
-if (!is_file($config['fixture_path'])) {
-    cli_writeln('  ! Fixture no encontrado: ' . $config['fixture_path']);
-    cli_writeln('    (saltando creación de actividad)');
-    cli_writeln('=== setup_demo terminado ===');
-    return;
+require_once($CFG->libdir . '/completionlib.php');
+
+// Habilitar finalización en el curso (necesario para "exigir nota para
+// aprobar", la condición estilo SCORM — DEC-0010).
+if (empty($course->enablecompletion)) {
+    $DB->set_field('course', 'enablecompletion', 1, ['id' => $course->id]);
+    $course->enablecompletion = 1;
+    rebuild_course_cache($course->id, true);
+    cli_writeln('  · Finalización por nota habilitada en el curso.');
 }
 
-$existing = $DB->get_record_sql('
-    SELECT e.* FROM {exelearning} e
-    JOIN {course_modules} cm ON cm.instance = e.id
-    JOIN {modules} m ON m.id = cm.module AND m.name = ?
-    WHERE e.course = ? AND e.name = ?
-', ['exelearning', $course->id, $config['activity_name']]);
-
-if ($existing) {
-    cli_writeln('  · Actividad existente: ' . $existing->name . ' (instance=' . $existing->id . ')');
-    cli_writeln('=== setup_demo terminado ===');
-    return;
-}
-
-// Subir el ELPX como draft del admin.
 $admin = get_admin();
 $adminctx = context_user::instance($admin->id);
 $fs = get_file_storage();
-$draftitemid = file_get_unused_draft_itemid();
-$fs->create_file_from_pathname([
-    'contextid' => $adminctx->id,
-    'component' => 'user',
-    'filearea'  => 'draft',
-    'itemid'    => $draftitemid,
-    'filepath'  => '/',
-    'filename'  => basename($config['fixture_path']),
-], $config['fixture_path']);
+$plugindir = $CFG->dirroot . '/mod/exelearning';
+$section = 1; // "Actividades evaluables" si existe; Moodle ajusta a General si no.
 
-// Crear el course_module + instance.
-$section = 0; // General.
-$moduleid = $DB->get_field('modules', 'id', ['name' => 'exelearning'], MUST_EXIST);
-$data = (object) [
-    'modulename'  => 'exelearning',
-    'module'      => $moduleid,
-    'course'      => $course->id,
-    'section'     => $section,
-    'visible'     => 1,
-    'visibleoncoursepage' => 1,
-    'name'        => $config['activity_name'],
-    'intro'       => 'Cuestionario demo con dos iDevices (trueorfalse + guess).',
-    'introformat' => FORMAT_HTML,
-    'package'     => $draftitemid,
-    'grademax'    => 100,
-    'grademin'    => 0,
-    'gradedisplaytype' => 0,
-    'cmidnumber'  => '',
-    'groupmode'   => NOGROUPS,
-    'groupingid'  => 0,
+// Fixtures de las actividades.
+$fixtures = [
+    'exelearning' => $config['fixture_path'],
+    'scorm'       => $plugindir . '/research/fixtures/scorm/actividad-evaluable_scorm.zip',
+    'h5p'         => $plugindir . '/research/fixtures/h5p/question-set-demo.h5p',
 ];
 
-$cm = add_moduleinfo($data, $course);
-cli_writeln('  · Actividad creada: ' . $config['activity_name']
-        . ' (cmid=' . $cm->coursemodule . ', instance=' . $cm->instance . ')');
+// ¿Existe ya una actividad <modname> con ese nombre en el curso?
+$module_exists = function (string $modname, string $name) use ($course): bool {
+    global $DB;
+    return $DB->record_exists_sql(
+        'SELECT 1 FROM {' . $modname . '} a
+         JOIN {course_modules} cm ON cm.instance = a.id
+         JOIN {modules} m ON m.id = cm.module AND m.name = :mname
+         WHERE a.course = :course AND a.name = :name',
+        ['mname' => $modname, 'course' => $course->id, 'name' => $name]);
+};
+
+// Crea un draft itemid con un fichero del disco.
+$make_draft = function (string $pathname) use ($adminctx, $fs): int {
+    $draftid = file_get_unused_draft_itemid();
+    $fs->create_file_from_pathname([
+        'contextid' => $adminctx->id,
+        'component' => 'user',
+        'filearea'  => 'draft',
+        'itemid'    => $draftid,
+        'filepath'  => '/',
+        'filename'  => basename($pathname),
+    ], $pathname);
+    return $draftid;
+};
+
+// Campos de finalización "estilo SCORM: hay que aprobar" (DEC-0010): usamos la
+// condición core "exigir nota para aprobar" (completionpassgrade), uniforme
+// para exelearning, SCORM y H5P.
+$completionpass = [
+    'completion'                => COMPLETION_TRACKING_AUTOMATIC,
+    'completionview'            => 0,
+    'completionusegrade'        => 1,
+    'completionpassgrade'       => 1,
+    'completiongradeitemnumber' => 0,
+    'completionexpected'        => 0,
+];
+
+// 4a) mod_exelearning ------------------------------------------------------
+if (is_file($fixtures['exelearning']) && !$module_exists('exelearning', $config['activity_name'])) {
+    try {
+        $data = (object) array_merge([
+            'modulename'  => 'exelearning',
+            'module'      => $DB->get_field('modules', 'id', ['name' => 'exelearning'], MUST_EXIST),
+            'course'      => $course->id,
+            'section'     => $section,
+            'visible'     => 1,
+            'visibleoncoursepage' => 1,
+            'name'        => $config['activity_name'],
+            'intro'       => 'Cuestionario demo con dos iDevices calificables (trueorfalse + guess).',
+            'introformat' => FORMAT_HTML,
+            'package'     => $make_draft($fixtures['exelearning']),
+            'grademax'    => 100,
+            'grademin'    => 0,
+            'gradepass'   => 50,
+            'grademethod' => \mod_exelearning\local\attempts::GRADE_HIGHEST,
+            'gradedisplaytype' => 0,
+            'cmidnumber'  => '',
+            'groupmode'   => NOGROUPS,
+            'groupingid'  => 0,
+        ], $completionpass);
+        $cm = add_moduleinfo($data, $course);
+        cli_writeln('  · mod_exelearning creado (cmid=' . $cm->coursemodule . ').');
+    } catch (\Throwable $e) {
+        cli_writeln('  ! mod_exelearning falló: ' . $e->getMessage());
+    }
+} else {
+    cli_writeln('  · mod_exelearning ya existe (o falta fixture).');
+}
+
+// 4b) mod_scorm ------------------------------------------------------------
+$scormname = 'Actividad SCORM evaluable (demo)';
+if (is_file($fixtures['scorm']) && !$module_exists('scorm', $scormname)) {
+    try {
+        $data = (object) array_merge([
+            'modulename'  => 'scorm',
+            'module'      => $DB->get_field('modules', 'id', ['name' => 'scorm'], MUST_EXIST),
+            'course'      => $course->id,
+            'section'     => $section,
+            'visible'     => 1,
+            'visibleoncoursepage' => 1,
+            'name'        => $scormname,
+            'intro'       => 'Paquete SCORM 1.2 de ejemplo (exportado desde eXeLearning).',
+            'introformat' => FORMAT_HTML,
+            'scormtype'   => 'local',
+            'packagefile' => $make_draft($fixtures['scorm']),
+            'popup'       => 0,
+            'width'       => 100,
+            'height'      => 500,
+            'skipview'    => 0,
+            'hidebrowse'  => 0,
+            'hidetoc'     => 0,
+            'nav'         => 1,
+            'navpositionleft'  => -100,
+            'navpositiontop'   => -100,
+            'displayattemptstatus' => 1,
+            'displaycoursestructure' => 0,
+            'updatefreq'  => 0,
+            'auto'        => 0,
+            'grademethod' => 1,   // GRADEHIGHEST.
+            'maxgrade'    => 100,
+            'whatgrade'   => 0,   // HIGHESTATTEMPT.
+            'maxattempt'  => 0,   // Ilimitados.
+            'forcecompleted' => 0,
+            'forcenewattempt' => 0,
+            'lastattemptlock' => 0,
+            'masteryoverride' => 1,
+            'cmidnumber'  => '',
+            'groupmode'   => NOGROUPS,
+            'groupingid'  => 0,
+        ], $completionpass);
+        $cm = add_moduleinfo($data, $course);
+        cli_writeln('  · mod_scorm creado (cmid=' . $cm->coursemodule . ').');
+    } catch (\Throwable $e) {
+        cli_writeln('  ! mod_scorm falló: ' . $e->getMessage());
+    }
+} else {
+    cli_writeln('  · mod_scorm ya existe (o falta fixture).');
+}
+
+// 4c) mod_h5pactivity ------------------------------------------------------
+$h5pname = 'Actividad H5P evaluable (demo)';
+if (is_file($fixtures['h5p']) && !$module_exists('h5pactivity', $h5pname)) {
+    try {
+        $data = (object) array_merge([
+            'modulename'   => 'h5pactivity',
+            'module'       => $DB->get_field('modules', 'id', ['name' => 'h5pactivity'], MUST_EXIST),
+            'course'       => $course->id,
+            'section'      => $section,
+            'visible'      => 1,
+            'visibleoncoursepage' => 1,
+            'name'         => $h5pname,
+            'intro'        => 'Conjunto de preguntas H5P (varias tareas evaluables con intentos).',
+            'introformat'  => FORMAT_HTML,
+            'packagefile'  => $make_draft($fixtures['h5p']),
+            'displayoptions' => 0,
+            'enabletracking' => 1,
+            'grademethod'  => 1,   // GRADEHIGHESTATTEMPT.
+            'reviewmode'   => 1,
+            'grade'        => 100,
+            'gradepass'    => 50,
+            'maxattempt'   => 0,
+            'cmidnumber'   => '',
+            'groupmode'    => NOGROUPS,
+            'groupingid'   => 0,
+        ], $completionpass);
+        $cm = add_moduleinfo($data, $course);
+        cli_writeln('  · mod_h5pactivity creado (cmid=' . $cm->coursemodule . ').');
+    } catch (\Throwable $e) {
+        cli_writeln('  ! mod_h5pactivity falló: ' . $e->getMessage());
+    }
+} else {
+    cli_writeln('  · mod_h5pactivity ya existe (o falta fixture).');
+}
 
 cli_writeln('=== setup_demo terminado ===');
 cli_writeln('  Curso:       http://localhost/course/view.php?id=' . $course->id);
-cli_writeln('  Actividad:   http://localhost/mod/exelearning/view.php?id=' . $cm->coursemodule);
 cli_writeln('  Profesor:    ' . $config['teacher_username'] . ' / ' . $config['teacher_pass']);
 cli_writeln('  Estudiantes: alumno1, alumno2 / ' . $config['student_pass']);

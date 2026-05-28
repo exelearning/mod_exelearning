@@ -74,6 +74,12 @@ function exelearning_add_instance($data, $mform = null) {
     if (!isset($data->grademin)) {
         $data->grademin = 0;
     }
+    if (!isset($data->gradepass)) {
+        $data->gradepass = 0;
+    }
+    if (!isset($data->grademethod)) {
+        $data->grademethod = \mod_exelearning\local\attempts::GRADE_HIGHEST;
+    }
 
     $data->id = $DB->insert_record('exelearning', $data);
 
@@ -109,6 +115,12 @@ function exelearning_update_instance($data, $mform = null) {
     if (!isset($data->grademin)) {
         $data->grademin = 0;
     }
+    if (!isset($data->gradepass)) {
+        $data->gradepass = 0;
+    }
+    if (!isset($data->grademethod)) {
+        $data->grademethod = \mod_exelearning\local\attempts::GRADE_HIGHEST;
+    }
 
     $DB->update_record('exelearning', $data);
 
@@ -141,6 +153,7 @@ function exelearning_delete_instance($id) {
                 $id, $n, null, ['deleted' => true]);
     }
 
+    $DB->delete_records('exelearning_attempt', ['exelearningid' => $id]);
     $DB->delete_records('exelearning_grade_item', ['exelearningid' => $id]);
     $DB->delete_records('exelearning', ['id' => $id]);
 
@@ -164,6 +177,7 @@ function exelearning_grade_item_update($exelearning, $grades = null) {
         'gradetype' => GRADE_TYPE_VALUE,
         'grademax'  => $exelearning->grademax ?? 100,
         'grademin'  => $exelearning->grademin ?? 0,
+        'gradepass' => $exelearning->gradepass ?? 0,
         'display'   => (int) ($exelearning->gradedisplaytype ?? GRADE_DISPLAY_TYPE_DEFAULT),
     ];
     return grade_update('mod/exelearning', $exelearning->course, 'mod',

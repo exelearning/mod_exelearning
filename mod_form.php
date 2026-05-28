@@ -66,6 +66,25 @@ class mod_exelearning_mod_form extends moodleform_mod {
         $mform->setType('grademin', PARAM_FLOAT);
         $mform->setDefault('grademin', 0);
 
+        // Nota para aprobar el overall: alimenta la finalización por nota de
+        // Moodle ("exigir nota para aprobar"), estilo SCORM (DEC-0010).
+        $mform->addElement('text', 'gradepass',
+                get_string('gradepass', 'mod_exelearning'), ['size' => '8']);
+        $mform->setType('gradepass', PARAM_FLOAT);
+        $mform->setDefault('gradepass', 0);
+        $mform->addHelpButton('gradepass', 'gradepass', 'mod_exelearning');
+
+        // Agregación de intentos (DEC-0007): cómo se combina el histórico de
+        // intentos del alumno para la nota del libro de calificaciones.
+        $methodoptions = [];
+        foreach (\mod_exelearning\local\attempts::grademethod_options() as $val => $strkey) {
+            $methodoptions[$val] = get_string($strkey, 'mod_exelearning');
+        }
+        $mform->addElement('select', 'grademethod',
+                get_string('grademethod', 'mod_exelearning'), $methodoptions);
+        $mform->setDefault('grademethod', \mod_exelearning\local\attempts::GRADE_HIGHEST);
+        $mform->addHelpButton('grademethod', 'grademethod', 'mod_exelearning');
+
         // Cómo se muestra la nota en el gradebook (numérico, porcentaje, letra).
         // Moodle ALMACENA siempre numérico; este selector sólo afecta a la
         // visualización por columna (gradedisplaytype del grade_item).
@@ -99,7 +118,7 @@ class mod_exelearning_mod_form extends moodleform_mod {
 
         // grademax/grademin se guardan como decimal(10,5). En el formulario
         // los mostramos sin ceros a la derecha (100 en vez de 100.00000).
-        foreach (['grademax', 'grademin'] as $f) {
+        foreach (['grademax', 'grademin', 'gradepass'] as $f) {
             if (isset($defaultvalues[$f])) {
                 $v = (float) $defaultvalues[$f];
                 $defaultvalues[$f] = ($v == (int) $v) ? (int) $v

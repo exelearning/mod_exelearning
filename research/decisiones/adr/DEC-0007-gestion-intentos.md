@@ -1,7 +1,7 @@
 ---
 id: DEC-0007
 titulo: "Gestión de intentos: tabla propia + modelo h5pactivity (no SCORM)"
-estado: Propuesta
+estado: Aceptada
 fecha: 2026-05-28
 agentes:
   - erseco
@@ -173,12 +173,43 @@ Negativas:
 - Profesor ve los 3 intentos en `report.php`, puede borrar el #2 → recalculo
   automático devuelve 70 al gradebook.
 
+## Actualización — Implementado (2026-05-28, claude-opus-4-8)
+
+Estado → **Aceptada**. Implementado con dos simplificaciones pragmáticas sobre
+el esquema propuesto:
+
+1. **Una sola tabla plana `exelearning_attempt`** (no cabecera + detalle). Cada
+   fila es `(exelearningid, userid, attempt, itemnumber)` con `rawscore`,
+   `maxscore`, `scaledscore`, `status`, `sessiontoken`. El `itemnumber=0` es el
+   overall y los `>0` los iDevices — reusa el mismo eje que
+   `exelearning_grade_item`. Evita el JOIN cabecera↔detalle del diseño original
+   manteniendo la misma información.
+2. **Agrupación de intentos por `sessiontoken`** en vez de "intento = recarga".
+   `view.php` genera un token aleatorio por carga de página y el shim lo manda
+   en cada auto-commit; `track.php` mapea todos los commits de esa carga al
+   mismo número de intento (upsert por `(…, attempt, itemnumber)`). Así los
+   múltiples commits con debounce de 500 ms NO inflan el contador de intentos.
+
+`grademethod` se implementó como `int` 0..4 (highest/average/first/last/lowest)
+en `mod_exelearning\local\attempts` y en el `mod_form`. La nota del libro de
+cada `itemnumber` es la agregación del histórico de intentos según ese método
+(`attempts::aggregate_scaled`).
+
+Ficheros: `classes/local/attempts.php`, `db/{install.xml,upgrade.php}`
+(`exelearning_attempt` + `gradepass` + `grademethod`), `track.php`, `view.php`,
+`mod_form.php`, `report.php`, `classes/privacy/provider.php`,
+`backup/moodle2/*`, `lang/en/exelearning.php`. Finalización por aprobado en
+[[DEC-0010]].
+
+Diferido a iteración futura: `maxattempt` (límite de intentos) y `reviewmode`
+(revisión read-only de intentos previos); botón "borrar intento" en el report.
+
 ## Seguimiento
 
-- TAREA-023 (próxima sesión): implementar esquema + lib + track.php updates.
-- TAREA-024: `report.php` con tabla intentos.
-- TAREA-025: `classes/privacy/provider.php` declarar los datos personales del
-  alumno almacenados.
-- TAREA-026: backup/restore steps que incluyan attempts.
+- DONE TAREA-023: esquema + lib + track.php.
+- DONE TAREA-024: `report.php` con tabla de intentos.
+- DONE TAREA-025: `classes/privacy/provider.php`.
+- DONE TAREA-026: backup/restore con attempts.
+- PENDIENTE: `maxattempt` + `reviewmode` + borrar intento (UI report).
 - AN-010 (futura): comparativa cuantitativa de las 4 opciones con esfuerzo
   estimado por feature.

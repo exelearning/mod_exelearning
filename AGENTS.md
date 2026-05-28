@@ -17,8 +17,21 @@ Reglas operativas de investigación: [`research/AGENTS.md`](./research/AGENTS.md
   auto-init en `<head>`) + `track.php` con parseo de `cmi.suspend_data`
   (regex `^(\d+)\. "([^"]*)"; [^:]+: ([\d.]+)%; [^:]+: ([\d.]+)%`).
 - Modos preview/grading (DEC-0006, verificado).
-- Editor embebido portado de `mod_exeweb` (página `manage_embedded_editor.php`).
-- Demo seeder idempotente (`scripts/setup_demo.php`) + `blueprint.json` (Playground).
+- **Intentos (DEC-0007, Aceptada)**: tabla `exelearning_attempt` + agregación
+  `grademethod` (highest/average/first/last/lowest) en `classes/local/attempts.php`
+  + `report.php` + privacy provider + backup/restore. Agrupación por
+  `sessiontoken` (1 intento por carga de página). Verificado en Docker.
+- **Finalización estilo SCORM (DEC-0010, Aceptada)**: `gradepass` + condición
+  core `completionpassgrade` ("aprobar para completar"). `track.php` refuerza
+  `completion->update_state` tras grabar nota.
+- **Self-heal de subidas programáticas**: `view.php` re-extrae el paquete y
+  re-detecta iDevices si faltan (arregla el `addModule` del Playground, que no
+  pasa por `exelearning_add_instance`). `exelearning_extract_stored_package()`
+  separada para reusarla sin draft. Verificado.
+- Editor embebido portado de `mod_exeweb` (instalador GitHub + external API).
+- Demo seeder idempotente (`scripts/setup_demo.php`) con 3 actividades
+  evaluables (exelearning + `mod_scorm` + `mod_h5pactivity`, todas con
+  finalización por aprobado) + `blueprint.json` (Playground). Verificado.
 - Docker compose `erseco/alpine-moodle:v5.0.7` + MariaDB.
 - Icono `pix/monologo.svg` (X sin hamburguesa).
 - README estilo `mod_exeweb`, dependabot, composer.json.
@@ -27,10 +40,11 @@ Reglas operativas de investigación: [`research/AGENTS.md`](./research/AGENTS.md
 1. **TAREA-027 (DEC-0008)**: implementar selector `grademodel` (`overall` / `peritem` /
    `both` con `grade_category` propia y overall excluido del total del curso). Resuelve
    el doble conteo actual (3 columnas suman 65% por una actividad).
-2. **TAREA-023..026 (DEC-0007)**: intentos múltiples estilo `h5pactivity` (tabla propia
-   `mdl_exelearning_attempts` + `report.php` + privacy + backup).
+2. **Settings del editor como `mod_exeweb`**: falta la página `manage_embedded_editor.php`
+   (settings.php enlaza a ella pero no existe → 404) + AMD del modal + la parte de
+   "estilos definidos". El instalador GitHub + external API ya están portados.
 3. **TAREA-021**: debug `editor/index.php?id=N` devuelve 404.
-4. **TAREA-031**: pulir `manage_embedded_editor.php` (i18n + descarga GitHub Release POC).
+4. Intentos: pendiente `maxattempt` + `reviewmode` + "borrar intento" en el report (DEC-0007).
 5. Cierre DEC-0003 con matriz cuantificada → Aceptada.
 6. CI: `ci.yml` con matriz moodle-plugin-ci (DEC-0004).
 
@@ -44,9 +58,10 @@ Reglas operativas de investigación: [`research/AGENTS.md`](./research/AGENTS.md
 | DEC-0004 | Propuesta | CI matriz Moodle 4.5/5.0/5.1/5.2 × PHP 8.1-8.4 × pgsql/mariadb |
 | DEC-0005 | **Superseded** by DEC-0009 | Editor embebido (versión con online) |
 | DEC-0006 | Aceptada | Modos preview/grading |
-| DEC-0007 | Propuesta | Intentos: tabla propia híbrida h5pactivity |
+| DEC-0007 | **Aceptada** | Intentos: tabla plana `exelearning_attempt` + `grademethod` (implementado) |
 | DEC-0008 | Propuesta | Agregación grades: `overall`/`peritem`/`both` |
 | DEC-0009 | Aceptada | **Sólo editor embebido**; eliminado eXeLearning Online / hmac |
+| DEC-0010 | **Aceptada** | Finalización estilo SCORM = core `completionpassgrade` + `gradepass` |
 
 ## Restricciones inmutables
 
