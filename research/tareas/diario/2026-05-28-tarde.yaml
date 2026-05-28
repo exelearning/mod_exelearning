@@ -1,0 +1,45 @@
+fecha: 2026-05-28
+sesion: tarde-multi-grade-shim
+agente: claude-code
+resumen: "Cierre del bridge SCORM 1.2 → grade_update + 4 requisitos nuevos del usuario incorporados."
+
+acciones:
+  - "Implementado classes/grades/gradeitems.php (itemnumber_mapping con MAX_ITEMNUMBER=100). Resuelve el coding error de Moodle 5 'Unknown itemnumber mapping for 1 in mod_exelearning' que bloqueaba el guardado de instancias con multi-items. Strings auto-generadas grade_overall_name + grade_idevice1..100_name vía bucle en lang/en/exelearning.php."
+  - "Implementado classes/event/course_module_viewed.php (Moodle 5 ya no permite instanciar core\\event\\course_module_viewed directamente)."
+  - "Implementado track.php: endpoint AJAX (require_sesskey + capability mod/exelearning:savetrack) que recibe cmi.* JSON desde el shim y llama a grade_update con itemnumber=0 (overall por ahora). Normaliza por grademax."
+  - "Shim SCORM 1.2 inyectado en view.php: window.API con LMSInitialize/Get/Set/Commit/Finish que bufferiza CMI y POSTea a track.php. Esto satisface a pipwerks SCORM que usa eXeLearning v4 internamente."
+  - "Mejoras de seguridad heredadas de mod_scorm en pluginfile: dontforcesvgdownload=true, require_capability (no has_capability silencioso), require_capability moodle/course:manageactivities para filearea package."
+  - "Iframe con sandbox 'allow-scripts allow-same-origin allow-popups allow-forms allow-popups-to-escape-sandbox' — bloquea allow-top-navigation, allow-modals, allow-pointer-lock."
+  - "view.php: title del iframe (accesibilidad WCAG)."
+  - "Nuevos requisitos del usuario incorporados:"
+  - "  · FEATURE_GROUPS=true y FEATURE_GROUPINGS=true → soporte de grupos separados/visibles + agrupamientos."
+  - "  · Iconos pix/icon.{svg,png} y pix/monologo.{svg,png} copiados de mod_exeweb (iconos verdes característicos)."
+  - "  · TAREA-017 abierta: portar la maquinaria del editor embebido eXeLearning de mod_exeweb (Makefile build-editor, exelearning/ subdir, editor/ subdir, manage_embedded_editor_upload.php, AMD editor_modal, capability manageembeddededitor)."
+  - "AN-008 (iframe vs SCORM player) + AN-009 (catálogo features SCORM player) documentadas con tabla adoptar/adaptar/aplazar/descartar."
+  - "RIE-001 registrado en status.yaml: XSS desde paquete malicioso, mitigación = sandbox actual + propuesta subdominio dedicado."
+
+verificacion_end_to_end:
+  - "Subida del ELPX `actividad-evaluable.elpx` (2 iDevices: trueorfalse + guess) vía UI Moodle → instance #11 creada sin coding error."
+  - "Iframe renderiza `index.html` con sidebar nativa preservada."
+  - "Mensaje 'Gradable iDevices detected: #1 trueorfalse · #2 guess' visible al profesor."
+  - "window.API expuesta en ventana padre (findAPI = 'found at parent')."
+  - "Llamada API.LMSInitialize() → 'true'. Set score.raw=85, lesson_status=passed. Commit() → 'true'. Finish() → 'true'."
+  - "mdl_grade_grades fila confirmada: instance #11 itemnumber=0 userid=2 rawgrade=85 finalgrade=85 feedback='lesson_status=passed' timemodified ok."
+
+hallazgos:
+  - "form_trait (completion form) en Moodle 5 itera el mapeo COMPLETO de gradeitems para construir el dropdown 'recibir nota'. Cualquier itemnumber sin string lanza coding_exception. Como nuestros items son dinámicos, pre-asignar un rango fijo + strings auto-generadas es la única vía sin patchear core."
+  - "El shim SCORM 1.2 funciona pero captura SIEMPRE en itemnumber=0 (overall). El routing per-iDevice requerirá el bridge xAPI o un mecanismo más fino: cuando el iDevice X resuelve un quiz, el handler que escucha LMSSetValue tiene que saber QUE el iDevice X es el que está llamando. eXeLearning v4 NO pasa ese contexto en la llamada SCORM porque cmi.core.score.raw es UN valor por SCO."
+
+pendientes:
+  - "TAREA-017: portar editor embebido (Makefile + dirs + AMD + capability)."
+  - "TAREA-008 (futura): per-iDevice routing — requiere o cambios upstream (PREG-002) o inyectar un hook que el iDevice JS llame con su idevice-id."
+relacionados:
+  - DEC-0003
+  - DEC-0004
+  - AN-002
+  - AN-005
+  - AN-007
+  - AN-008
+  - AN-009
+  - EXP-002
+  - PREG-002

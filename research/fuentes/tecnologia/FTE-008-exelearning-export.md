@@ -141,11 +141,21 @@ Del Manual de eXeLearning (40+ tipos):
 
 ## Identificadores expuestos (confirmado tras EXP-001)
 
-- **Página**: `odePageId` (formato `yyyymmddhhmmss<6CHARS>`, ej. `20251121091824DNMCSV`).
-  Estable, único por página, declarado en `content.xml#/ode/odeNavStructures`.
-- **iDevice**: `odeIdeviceId` con el mismo formato, declarado en `content.xml` dentro
-  de cada `odePage`. Estable a través de re-uploads si el autor no recrea el iDevice.
-- **Tipo de iDevice**: `odeIdeviceTypeName` (slug ASCII estable, p.ej. `trueorfalse`).
+- **Página**: `odePageId`. Dos formatos observados en v4 según la versión del editor
+  que generó el paquete:
+  - **Formato A (legacy v4)**: `yyyymmddhhmmss<6CHARS>` — p.ej. `20251121091824DNMCSV`.
+    Visto en `Manual de eXeLearning.elpx` (extraído de `iteexe_online`).
+  - **Formato B (v4 actual)**: **UUID v4** — p.ej. `633bbf80-bcd2-4a7b-a00d-b695d98d69a4`.
+    Visto en `actividad-evaluable.elpx` generado por eXeLearning v4 el 2026-05-28.
+  Ambos estables, únicos por página, declarados en `content.xml#/ode/odeNavStructures`.
+- **iDevice**: `odeIdeviceId`. Dos formatos observados:
+  - **Formato A**: `yyyymmddhhmmss<6CHARS>`.
+  - **Formato B (v4 actual)**: `idevice-<unix_timestamp_ms>-<random9>` — p.ej.
+    `idevice-1779989968114-sevb8qqdy`.
+  Estables a través de re-uploads si el autor no recrea el iDevice. `mod_exelearning`
+  debe aceptar **ambos** formatos como string opaco.
+- **Tipo de iDevice**: `odeIdeviceTypeName` (slug ASCII estable, p.ej. `trueorfalse`,
+  `guess`, `quick-questions-multiple-choice`).
 
 [HIPOTESIS pendiente] En SCORM 2004 export, comprobar si `odeIdeviceId` se materializa
 como `cmi.objectives.{n}.id` en `imsmanifest.xml` o si se pierde y solo queda

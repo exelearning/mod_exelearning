@@ -6,3 +6,6 @@ items:
   - id: 'AN-004', titulo: 'Formato de entrada de mod_exelearning: ELPX v4 únicamente', estado: None, fecha: '2026-05-28', ruta: 'analisis/notas/AN-004-elpx-vs-zip.md'
   - id: 'AN-005', titulo: 'El export SCORM 1.2 de eXeLearning emite 1 SCO por página: implicaciones para multi-grade-items', estado: None, fecha: '2026-05-28', ruta: 'analisis/notas/AN-005-scorm-sco-por-pagina.md'
   - id: 'AN-006', titulo: 'Análisis de la infraestructura de build/CI de mod_exescorm y mod_exeweb', estado: None, fecha: '2026-05-28', ruta: 'analisis/notas/AN-006-build-ci-tests.md'
+  - id: 'AN-007', titulo: 'El SCORM 1.2 export de eXeLearning v4 agrega iDevices: confirma parsear content.xml', estado: None, fecha: '2026-05-28', ruta: 'analisis/notas/AN-007-scorm-export-2-idevices.md'
+  - id: 'AN-008', titulo: 'Comparativa: iframe simple (mod_exelearning) vs SCORM player de Moodle core', estado: None, fecha: '2026-05-28', ruta: 'analisis/notas/AN-008-iframe-vs-scorm-player.md'
+  - id: 'AN-009', titulo: 'Catálogo de features de mod_scorm player: adoptar / adaptar / aplazar / descartar', estado: None, fecha: '2026-05-28', ruta: 'analisis/notas/AN-009-scorm-player-features.md'

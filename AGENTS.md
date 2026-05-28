@@ -1,7 +1,12 @@
 # AGENTS.md (raíz)
 
-Este repositorio está en **fase 0 (investigación)**. **No existe código del plugin
-`mod_exelearning` todavía** — no inventarlo.
+Este repositorio acaba de salir de **fase 0 (investigación)** y entra en
+**fase 1 (arranque)**. Existe un **esqueleto mínimo funcional** del plugin
+(`version.php`, `lib.php`, `mod_form.php`, `view.php`, `index.php`,
+`db/install.xml`, `db/access.php`, `lang/en/exelearning.php`, `pix/`) suficiente
+para que Moodle lo instale, pero la lógica real (iframe + sidebar +
+multi-grade-items + xAPI + editor embebido) todavía no está implementada. No
+inventarla sin un ADR aceptado en `research/decisiones/adr/`.
 
 Las reglas operativas para cualquier agente que trabaje en este repositorio están en
 [`research/AGENTS.md`](./research/AGENTS.md). Lee ese archivo antes de tocar nada.

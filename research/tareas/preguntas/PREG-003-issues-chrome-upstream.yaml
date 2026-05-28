@@ -1,0 +1,32 @@
+id: PREG-003
+pregunta: "¿Qué hacer con los issues que Chrome reporta dentro del iframe del paquete eXeLearning (jQuery 1.x unload + iDevice button sin name)?"
+estado: abierta
+fecha_apertura: 2026-05-28
+contexto: |
+  Tras renderizar `view.php` con el iframe del paquete (EXP-002), Chrome DevTools
+  reporta dos issues que no provienen de código de mod_exelearning:
+
+  1. "Deprecated feature used · Unload event listeners are deprecated"
+     Origen: `pluginfile.php/<ctx>/mod_exelearning/content/<rev>/libs/jquery/jquery.min.js:1:38477`
+     La librería `libs/jquery/jquery.min.js` que viene **dentro** del ELPX es
+     jQuery 1.x y usa `$(window).unload(...)`, deprecado por Chromium.
+     [Status: https://chromestatus.com/feature/5579556305502208]
+
+  2. "A form field element should have an id or name attribute"
+     Una de las ocurrencias proviene del iDevice JS de eXeLearning v4:
+     `<input type="button" value="Guardar la puntuación" class="Games-SendScore …">`
+     (sin `name` ni `id`).
+hipotesis:
+  - "Pedir a eXeLearning upstream que actualice a jQuery 3.x (igual al que Moodle bundlea) y revise los iDevices con inputs sin atributos."
+  - "Como alternativa local en mod_exelearning, inyectar un MutationObserver vía un script-loader que añada `name`/`id` a los botones detectados en el iframe (parche cosmético)."
+  - "Sandbox del iframe con permisos limitados que aísle estos issues del informe global del documento (no se eliminarían pero no contaminarían la página)."
+evidencias_necesarias:
+  - "Verificar versión exacta de jQuery dentro del paquete v4 (REPO-005/libs)."
+  - "Localizar el iDevice JS que genera el botón sin name (`Games-SendScore`) en exelearning v4 (REPO-005/idevices/<type>/<type>.js)."
+  - "Confirmar si la actualización a jQuery 3.x ya está planificada en upstream."
+resolucion: ""
+relacionados:
+  - REPO-005
+  - FTE-008
+  - EXP-002
+  - AN-007

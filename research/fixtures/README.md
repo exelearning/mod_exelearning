@@ -33,6 +33,7 @@ Fecha de la copia: **2026-05-28**.
 | `arrows.elpx` | 455 KB | Sample minimal con jerarquía. |
 | `really-simple-test-project.elpx` | 1.2 MB | Sample canónico de pruebas: 6 páginas en árbol, solo iDevices `text`. |
 | `contenido-prueba-estilos-cata.elpx` | 2.1 MB | Sample real de mayor tamaño: 56 páginas, 7 tipos de iDevice (`text`, `udl-content`, `scrambled-list`, `rubric`, `interactive-video`, `form`, `download-source-file`). Provisto por el usuario el 2026-05-18. Bueno para probar estilos, catalogación, paginación, search box y `scrambled-list` (potencialmente calificable). |
+| `actividad-evaluable.elpx` | 633 KB | **Sample canónico para EXP-002 (multi-grade-items)**: 1 página "Test 1" con **2 iDevices calificables** (`trueorfalse` + `guess`). IDs estables observados: `idevice-1779989968114-sevb8qqdy` y `idevice-1779990014981-upsl0qps2`. Generado por el usuario con eXeLearning v4 el 2026-05-28 — fuente directa para validar el flujo "1 paquete → 2 grade items". |
 
 ### `web-export/really-simple_web/` — export "sitio web estático" del proyecto anterior
 

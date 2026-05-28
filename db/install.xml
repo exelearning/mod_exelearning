@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<XMLDB PATH="mod/exelearning/db" VERSION="20260528" COMMENT="XMLDB file for mod_exelearning"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
+>
+  <TABLES>
+
+    <TABLE NAME="exelearning" COMMENT="Each record is one mod_exelearning activity instance.">
+      <FIELDS>
+        <FIELD NAME="id"            TYPE="int"  LENGTH="10"  NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="course"        TYPE="int"  LENGTH="10"  NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="name"          TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="intro"         TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="introformat"   TYPE="int"  LENGTH="4"   NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="display"       TYPE="int"  LENGTH="4"   NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="displayoptions" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="entrypath"     TYPE="char" LENGTH="255" NOTNULL="true" DEFAULT="/" SEQUENCE="false" COMMENT="Path of the package entry file."/>
+        <FIELD NAME="entryname"     TYPE="char" LENGTH="255" NOTNULL="true" DEFAULT="index.html" SEQUENCE="false" COMMENT="Filename of the package entry."/>
+        <FIELD NAME="revision"      TYPE="int"  LENGTH="10"  NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Incremented on each file change to bust caches."/>
+        <FIELD NAME="grademax"      TYPE="number" LENGTH="10" DECIMALS="5" NOTNULL="true" DEFAULT="100" SEQUENCE="false" COMMENT="Max score per gradable iDevice (default 100)."/>
+        <FIELD NAME="grademin"      TYPE="number" LENGTH="10" DECIMALS="5" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="gradedisplaytype" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="GRADE_DISPLAY_TYPE_* constant; 0=DEFAULT (inherit course), 1=REAL, 2=PERCENTAGE, 3=LETTER, 12=REAL_PERCENTAGE."/>
+        <FIELD NAME="timecreated"   TYPE="int"  LENGTH="10"  NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified"  TYPE="int"  LENGTH="10"  NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="usermodified"  TYPE="int"  LENGTH="10"  NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="usermodified" TYPE="foreign" FIELDS="usermodified" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="course" UNIQUE="false" FIELDS="course"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="exelearning_grade_item" COMMENT="Maps one gradable iDevice detected in the ELPX package to a Moodle grade_item itemnumber.">
+      <FIELDS>
+        <FIELD NAME="id"             TYPE="int"  LENGTH="10"  NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="exelearningid"  TYPE="int"  LENGTH="10"  NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="itemnumber"     TYPE="int"  LENGTH="10"  NOTNULL="true" SEQUENCE="false" COMMENT="Stable across re-uploads. Monotonic per activity."/>
+        <FIELD NAME="objectid"       TYPE="char" LENGTH="191" NOTNULL="true" SEQUENCE="false" COMMENT="Stable iDevice id from content.xml (e.g. idevice-1779989968114-sevb8qqdy or yyyymmddhhmmssXXXXXX)."/>
+        <FIELD NAME="pageid"         TYPE="char" LENGTH="191" NOTNULL="false" SEQUENCE="false" COMMENT="Page id (UUID v4 or yyyymmddhhmmssXXXXXX) the iDevice belongs to."/>
+        <FIELD NAME="idevicetype"    TYPE="char" LENGTH="64"  NOTNULL="true" SEQUENCE="false" COMMENT="odeIdeviceTypeName, e.g. trueorfalse, guess, dragdrop."/>
+        <FIELD NAME="name"           TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false" COMMENT="Display name for the gradebook column."/>
+        <FIELD NAME="grademax"       TYPE="number" LENGTH="10" DECIMALS="5" NOTNULL="true" DEFAULT="100" SEQUENCE="false"/>
+        <FIELD NAME="grademin"       TYPE="number" LENGTH="10" DECIMALS="5" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="deleted"        TYPE="int"  LENGTH="2"   NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Set to 1 when the iDevice disappears in a re-upload (preserves grade history)."/>
+        <FIELD NAME="timecreated"    TYPE="int"  LENGTH="10"  NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified"   TYPE="int"  LENGTH="10"  NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="exelearningid_fk" TYPE="foreign" FIELDS="exelearningid" REFTABLE="exelearning" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="exelearningid_itemnumber" UNIQUE="true" FIELDS="exelearningid, itemnumber"/>
+        <INDEX NAME="exelearningid_objectid"   UNIQUE="true" FIELDS="exelearningid, objectid"/>
+      </INDEXES>
+    </TABLE>
+
+  </TABLES>
+</XMLDB>

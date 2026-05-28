@@ -1,1 +1,28 @@
+.aider*
+.env
+.DS_Store
+
+# Mess detector rules
+phpmd-rules.xml
+
+# Composer
+/vendor/
+/composer.lock
+/composer.phar
+
+# Built static editor files
+dist/static/
+
+# Local editor checkout fetched during build
+exelearning/
+
+# Tooling state
 .omc/
+.claude/
+
+# Release artifacts
+mod_exelearning-*.zip
+
+# Node
+node_modules/
+.env

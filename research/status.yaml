@@ -118,4 +118,16 @@ tareas:
       contiene un SCO por página + content.xml con odePageId/odeIdeviceId estables.
       Falta inspeccionar SCORM 2004 y un paquete con iDevices calificables.
 
-riesgos: {}
+riesgos:
+  RIE-001:
+    titulo: "XSS cross-component desde paquete eXeLearning malicioso"
+    severidad: media
+    probabilidad: baja
+    estado: identificado
+    mitigacion: >-
+      v1: sandbox del iframe sin allow-top-navigation / allow-modals (AN-008).
+      v2 (subdominio dedicado) o Permissions-Policy quedan como propuesta futura.
+    relacionados:
+      - AN-008
+      - DEC-0003
+      - DEC-0004

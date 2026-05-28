@@ -1,0 +1,119 @@
+{
+  "$schema": "https://raw.githubusercontent.com/ateeducacion/moodle-playground/refs/heads/main/assets/blueprints/blueprint-schema.json",
+  "preferredVersions": { "php": "8.3", "moodle": "5.0" },
+  "landingPage": "/course/view.php?id=2",
+  "constants": {
+    "ADMIN_USER": "admin",
+    "ADMIN_PASS": "password",
+    "ADMIN_EMAIL": "admin@example.com"
+  },
+  "steps": [
+    {
+      "step": "installMoodle",
+      "options": {
+        "adminUser": "{{ADMIN_USER}}",
+        "adminPass": "{{ADMIN_PASS}}",
+        "adminEmail": "{{ADMIN_EMAIL}}",
+        "siteName": "mod_exelearning Playground",
+        "locale": "es",
+        "timezone": "Europe/Madrid"
+      }
+    },
+    { "step": "login", "username": "{{ADMIN_USER}}" },
+    {
+      "step": "installMoodlePlugin",
+      "pluginType": "mod",
+      "pluginName": "exelearning",
+      "url": "https://github.com/erseco/mod_exelearning/archive/refs/heads/main.zip"
+    },
+    {
+      "step": "setConfigs",
+      "configs": [
+        { "name": "editormode",   "value": "embedded",      "plugin": "exelearning" },
+        { "name": "displayoptions","value": "1,5,6",        "plugin": "exelearning" },
+        { "name": "display",      "value": "1",             "plugin": "exelearning" },
+        { "name": "framesize",    "value": "130",           "plugin": "exelearning" },
+        { "name": "printintro",   "value": "1",             "plugin": "exelearning" },
+        { "name": "showdate",     "value": "0",             "plugin": "exelearning" },
+        { "name": "popupwidth",   "value": "620",           "plugin": "exelearning" },
+        { "name": "popupheight",  "value": "450",           "plugin": "exelearning" }
+      ]
+    },
+    { "step": "createCategory", "name": "Test Courses" },
+    {
+      "step": "createCourse",
+      "fullname": "mod_exelearning Test Course",
+      "shortname": "EXELEARNING01",
+      "category": "Test Courses",
+      "summary": "Test course for the mod_exelearning plugin: validates package upload, sidebar preservation and multi-grade-items per resource."
+    },
+    {
+      "step": "createUser",
+      "username": "student",
+      "password": "password",
+      "email": "student@example.com",
+      "firstname": "Demo",
+      "lastname": "Student"
+    },
+    {
+      "step": "enrolUser",
+      "username": "{{ADMIN_USER}}",
+      "course": "EXELEARNING01",
+      "role": "editingteacher"
+    },
+    {
+      "step": "enrolUser",
+      "username": "student",
+      "course": "EXELEARNING01",
+      "role": "student"
+    },
+    {
+      "step": "createSection",
+      "course": "EXELEARNING01",
+      "name": "Example eXeLearning Activities"
+    },
+    {
+      "step": "addModule",
+      "module": "exelearning",
+      "course": "EXELEARNING01",
+      "section": 1,
+      "name": "Really Simple — sample sin items calificables",
+      "intro": "Paquete ELPX mínimo (6 páginas, sólo iDevices `text`). Sirve para validar el render de la sidebar nativa de eXeLearning.",
+      "exeorigin": "local",
+      "revision": 1,
+      "display": 1,
+      "files": [
+        {
+          "filearea": "package",
+          "itemid": 1,
+          "filename": "really-simple-test-project.elpx",
+          "data": {
+            "url": "https://raw.githubusercontent.com/exelearning/exelearning/main/test/fixtures/really-simple-test-project.elpx"
+          }
+        }
+      ]
+    },
+    {
+      "step": "addModule",
+      "module": "exelearning",
+      "course": "EXELEARNING01",
+      "section": 1,
+      "name": "Contenido de estilos y catalogación — sample mediano",
+      "intro": "Paquete ELPX de 56 páginas con 7 tipos de iDevice (incluye `scrambled-list` potencialmente calificable). Para validar paginación, search box y multi-grade-items.",
+      "exeorigin": "local",
+      "revision": 1,
+      "display": 1,
+      "files": [
+        {
+          "filearea": "package",
+          "itemid": 1,
+          "filename": "contenido-prueba-estilos-cata.elpx",
+          "data": {
+            "url": "https://raw.githubusercontent.com/exelearning/exelearning/main/test/fixtures/un-contenido-de-ejemplo-para-probar-estilos-y-catalogacion.elpx"
+          }
+        }
+      ]
+    },
+    { "step": "setLandingPage", "path": "/course/view.php?id=2" }
+  ]
+}

@@ -1,0 +1,98 @@
+id: EXP-002
+titulo: "POC multi-grade-items end-to-end con actividad-evaluable.elpx"
+objetivo: "Demostrar que un único paquete ELPX con 2 iDevices calificables (trueorfalse + guess) genera 2 columnas independientes en el libro de calificaciones de Moodle, además del overall (itemnumber=0)."
+estado: completado
+fecha: 2026-05-28
+hipotesis: "El patrón mod_workshop (grade_update con itemnumber distinto) se replica para mod_exelearning si: (a) se parsea content.xml server-side, (b) se registra una tabla mapeo objectid → itemnumber, (c) se invoca grade_update por cada item."
+tecnologia:
+  - Moodle 5.0.7 (erseco/alpine-moodle)
+  - eXeLearning v4 ELPX
+  - PHP 8.3
+  - MariaDB
+repos_implicados:
+  - REPO-004
+  - REPO-005
+commit_ref:
+  repo: mod_exelearning
+  sha: "[PENDIENTE: anotar HEAD tras commit del plugin scaffold]"
+entorno:
+  so: "macOS Darwin 25.4.0"
+  versiones:
+    docker: "Docker Desktop"
+    moodle: "5.0.7 Build 20260420 (2025041407)"
+    php: "8.3"
+    db: "MariaDB latest"
+setup_command: |
+  cd /Users/ernesto/Downloads/git/mod_exelearning
+  cp .env.dist .env
+  docker compose up -d
+run_command: |
+  # Por la UI en http://localhost (user/1234):
+  # 1. Cursos → "test" → Activar edición → "Añadir actividad" → "eXeLearning resource".
+  # 2. Nombre = "Actividad evaluable EXP-002".
+  # 3. Package file: subir research/fixtures/elpx/actividad-evaluable.elpx.
+  # 4. Guardar cambios y mostrar.
+  # 5. Verificar:
+  #    - El iframe carga el paquete con la sidebar nativa.
+  #    - Mensaje "Gradable iDevices detected: #1 trueorfalse · #2 guess".
+  # 6. Calificaciones del curso → 3 columnas:
+  #    - "Actividad evaluable EXP-002" (itemnumber=0, overall)
+  #    - "Actividad evaluable EXP-002 · trueorfalse" (itemnumber=1)
+  #    - "Actividad evaluable EXP-002 · guess" (itemnumber=2)
+metricas:
+  paquete_origen: research/fixtures/elpx/actividad-evaluable.elpx
+  paquete_tipo: "ELPX v4 web export"
+  paquete_idevices_calificables_declarados: 2
+  paquete_idevices_detectados_por_plugin: 2
+  paquete_objectids:
+    - "idevice-1779989968114-sevb8qqdy (trueorfalse)"
+    - "idevice-1779990014981-upsl0qps2 (guess)"
+  archivos_extraidos: 132
+  grade_items_creados: 3   # overall + 2 iDevices
+  exelearning_grade_item_rows: 2
+  pluginfile_url: "/pluginfile.php/19/mod_exelearning/content/1/index.html"
+  iframe_carga_sidebar_nativa: true
+  iframe_jquery_disponible: true
+resultado: |
+  ÉXITO. El plugin extrae el ELPX en filearea `content/<revision>/`, sirve `index.html`
+  vía pluginfile.php dentro de un iframe que preserva la sidebar JS nativa de
+  eXeLearning v4 (igual técnica que mod_exeweb), y registra 3 grade items en
+  mdl_grade_items con itemnumber 0, 1, 2 — la columna overall + una por iDevice
+  calificable detectado en content.xml. La whitelist conservadora (20 tipos) y
+  el mapeo persistente objectid → itemnumber están en
+  classes/local/package.php y mdl_exelearning_grade_item.
+
+  Cierra DEC-0003 a favor del PLAN B documentado en AN-005/AN-007: consumir el
+  ELPX nativo, parsear el manifest propietario content.xml y usar multi-itemnumber
+  estándar Moodle. No requiere cambios upstream en eXeLearning.
+evidencias:
+  - research/experimentos/resultados/EXP-002-screenshots/view-iframe-sidebar.png
+  - research/experimentos/resultados/EXP-002-screenshots/view-iframe-fixed.png    # tras quitar `allowfullscreen` duplicado
+  - research/experimentos/resultados/EXP-002-screenshots/gradebook-3-cols.png
+  - research/experimentos/resultados/EXP-002-screenshots/modules-page.png   # plugin instalado
+  - research/fixtures/elpx/actividad-evaluable.elpx
+  - research/fixtures/scorm-export/actividad-evaluable_scorm12.zip
+issues_chrome_devtools:
+  - "FIX (propio): atributo `allowfullscreen` duplicado en el iframe junto a `allow=fullscreen`. Eliminado `allowfullscreen` y añadido `title`. Iframe sin warnings tras recarga."
+  - "PENDIENTE (upstream eXeLearning): `libs/jquery/jquery.min.js` empaquetado usa `unload` (deprecated por Chromium). PREG-003."
+  - "PENDIENTE (upstream eXeLearning): iDevice button `Games-SendScore` sin atributo name/id. PREG-003."
+  - "PENDIENTE (Moodle core): 4 inputs sin id/name en Boost theme drawer/messaging. Fuera del alcance del plugin."
+limitaciones:
+  - "El bridge runtime (statements xAPI desde el iframe → core_xapi_post_statement) NO está implementado. Las columnas existen vacías; aún no hay manera de que el alumno reciba nota."
+  - "Sólo iDevices del whitelist actual; los nuevos tipos requieren añadirse a package::GRADABLE_IDEVICE_TYPES."
+  - "Borrar la cm desde la UI requiere completar exelearning_delete_instance — se verifica solo parcialmente."
+  - "La sincronización de grade items depende de get_coursemodule_from_instance: durante add_instance hay que pasar contextid explícito (bug corregido)."
+relacionados:
+  - DEC-0003
+  - DEC-0004
+  - AN-001
+  - AN-002
+  - AN-005
+  - AN-007
+  - REPO-002
+  - PREG-001
+  - TAREA-004
+proximos_pasos:
+  - "Implementar el bridge JS xAPI (shim postMessage en amd/src/xapi_bridge.js + classes/xapi/handler.php) para que los alumnos reciban nota cuando responden los iDevices del iframe."
+  - "Cerrar DEC-0003 formalmente (Propuesta → Aceptada) con la matriz cuantificada."
+  - "Implementar exelearning_get_coursemodule_info y respetar 'teacherOnly'/'visibility' por iDevice."

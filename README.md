@@ -16,21 +16,54 @@ Este plugin nace de la fusión conceptual de dos plugins existentes:
 
 ## Estado
 
-**Fase 0 — Investigación**. Todavía no existe código del plugin. Se está construyendo un
-repositorio de investigación basado en evidencia en [`research/`](./research/) siguiendo
-una metodología inspirada en
-[`learningml-ng`](https://github.com/erseco/learningml-ng) (ADRs, fichas REPO/FTE,
-matrices de decisión, experimentos reproducibles).
+**Fase 0 → Fase 1 (arranque)**.
+
+- Investigación basada en evidencia consolidada en [`research/`](./research/)
+  (metodología inspirada en
+  [`learningml-ng`](https://github.com/erseco/learningml-ng): ADRs, fichas REPO/FTE,
+  matrices, experimentos reproducibles).
+- **Esqueleto mínimo del plugin** publicado: el plugin se instala en Moodle pero
+  la implementación funcional (sidebar iframe, multi-grade-items, xAPI handler,
+  editor embebido) llegará en iteraciones según los ADRs en
+  [`research/decisiones/adr/`](./research/decisiones/adr/).
 
 ## Estructura
 
 ```
 mod_exelearning/
-├── README.md          # Este archivo
-├── AGENTS.md          # Reglas para agentes (puntero a research/AGENTS.md)
-└── research/          # Repositorio de investigación (fase 0)
-    └── README.md      # Mapa de la investigación
+├── README.md            # Este archivo
+├── AGENTS.md            # Reglas para agentes (puntero a research/AGENTS.md)
+├── version.php          # Metadatos del plugin Moodle (target 4.5 LTS+)
+├── lib.php              # API pública del módulo (stubs funcionales)
+├── mod_form.php         # Formulario de creación de actividad
+├── view.php             # Vista de la actividad (stub)
+├── index.php            # Listado por curso
+├── db/install.xml       # Esquema mdl_exelearning
+├── db/access.php        # Capabilities
+├── lang/en/             # Strings en inglés
+├── pix/                 # Iconos del plugin
+├── blueprint.json       # Receta moodle-playground para test rápido
+├── docker-compose.yml   # Entorno de desarrollo local
+├── .env.dist            # Plantilla de variables de entorno
+└── research/            # Documentación de investigación
+    └── README.md
 ```
+
+## Levantar el entorno local
+
+```bash
+cp .env.dist .env                # primera vez
+docker compose up -d             # arranca Moodle + MariaDB
+docker compose logs -f moodle    # seguir el progreso de la instalación
+```
+
+Cuando la instalación termine (≈1 min), Moodle está en <http://localhost> con
+usuario `user` / contraseña `1234` (configurables en `.env`). El plugin
+`mod_exelearning` aparecerá en *Administración del sitio → Plugins → Módulos
+de actividad*.
+
+Para tirar el entorno y conservar datos: `docker compose down`. Para borrar
+también los volúmenes: `docker compose down -v`.
 
 ## Cómo navegar la investigación
 
