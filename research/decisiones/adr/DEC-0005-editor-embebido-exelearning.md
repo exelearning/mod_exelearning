@@ -57,7 +57,7 @@ trabajo ni divergir de la práctica de los plugins hermanos.
   producción.
 - Ambos `mod_exescorm` y `mod_exeweb` comparten el mismo template de
   editor + Makefile + .env.dist.
-- El usuario (ATE Educación) mantiene `github.com/exelearning/exelearning`
+- El usuario (ATE (Área de Tecnología Educativa)) mantiene `github.com/exelearning/exelearning`
   (REPO-005) y los plugins hermanos, así que reutilizar es coherente.
 
 ## Decisión

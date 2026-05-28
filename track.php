@@ -25,7 +25,7 @@
  * Endpoint: POST con sesskey + JSON `{ id: <cmid>, cmi: { "cmi.core.score.raw": "85", ... } }`.
  *
  * @package    mod_exelearning
- * @copyright  2026 ATE Educación
+ * @copyright  2026 ATE (Área de Tecnología Educativa)
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 

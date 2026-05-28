@@ -203,7 +203,7 @@ Please report bugs and feature requests on the GitHub issue tracker:
 ## About
 
 Copyright 2026:
-ATE Educación (Asistencia Técnica Educativa) /
+ATE (Área de Tecnología Educativa) /
 Centro Nacional de Desarrollo Curricular en Sistemas no Propietarios (CeDeC) /
 INTEF (Instituto Nacional de Tecnologías Educativas y de Formación del
 Profesorado).

@@ -25,7 +25,7 @@
  * o a mano: `php mod/exelearning/scripts/setup_demo.php`.
  *
  * @package    mod_exelearning
- * @copyright  2026 ATE Educación
+ * @copyright  2026 ATE (Área de Tecnología Educativa)
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
