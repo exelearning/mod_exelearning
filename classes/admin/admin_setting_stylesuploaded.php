@@ -24,15 +24,12 @@
 
 namespace mod_exelearning\admin;
 
-defined('MOODLE_INTERNAL') || die();
-
 use admin_setting;
 
 /**
  * Renders the list of uploaded styles as a table with actions.
  */
 class admin_setting_stylesuploaded extends admin_setting {
-
     /**
      * Constructor.
      */
@@ -113,11 +110,21 @@ class admin_setting_stylesuploaded extends admin_setting {
                 : get_string('stylesenable', 'mod_exelearning');
             $toggleaction = $enabled ? 'disable' : 'enable';
 
-            $toggleform = $this->action_form($baseurl, $toggleaction, $slug, $togglelabel,
-                $enabled ? 'btn-secondary' : 'btn-success');
-            $deleteform = $this->action_form($baseurl, 'delete', $slug,
-                get_string('stylesdelete', 'mod_exelearning'), 'btn-danger',
-                get_string('stylesdelete_confirm', 'mod_exelearning'));
+            $toggleform = $this->action_form(
+                $baseurl,
+                $toggleaction,
+                $slug,
+                $togglelabel,
+                $enabled ? 'btn-secondary' : 'btn-success'
+            );
+            $deleteform = $this->action_form(
+                $baseurl,
+                'delete',
+                $slug,
+                get_string('stylesdelete', 'mod_exelearning'),
+                'btn-danger',
+                get_string('stylesdelete_confirm', 'mod_exelearning')
+            );
 
             $statusbadge = $enabled
                 ? \html_writer::tag('span', get_string('yes'), ['class' => 'badge badge-success'])
@@ -158,8 +165,14 @@ class admin_setting_stylesuploaded extends admin_setting {
      * @param string $confirm Optional confirm message.
      * @return string
      */
-    private function action_form(\moodle_url $baseurl, string $action, string $slug, string $label,
-            string $btnclass, string $confirm = ''): string {
+    private function action_form(
+        \moodle_url $baseurl,
+        string $action,
+        string $slug,
+        string $label,
+        string $btnclass,
+        string $confirm = ''
+    ): string {
         $attrs = [
             'method' => 'post',
             'action' => $baseurl->out(false),

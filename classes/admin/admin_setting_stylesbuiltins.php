@@ -24,15 +24,12 @@
 
 namespace mod_exelearning\admin;
 
-defined('MOODLE_INTERNAL') || die();
-
 use admin_setting;
 
 /**
  * Renders built-in themes discovered from the editor bundle with toggles.
  */
 class admin_setting_stylesbuiltins extends admin_setting {
-
     /**
      * Constructor.
      */
@@ -114,8 +111,13 @@ class admin_setting_stylesbuiltins extends admin_setting {
                 : get_string('stylesenable', 'mod_exelearning');
             $toggleaction = $isenabled ? 'disablebuiltin' : 'enablebuiltin';
 
-            $toggleform = $this->action_form($baseurl, $toggleaction, $id, $togglelabel,
-                $isenabled ? 'btn-secondary' : 'btn-success');
+            $toggleform = $this->action_form(
+                $baseurl,
+                $toggleaction,
+                $id,
+                $togglelabel,
+                $isenabled ? 'btn-secondary' : 'btn-success'
+            );
 
             $statusbadge = $isenabled
                 ? \html_writer::tag('span', get_string('yes'), ['class' => 'badge badge-success'])
@@ -154,8 +156,13 @@ class admin_setting_stylesbuiltins extends admin_setting {
      * @param string $btnclass
      * @return string
      */
-    private function action_form(\moodle_url $baseurl, string $action, string $id, string $label,
-            string $btnclass): string {
+    private function action_form(
+        \moodle_url $baseurl,
+        string $action,
+        string $id,
+        string $label,
+        string $btnclass
+    ): string {
         $form = \html_writer::start_tag('form', [
             'method' => 'post',
             'action' => $baseurl->out(false),

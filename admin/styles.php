@@ -69,8 +69,11 @@ echo \html_writer::tag('p', get_string('stylesmanager_intro', 'mod_exelearning')
 $upload = new \mod_exelearning\admin\admin_setting_stylesupload(
     'exelearning/styles_drops',
     get_string('stylesupload_label', 'mod_exelearning'),
-    get_string('stylesupload_hint', 'mod_exelearning',
-        display_size(styles_service::get_max_zip_size())),
+    get_string(
+        'stylesupload_hint',
+        'mod_exelearning',
+        display_size(styles_service::get_max_zip_size())
+    ),
     'styles_drops',
     0,
     [

@@ -37,7 +37,6 @@ namespace mod_exelearning\admin;
  * interactive status/action card into the admin settings page.
  */
 class admin_setting_embeddededitor extends \admin_setting {
-
     /**
      * Constructor.
      *

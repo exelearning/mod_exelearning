@@ -24,8 +24,6 @@
 
 namespace mod_exelearning\admin;
 
-defined('MOODLE_INTERNAL') || die();
-
 use mod_exelearning\local\styles_service;
 
 /**
@@ -41,7 +39,6 @@ use mod_exelearning\local\styles_service;
  * without changes.
  */
 class admin_setting_stylesupload extends \admin_setting_configstoredfile {
-
     /**
      * @var string Component that owns the style upload filearea.
      *
@@ -127,8 +124,12 @@ class admin_setting_stylesupload extends \admin_setting_configstoredfile {
         $fs = get_file_storage();
         $context = \context_system::instance();
         $files = $fs->get_area_files(
-            $context->id, self::COMPONENT, self::FILEAREA,
-            0, 'sortorder, id', false
+            $context->id,
+            self::COMPONENT,
+            self::FILEAREA,
+            0,
+            'sortorder, id',
+            false
         );
         if (empty($files)) {
             return $summary;
