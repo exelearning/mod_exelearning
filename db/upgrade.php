@@ -245,5 +245,33 @@ function xmldb_exelearning_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026052806, 'exelearning');
     }
 
+    // Stage 7 (2026052900): DEC-0008 rev. — the "both" gradebook columns model
+    // (grademodel=2) was removed. Collapse existing rows to per-iDevice (1),
+    // which preserves the per-iDevice columns teachers were already seeing under
+    // "both", and lower the field default from 2 to 1.
+    if ($oldversion < 2026052900) {
+        $instance = new xmldb_table('exelearning');
+
+        // Migrate stored data: 2 (both) → 1 (per-iDevice).
+        $DB->set_field('exelearning', 'grademodel', 1, ['grademodel' => 2]);
+
+        // Lower the column default to match install.xml.
+        $grademodel = new xmldb_field(
+            'grademodel',
+            XMLDB_TYPE_INTEGER,
+            '4',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            '1',
+            'grademethod'
+        );
+        if ($dbman->field_exists($instance, $grademodel)) {
+            $dbman->change_field_default($instance, $grademodel);
+        }
+
+        upgrade_mod_savepoint(true, 2026052900, 'exelearning');
+    }
+
     return true;
 }

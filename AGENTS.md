@@ -38,12 +38,12 @@ Reglas operativas de investigación: [`research/AGENTS.md`](./research/AGENTS.md
 
 ### Pendiente (orden sugerido)
 1. **TAREA-021**: `editor/index.php?id=N` devuelve 404 (lanzar editor embebido por actividad).
-2. Cierre DEC-0003 con matriz cuantificada → Aceptada (xAPI nativo `core_xapi`).
-3. Verificación e2e por navegador de: completado tras aprobar, grademodel both/overall/peritem
-   en el libro, límite de intentos y revisión del alumno.
+2. (opcional/doc) TAREA-005: cuantificar a 0-5 la matriz de DEC-0003 (ya Aceptada).
+3. Verificación e2e por navegador de: completado tras aprobar, grademodel peritem/overall
+   en el libro (default peritem), límite de intentos y revisión del alumno.
 
 ### Hecho en sesión 2026-05-28 (tarde-noche, claude-opus-4-8)
-- DEC-0008 `grademodel` (selector overall/peritem/both, both excluye overall del total).
+- DEC-0008 `grademodel` (selector peritem [default] / overall; modo both eliminado en rev. 2026-05-29).
 - DEC-0007 fase 2: `maxattempt` + `reviewmode` + borrar intento en `report.php` (cap
   `mod/exelearning:deleteattempt`) + recálculo `exelearning_recalculate_user_grades`.
 - Editor embebido **inline en settings** + **estilos definidos** portados de
@@ -56,18 +56,18 @@ Reglas operativas de investigación: [`research/AGENTS.md`](./research/AGENTS.md
 |---|---|---|
 | DEC-0001 | Aceptada | Metodología evidencia + ADRs |
 | DEC-0002 | Aceptada | Política clones externos (no vendorar) |
-| DEC-0003 | Propuesta | Plan B: SCO-per-page + parseo `content.xml` (no xAPI todavía) |
-| DEC-0004 | Propuesta | CI matriz Moodle 4.5/5.0/5.1/5.2 × PHP 8.1-8.4 × pgsql/mariadb |
+| DEC-0003 | **Aceptada** (2026-05-29) | SCORM 1.2 estándar de tracking vigente y suficiente; xAPI sólo hoja de ruta |
+| DEC-0004 | **Aceptada** (2026-05-29) | CI matriz Moodle 4.5/5.0/5.1 × PHP 8.1-8.4 × pgsql/mariadb (5.2 follow-up) |
 | DEC-0005 | **Superseded** by DEC-0009 | Editor embebido (versión con online) |
 | DEC-0006 | Aceptada | Modos preview/grading |
 | DEC-0007 | **Aceptada** | Intentos: tabla plana `exelearning_attempt` + `grademethod` (implementado) |
-| DEC-0008 | **Aceptada** | Selector `grademodel` `overall`/`peritem`/`both` (both excluye overall del total) |
+| DEC-0008 | **Aceptada** (rev. 2026-05-29) | Selector `grademodel` `peritem` (default) / `overall`; modo `both` eliminado |
 | DEC-0009 | Aceptada | **Sólo editor embebido**; eliminado eXeLearning Online / hmac |
 | DEC-0010 | **Aceptada** | Finalización estilo SCORM = core `completionpassgrade` + `gradepass` |
 | DEC-0011 | Propuesta→aceptada | Presentación intentos en portada: resumen profesor (Tarea) + línea alumno; detalle en Informes |
 | DEC-0012 | **Aceptada** | `editor/save.php` re-extrae + re-sincroniza libro tras guardar (RIE-006: estabilidad objectid) |
 | DEC-0013 | **Aceptada** | Editor Online vs embebido: confirma solo-embebido (DEC-0009); reapertura futura iría por opción D (enlace, sin HMAC) |
-| DEC-0014 | Propuesta | Soporte xAPI: eXeLearning no emite xAPI hoy; requisitos upstream+plugin; recomienda SCORM 1.2 vigente + hoja de ruta |
+| DEC-0014 | **Aceptada** (2026-05-29) | Soporte xAPI A+C: SCORM 1.2 vigente + diseño de referencia; sin empuje upstream (analítica LRS no prioritaria) |
 
 ## Restricciones inmutables
 

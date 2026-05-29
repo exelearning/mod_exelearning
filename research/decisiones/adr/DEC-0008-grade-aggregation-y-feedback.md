@@ -198,3 +198,32 @@ Estado → **Aceptada**. Implementado el **selector `grademodel`** (campo int en
 Diferido: testeo de backup con la exclusión (el backup actual incluye la
 instancia con `grademodel`, así que el modelo se restaura; la marca de peso 0 se
 re-aplica al re-sincronizar).
+
+## Revisión — Eliminado el modo `both` (2026-05-29, claude-opus-4-8)
+
+**Decisión de erseco (sesión de mejora 2026-05-29):** se **elimina el modo
+`both`**. El selector `grademodel` pasa a tener **dos opciones excluyentes** y
+el **default cambia de `both` a `peritem`**:
+
+- `peritem (1)` — **default**. Una columna por iDevice calificable; sin columna
+  overall. Es el diferencial del plugin frente a SCORM y se muestra desde que se
+  crea la actividad.
+- `overall (0)` — una única columna agregada estilo SCORM.
+
+**Motivo:** la UI debe mostrar *una u otra* presentación, no ambas a la vez. El
+valor real del plugin son las N columnas por iDevice, así que se exponen por
+defecto; el profesor cambia a `overall` si quiere una sola columna.
+
+**Cambios aplicados:**
+- Eliminados la constante `EXELEARNING_GRADEMODEL_BOTH`, la rama `both` en
+  `exelearning_sync_grade_items()`/`track.php`/`exelearning_recalculate_user_grades()`
+  y la función `exelearning_exclude_overall_from_total()` (ya no hay doble
+  conteo que evitar: nunca coexisten overall y per-iDevice en el libro).
+- `db/install.xml`: default `grademodel` `2 → 1`. Migración en `db/upgrade.php`
+  (stage `2026052900`): filas con `grademodel=2` → `1` (conserva las columnas
+  por iDevice que el profesor ya veía bajo `both`) + `change_field_default`.
+- `lang`: eliminado `grademodel_both`; `grademodel_help` reescrito.
+- Tests `grademodel_test.php` reescritos (sin `both`); `tests/generator/lib.php`
+  default `1`. `docs/USER_GUIDE.md` actualizado.
+
+`grademethod` por defecto se confirma en `highest` (sin cambio; ya lo era).

@@ -121,7 +121,7 @@ if (is_string($suspend) && $suspend !== '') {
 
 $grademax = (float) ($exelearning->grademax ?? 100);
 $grademethod = (int) ($exelearning->grademethod ?? \mod_exelearning\local\attempts::GRADE_HIGHEST);
-$grademodel = (int) ($exelearning->grademodel ?? EXELEARNING_GRADEMODEL_BOTH);
+$grademodel = (int) ($exelearning->grademodel ?? EXELEARNING_GRADEMODEL_PERITEM);
 $itemdetailsbase = [
     'gradetype' => GRADE_TYPE_VALUE,
     'grademax'  => $exelearning->grademax ?? 100,

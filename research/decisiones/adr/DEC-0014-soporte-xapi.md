@@ -1,7 +1,7 @@
 ---
 id: DEC-0014
 titulo: "Soporte xAPI: qué haría falta en eXeLearning y en mod_exelearning, y si compensa"
-estado: Propuesta
+estado: Aceptada
 fecha: 2026-05-29
 agentes:
   - erseco
@@ -140,18 +140,27 @@ necesario. Es la continuación natural de PREG-002 (que ya logró ids estables v
   diseño de referencia y se reactiva cuando upstream emita xAPI.
 - DEC-0003 se mantiene (SCORM 1.2 vigente); este ADR es su evolución natural.
 
-## Preguntas abiertas
+## Preguntas abiertas — resueltas (2026-05-29, erseco)
 
 - ¿Hay interés de ATE/INTEF en analítica de aprendizaje vía LRS que justifique el
-  empuje upstream de xAPI?
-- ¿Se prefiere `postMessage` (same-origin, simple) o un endpoint LRS configurable
-  (más estándar, más complejo) como transporte?
-- ¿cmi5 entra en alcance o solo xAPI puro?
+  empuje upstream de xAPI? → **No por ahora.** SCORM 1.2 cubre la calificación en
+  gradebook (requisito actual). No se impulsa la emisión xAPI aguas arriba; el
+  roadmap queda teórico hasta que haya demanda concreta.
+- ¿`postMessage` vs endpoint LRS configurable como transporte? → **Sin decidir**
+  (no urge: sólo aplica si algún día upstream emite xAPI).
+- ¿cmi5 en alcance? → **Sin decidir** (fuera de alcance hasta reactivar el ADR).
+
+## Decisión (2026-05-29, erseco)
+
+**Aceptada A+C:** SCORM 1.2 como canal productivo vigente + este ADR como diseño
+de referencia que se **reactiva sólo si eXeLearning upstream empieza a emitir
+statements xAPI**. No hay trabajo de plugin inmediato.
 
 ## Seguimiento
 
-- PENDIENTE decisión: confirmar A+C (statu quo + hoja de ruta).
 - Prerrequisito upstream: emisión de statements xAPI en eXeLearning (continúa la
-  línea de PREG-002 / #1791).
+  línea de PREG-002 / #1791). **No se abre issue por decisión de erseco** (sin
+  prioridad de analítica LRS en ATE ahora).
 - Si upstream emite xAPI: implementar `xapi_bridge.js` + handler `core_xapi` +
-  integración con intentos (DEC-0007), modelando `mod_h5pactivity` (AN-003).
+  integración con intentos (DEC-0007), modelando `mod_h5pactivity` (AN-003), y
+  decidir entonces transporte (`postMessage` vs LRS) y cmi5.

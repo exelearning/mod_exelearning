@@ -69,11 +69,9 @@ creates the gradebook columns for every gradable iDevice it detects.
   - *Lowest attempt*
 - **Gradebook columns** — how the activity reports to the gradebook (see
   section 4 for guidance on choosing):
-  - *Overall only* — a single aggregated column, like SCORM.
   - *Per iDevice only* — one column per gradable iDevice, no overall column.
-  - *Both (overall excluded from course total)* — an overall column **plus**
-    one per iDevice; the overall is excluded from the course total so students
-    are not counted twice. This is the default.
+    **This is the default.**
+  - *Overall only* — a single aggregated column, like SCORM.
 - **Attempts allowed** — the maximum number of attempts per student. Set to `0`
   for unlimited (the default). One attempt corresponds to one page-load session
   of the activity.
@@ -127,21 +125,21 @@ section 8.
 
 ## 4. How grading works
 
-### Columns: one per gradable iDevice plus an overall
+### Columns: one per gradable iDevice, or a single overall
 
-The package is scanned for gradable iDevices. Each one becomes its own gradebook
-column. In addition, an **Overall (aggregated)** column can summarise the whole
-activity. The **Gradebook columns** setting controls which columns are created:
+The package is scanned for gradable iDevices. The **Gradebook columns** setting
+controls which columns are created:
 
+- **Per iDevice only** — the default. Each gradable iDevice becomes its own
+  gradebook column, so every exercise is graded separately. Choose this when
+  each exercise is a distinct graded task — it is what makes this activity more
+  granular than a plain SCORM package.
 - **Overall only** — choose this when you only care about a single combined
   score for the whole resource (the SCORM-style behaviour). Best when the
   individual exercises are practice and you grade the resource as a whole.
-- **Per iDevice only** — choose this when each exercise is a distinct graded
-  task and you do not want an extra aggregated column.
-- **Both (overall excluded from course total)** — the default. You get the
-  detailed per-iDevice columns *and* a convenient overall summary, but the
-  overall is excluded from the course total so the same work is not counted
-  twice. Best for most cases where you want detail without distorting totals.
+
+You can switch between the two models at any time; switching removes the columns
+that no longer apply and creates the ones that do. Grade history is preserved.
 
 ### Attempts and aggregation
 

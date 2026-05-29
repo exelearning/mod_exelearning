@@ -21,7 +21,7 @@
         <FIELD NAME="grademin"      TYPE="number" LENGTH="10" DECIMALS="5" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="gradedisplaytype" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="GRADE_DISPLAY_TYPE_* constant; 0=DEFAULT (inherit course), 1=REAL, 2=PERCENTAGE, 3=LETTER, 12=REAL_PERCENTAGE."/>
         <FIELD NAME="grademethod"   TYPE="int"  LENGTH="4"   NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Attempt aggregation for the gradebook: 0=highest, 1=average, 2=first, 3=last, 4=lowest (DEC-0007)."/>
-        <FIELD NAME="grademodel"    TYPE="int"  LENGTH="4"   NOTNULL="true" DEFAULT="2" SEQUENCE="false" COMMENT="Gradebook columns model (DEC-0008): 0=overall only, 1=per-iDevice only, 2=both (overall excluded from course total)."/>
+        <FIELD NAME="grademodel"    TYPE="int"  LENGTH="4"   NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="Gradebook columns model (DEC-0008, rev. 2026-05-29): 0=overall only, 1=per-iDevice only (default). The legacy 'both' (2) was removed."/>
         <FIELD NAME="maxattempt"    TYPE="int"  LENGTH="10"  NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Max attempts per user (DEC-0007 phase 2): 0=unlimited."/>
         <FIELD NAME="reviewmode"    TYPE="int"  LENGTH="4"   NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="Student attempt review (DEC-0007 phase 2): 0=never, 1=always, 2=after completion."/>
         <FIELD NAME="teachermodevisible" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="If 1, show the teacher preview/grading toggle in the activity view (mod_exeweb parity)."/>

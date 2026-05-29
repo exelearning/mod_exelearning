@@ -125,12 +125,11 @@ class mod_exelearning_mod_form extends moodleform_mod {
             'grademodel',
             get_string('grademodel', 'mod_exelearning'),
             [
-                    EXELEARNING_GRADEMODEL_OVERALL => get_string('grademodel_overall', 'mod_exelearning'),
                     EXELEARNING_GRADEMODEL_PERITEM => get_string('grademodel_peritem', 'mod_exelearning'),
-                    EXELEARNING_GRADEMODEL_BOTH    => get_string('grademodel_both', 'mod_exelearning'),
+                    EXELEARNING_GRADEMODEL_OVERALL => get_string('grademodel_overall', 'mod_exelearning'),
             ]
         );
-        $mform->setDefault('grademodel', EXELEARNING_GRADEMODEL_BOTH);
+        $mform->setDefault('grademodel', EXELEARNING_GRADEMODEL_PERITEM);
         $mform->addHelpButton('grademodel', 'grademodel', 'mod_exelearning');
 
         // Límite de intentos por alumno (DEC-0007 fase 2): 0 = ilimitados.
