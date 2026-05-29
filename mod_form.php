@@ -127,6 +127,15 @@ class mod_exelearning_mod_form extends moodleform_mod {
         $mform->setDefault('gradedisplaytype', GRADE_DISPLAY_TYPE_DEFAULT);
         $mform->addHelpButton('gradedisplaytype', 'gradedisplay', 'mod_exelearning');
 
+        // Appearance: whether to show the teacher preview/grading toggle in the
+        // activity view (mod_exeweb parity). Default on.
+        $mform->addElement('header', 'appearancesection',
+                get_string('appearance', 'mod_exelearning'));
+        $mform->addElement('advcheckbox', 'teachermodevisible',
+                get_string('teachermodevisible', 'mod_exelearning'));
+        $mform->setDefault('teachermodevisible', 1);
+        $mform->addHelpButton('teachermodevisible', 'teachermodevisible', 'mod_exelearning');
+
         $this->standard_coursemodule_elements();
         $this->add_action_buttons();
     }

@@ -123,3 +123,16 @@ Negativas:
   track.php.
 - TAREA-020 (futura, junto con bridge xAPI): aplicar la categoría xAPI
   para preview en statements.
+
+## Actualización (2026-05-29): toggle ocultable `teachermodevisible`
+
+Paridad con `mod_exeweb`: se añade el campo de instancia `teachermodevisible`
+(advcheckbox en `mod_form`, default 1, sección "Appearance") que permite al
+profesor **ocultar el toggle "Try as a student (preview)"** en la vista de la
+actividad. Importante: es sólo presentación — la capability
+`moodle/course:manageactivities` sigue controlando el acceso real al modo
+preview, así que un alumno NUNCA entra en preview aunque el toggle esté oculto,
+y si `teachermodevisible=0` y la URL trae `?mode=preview`, `view.php` fuerza
+`grading`. Campo en `db/install.xml` + upgrade savepoint 2026052806. Verificado
+en navegador: con 0 desaparece el toggle (resto —editor, items, informe—
+intacto); con 1 reaparece.

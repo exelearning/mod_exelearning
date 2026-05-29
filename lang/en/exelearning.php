@@ -56,6 +56,11 @@ $string['gradedisplay_percentage']       = 'Percentage';
 $string['gradedisplay_letter']           = 'Letter (A, B, …)';
 $string['gradedisplay_real_percentage']  = 'Real and percentage';
 
+// Appearance (mod_exeweb parity).
+$string['appearance']            = 'Appearance';
+$string['teachermodevisible']      = 'Show teacher preview toggle';
+$string['teachermodevisible_help'] = 'If disabled, the "Try as a student (preview)" toggle is hidden from teachers in the activity view. Capability checks still prevent students from entering preview mode regardless of this setting.';
+
 $string['gradepass']       = 'Grade to pass';
 $string['gradepass_help']  = 'The minimum overall grade required to pass. When the "Require passing grade" completion condition is enabled, the activity is marked complete (SCORM-style) once the student reaches this grade. Leave at 0 to disable pass-based completion.';
 

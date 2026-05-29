@@ -159,5 +159,17 @@ function xmldb_exelearning_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026052804, 'exelearning');
     }
 
+    // Stage 6 (2026052806): teachermodevisible (mod_exeweb parity) — per-activity
+    // toggle to hide the teacher preview/grading switch in the activity view.
+    if ($oldversion < 2026052806) {
+        $instance = new xmldb_table('exelearning');
+        $field = new xmldb_field('teachermodevisible', XMLDB_TYPE_INTEGER, '2',
+                null, XMLDB_NOTNULL, null, '1', 'reviewmode');
+        if (!$dbman->field_exists($instance, $field)) {
+            $dbman->add_field($instance, $field);
+        }
+        upgrade_mod_savepoint(true, 2026052806, 'exelearning');
+    }
+
     return true;
 }

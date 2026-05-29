@@ -51,6 +51,16 @@ if (!in_array($mode, ['grading', 'preview'], true)) {
     $mode = 'grading';
 }
 
+// Whether to show the teacher preview/grading toggle banner (mod_exeweb parity:
+// teachermodevisible). It is a presentation choice only — capability still gates
+// the preview mode itself, so a student can never reach preview regardless.
+// When the toggle is hidden, also force grading so a teacher can't get stuck in
+// preview with no exit banner.
+$showpreviewtoggle = $canpreview && !empty($exelearning->teachermodevisible);
+if (!$showpreviewtoggle && $mode === 'preview') {
+    $mode = 'grading';
+}
+
 exelearning_view($exelearning, $course, $cm, $context);
 
 $pageurlparams = ['id' => $cm->id];
@@ -101,8 +111,9 @@ if (!empty($exelearning->intro)) {
             'generalbox', 'intro');
 }
 
-// Banner del modo preview + enlaces para alternar (DEC-0006).
-if ($canpreview) {
+// Banner del modo preview + enlaces para alternar (DEC-0006), salvo que el
+// profesor lo haya ocultado (teachermodevisible=0, paridad mod_exeweb).
+if ($showpreviewtoggle) {
     if ($mode === 'preview') {
         $exiturl = new moodle_url('/mod/exelearning/view.php', ['id' => $cm->id]);
         echo html_writer::start_div('alert alert-warning d-flex justify-content-between align-items-center mb-3');

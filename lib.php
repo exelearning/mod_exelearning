@@ -94,6 +94,9 @@ function exelearning_add_instance($data, $mform = null) {
     if (!isset($data->reviewmode)) {
         $data->reviewmode = \mod_exelearning\local\attempts::REVIEW_ALWAYS;
     }
+    if (!isset($data->teachermodevisible)) {
+        $data->teachermodevisible = 1;
+    }
 
     $data->id = $DB->insert_record('exelearning', $data);
 
@@ -143,6 +146,9 @@ function exelearning_update_instance($data, $mform = null) {
     }
     if (!isset($data->reviewmode)) {
         $data->reviewmode = \mod_exelearning\local\attempts::REVIEW_ALWAYS;
+    }
+    if (!isset($data->teachermodevisible)) {
+        $data->teachermodevisible = 1;
     }
 
     $DB->update_record('exelearning', $data);
