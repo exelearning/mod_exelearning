@@ -43,8 +43,8 @@ $PAGE->set_title(format_string($exelearning->name) . ': ' . get_string('attempts
 $PAGE->set_heading(format_string($course->fullname));
 $PAGE->set_context($context);
 
-// Borrar intento (DEC-0007 fase 2): elimina todas las filas de un (userid,
-// attempt) y recalcula la nota del alumno desde el histórico restante.
+// Delete attempt (DEC-0007 phase 2): removes every row of a (userid, attempt)
+// pair and recalculates the student's grade from the remaining history.
 $deleteuser = optional_param('deleteuser', 0, PARAM_INT);
 $deleteattempt = optional_param('deleteattempt', 0, PARAM_INT);
 if (
@@ -67,10 +67,16 @@ if (
 
 $candelete = has_capability('mod/exelearning:deleteattempt', $context);
 
+// The report reflects the grademodel (DEC-0008): in "per iDevice only" the
+// Overall row (itemnumber=0) is hidden; in "overall only" the per-iDevice rows
+// are hidden. The internal history (exelearning_attempt) keeps recording both,
+// so this only affects presentation, not the data nor the grade recalculation.
+$grademodel = (int) ($exelearning->grademodel ?? EXELEARNING_GRADEMODEL_PERITEM);
+
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('attemptsreport', 'mod_exelearning'));
 
-// Mapa itemnumber → nombre legible (overall + iDevices).
+// Map itemnumber -> human-readable name (overall + iDevices).
 $itemnames = [0 => get_string('report_overall', 'mod_exelearning')];
 $gradeitems = $DB->get_records(
     'exelearning_grade_item',
@@ -97,7 +103,7 @@ if (empty($attempts)) {
     die;
 }
 
-// Cargar usuarios implicados.
+// Load the users involved.
 $userids = [];
 foreach ($attempts as $a) {
     $userids[$a->userid] = true;
@@ -118,11 +124,42 @@ if ($candelete) {
 }
 $table->attributes['class'] = 'generaltable';
 
+// Whether a row matches the active model (DEC-0008: peritem shows
+// itemnumber>0; overall shows itemnumber=0).
+$matchesmode = function (int $itemnumber) use ($grademodel): bool {
+    return ($grademodel === EXELEARNING_GRADEMODEL_OVERALL)
+            ? ($itemnumber === 0)
+            : ($itemnumber > 0);
+};
+
+// Pre-pass: flag which (user, attempt) pairs have at least one row matching the
+// model. If an attempt has none (e.g. in peritem, an attempt that only recorded
+// the overall, with no iDevices), it is shown anyway as a fallback so it does
+// not disappear from the report nor become impossible to delete.
+$grouphasmatch = [];
 foreach ($attempts as $a) {
+    $key = $a->userid . '-' . $a->attempt;
+    $grouphasmatch[$key] = ($grouphasmatch[$key] ?? false) || $matchesmode((int) $a->itemnumber);
+}
+
+// Track the first VISIBLE row of each (user, attempt) pair to anchor the
+// "Delete attempt" button there: deleting removes the whole attempt, so it is
+// shown once per attempt and works in any model (it does not rely on overall).
+$deleteanchored = [];
+foreach ($attempts as $a) {
+    $itemnumber = (int) $a->itemnumber;
+    $groupkey = $a->userid . '-' . $a->attempt;
+
+    // Reflect the grademodel: hide rows that do not apply to the model, except
+    // for attempts with no matching row at all (deletability fallback).
+    if ($grouphasmatch[$groupkey] && !$matchesmode($itemnumber)) {
+        continue;
+    }
+
     $username = isset($users[$a->userid])
             ? fullname($users[$a->userid]) : ('#' . $a->userid);
-    $itemlabel = $itemnames[(int) $a->itemnumber]
-            ?? ('#' . $a->itemnumber);
+    $itemlabel = $itemnames[$itemnumber]
+            ?? ('#' . $itemnumber);
     $score = format_float((float) $a->rawscore, 2) . ' / ' . format_float((float) $a->maxscore, 2);
     $row = [
         s($username),
@@ -133,9 +170,8 @@ foreach ($attempts as $a) {
         userdate($a->timemodified),
     ];
     if ($candelete) {
-        // El enlace de borrado sólo en la fila overall (itemnumber=0) para no
-        // repetirlo por cada iDevice; borra el intento completo del alumno.
-        if ((int) $a->itemnumber === 0) {
+        if (!isset($deleteanchored[$groupkey])) {
+            $deleteanchored[$groupkey] = true;
             $delurl = new moodle_url('/mod/exelearning/report.php', [
                 'id'            => $cm->id,
                 'deleteuser'    => $a->userid,
