@@ -20,4 +20,4 @@ criterios_aceptacion:
   - "Matriz con números."
   - "DEC-0003 en estado `Aceptada` o reemplazado por DEC-0003b."
   - "Riesgos formalizados como RIE-NNN en status.yaml."
-notas: ""
+notas: "Parcial (2026-05-29): DEC-0003 ya está ACEPTADA (decisión de erseco: SCORM 1.2 vigente y suficiente; xAPI sólo hoja de ruta vía DEC-0014). Lo único que queda de esta tarea es opcional/documental: convertir la matriz cualitativa (-- / - / 0 / + / ++) a puntuaciones 0-5. No bloquea nada."

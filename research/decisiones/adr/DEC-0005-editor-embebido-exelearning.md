@@ -1,7 +1,8 @@
 ---
 id: DEC-0005
 titulo: "Editor eXeLearning embebido: heredar la maquinaria de mod_exeweb"
-estado: Aceptada
+estado: Superseded
+reemplazada_por: DEC-0009
 fecha: 2026-05-28
 agentes:
   - erseco
@@ -15,6 +16,12 @@ herramienta_ia:
   interfaz: claude-code
   modelo: claude-opus-4-7
 ---
+
+> **Superseded por [DEC-0009](DEC-0009-solo-editor-embebido.md) (2026-05-29).**
+> Esta versión contemplaba además el modo eXeLearning Online (hmac, editormode,
+> exeonlinebaseuri). DEC-0009 la reemplaza: **sólo editor embebido**, sin
+> integración Online. El editor embebido en sí se mantiene (implementado y
+> verificado); lo descartado es la rama Online.
 
 ## Contexto
 

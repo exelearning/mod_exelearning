@@ -1,6 +1,6 @@
 ---
 id: DEC-0008
-titulo: "Agregación de grade items: nota global, por iDevice o ambas (con global excluida)"
+titulo: "Agregación de grade items: por iDevice (default) o nota global (modo 'ambas' eliminado, rev. 2026-05-29)"
 estado: Aceptada
 fecha: 2026-05-28
 agentes:

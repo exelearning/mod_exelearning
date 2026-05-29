@@ -64,7 +64,7 @@ Reglas operativas de investigación: [`research/AGENTS.md`](./research/AGENTS.md
 | DEC-0008 | **Aceptada** (rev. 2026-05-29) | Selector `grademodel` `peritem` (default) / `overall`; modo `both` eliminado |
 | DEC-0009 | Aceptada | **Sólo editor embebido**; eliminado eXeLearning Online / hmac |
 | DEC-0010 | **Aceptada** | Finalización estilo SCORM = core `completionpassgrade` + `gradepass` |
-| DEC-0011 | Propuesta→aceptada | Presentación intentos en portada: resumen profesor (Tarea) + línea alumno; detalle en Informes |
+| DEC-0011 | **Aceptada** | Presentación intentos en portada: resumen profesor (Tarea) + línea alumno; detalle en Informes |
 | DEC-0012 | **Aceptada** | `editor/save.php` re-extrae + re-sincroniza libro tras guardar (RIE-006: estabilidad objectid) |
 | DEC-0013 | **Aceptada** | Editor Online vs embebido: confirma solo-embebido (DEC-0009); reapertura futura iría por opción D (enlace, sin HMAC) |
 | DEC-0014 | **Aceptada** (2026-05-29) | Soporte xAPI A+C: SCORM 1.2 vigente + diseño de referencia; sin empuje upstream (analítica LRS no prioritaria) |

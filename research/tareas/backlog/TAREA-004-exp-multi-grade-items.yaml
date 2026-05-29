@@ -1,8 +1,8 @@
 id: TAREA-004
 titulo: "EXP-002: POC de multi-grade-items en Moodle 4.x"
-estado: Pending
+estado: Done
 fecha: 2026-05-28
-agente: pendiente
+agente: claude-code
 prioridad: alta
 objetivo: "Demostrar en una instalación Moodle que un plugin de actividad mínimo puede registrar 2 grade items (itemnumber=0,1) que aparecen y actualizan correctamente en el libro de calificaciones."
 pasos:
@@ -20,4 +20,4 @@ criterios_aceptacion:
   - "Dos columnas en el libro de calificaciones, no agregadas."
   - "Actualización idempotente comprobada."
   - "Re-upload de paquete con item adicional añade itemnumber=2 sin romper notas previas."
-notas: ""
+notas: "Done (2026-05-29): superada por el propio plugin (no hizo falta POC scratch). classes/grades/gradeitems.php + exelearning_sync_grade_items() registran N columnas (itemnumber 0..100), idempotentes, con soft-delete de columnas obsoletas. Verificado en Docker (Moodle 5.0.7) y en la CI (PHPUnit lib_test/grademodel_test, Moodle 4.5/5.0/5.1). El re-sync idempotente y el alta/baja de columnas están cubiertos por tests."

@@ -1,7 +1,7 @@
 ---
 id: DEC-0011
 titulo: "Presentación de intentos en la portada de la actividad: resumen SCORM, resumen-profesor estilo Tarea, o valor estilo H5P"
-estado: Propuesta
+estado: Aceptada
 fecha: 2026-05-28
 agentes:
   - erseco

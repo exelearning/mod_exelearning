@@ -1,8 +1,8 @@
 id: TAREA-003
 titulo: "EXP-001: estructura del paquete publicado por eXeLearning"
-estado: Pending
+estado: Done
 fecha: 2026-05-28
-agente: pendiente
+agente: claude-code
 prioridad: alta
 objetivo: "Capturar un paquete real publicado por eXeLearning (Web y SCORM), descomprimirlo y documentar: estructura, motor JS de la sidebar, identificadores de iDevices calificables, presencia (o no) de statements xAPI."
 pasos:
@@ -20,4 +20,4 @@ relacionados:
 criterios_aceptacion:
   - "Ficha EXP-001 completa con setup_command, run_command, métricas y limitaciones."
   - "PREG-001 actualizada (o resuelta) con la evidencia."
-notas: ""
+notas: "Done (2026-05-29): cubierto vía PREG-001 (resuelta) con fixtures reales en research/fixtures/{elpx,scorm-export,web-export} + doc upstream elpx-format/ids.md. La estructura del paquete, el parser de content.xml (classes/local/package.php) y los odeIdeviceId quedan documentados; el bridge real usa SCORM 1.2 (DEC-0003). SCORM 2004/cmi5 fuera de alcance (DEC-0014)."
