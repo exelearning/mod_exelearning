@@ -6,12 +6,14 @@ version_consultada: "ELPX v4 (eXeLearning v4, github.com/exelearning/exelearning
 enlaces_oficiales:
   - https://exelearning.net/
   - https://forum.exelearning.net/
+  - https://github.com/exelearning/exelearning/blob/main/doc/elpx-format/content-xml.md
+  - https://github.com/exelearning/exelearning/blob/main/doc/elpx-format/ids.md
 context7:
-  library_id: "[PENDIENTE: context7]"
-  query: "[PENDIENTE: context7]"
-  fecha: null
-  version_devuelta: "[PENDIENTE: context7]"
-fecha_consulta: 2026-05-28
+  library_id: /exelearning/exelearning
+  query: "elpx package format, content.xml structure, odeIdeviceId stable identifiers across import/export, SCORM 1.2 export, how gradable iDevices are published"
+  fecha: 2026-05-29
+  version_devuelta: "exelearning/exelearning main (doc/elpx-format, llms-full.txt) — High reputation, 1712 snippets"
+fecha_consulta: 2026-05-29
 relevancia_para_mod_exelearning: "Define el artefacto de entrada del plugin: estructura de archivos, motor JS de la sidebar, identificadores de iDevices calificables."
 herramienta_ia:
   interfaz: claude-code
@@ -94,6 +96,24 @@ Esquema observado (confirmado en 3 fixtures: `really-simple`, `Manual` y
 → **Esto resuelve PREG-001 para el formato ELPX**: las IDs de página y de iDevice
 son estables y exportadas en `content.xml`. Son el candidato natural para
 `mdl_exelearning_grade_item.objectid`.
+
+### Confirmación autoritativa (Context7 `/exelearning/exelearning`, 2026-05-29)
+
+La doc upstream (`doc/elpx-format/content-xml.md` + `llms-full.txt`) confirma y precisa:
+
+- `content.xml` es la raíz de todo `.elpx`: UTF-8, XML 1.0, **namespace
+  `http://www.intef.es/xsd/ode`**, versión **ODE `2.0`**, schema en `content.dtd`
+  empaquetado en la raíz del ZIP. Orden de elementos top-level:
+  `userPreferences?`, `odeResources?`, `odeProperties?`, `odeNavStructures`.
+- **Distinguir dos ids de paquete** (no confundir con `odeIdeviceId`):
+  - `odeId` — id del proyecto, **estable, nunca se regenera**.
+  - `odeVersionId` — **nuevo en cada export**.
+  Por eso un re-export del mismo proyecto cambia `odeVersionId` pero conserva
+  `odeId` y los `odeIdeviceId` (matiz de RIE-006: los ids de iDevice sólo se
+  reasignan al **importar** el .elpx, no al re-exportar).
+- Export a SCORM 1.2 (CLI del editor): `bun run cli elp:export in.elpx out.zip --format=scorm12`.
+- Excluidos de `odeProperties` (no emitidos): `scormIdentifier`, `masteryScore`
+  van al **manifest SCORM**, no a content.xml.
 
 ### Novedad v4: `__ELPX_MANIFEST__` (self-rezip)
 

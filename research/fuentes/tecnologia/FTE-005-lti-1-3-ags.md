@@ -7,11 +7,11 @@ enlaces_oficiales:
   - https://www.imsglobal.org/spec/lti/v1p3
   - https://www.imsglobal.org/spec/lti-ags/v2p0
 context7:
-  library_id: "[PENDIENTE: context7]"
-  query: "[PENDIENTE: context7]"
-  fecha: null
-  version_devuelta: "[PENDIENTE: context7]"
-fecha_consulta: 2026-05-28
+  library_id: /websites/imsglobal_spec_lti_v1p3_impl
+  query: "LTI 1.3 Advantage AGS Assignment and Grade Services, line items, score publishing, results service"
+  fecha: 2026-05-29
+  version_devuelta: "1EdTech LTI v1.3 implementation guide (Advantage/AGS) — High. Autoritativo (1EdTech). Alternativa: /websites/imsglobal_spec_lti_v1p3."
+fecha_consulta: 2026-05-29
 relevancia_para_mod_exelearning: "Estándar tool↔platform con soporte nativo de múltiples line items por enlace. Modelo distinto: el contenido vive en una herramienta externa."
 herramienta_ia:
   interfaz: claude-code

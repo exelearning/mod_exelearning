@@ -7,11 +7,11 @@ enlaces_oficiales:
   - https://adlnet.gov/projects/scorm/
   - https://scorm.com/scorm-explained/technical-scorm/
 context7:
-  library_id: "[PENDIENTE: context7]"
-  query: "[PENDIENTE: context7]"
-  fecha: null
-  version_devuelta: "[PENDIENTE: context7]"
-fecha_consulta: 2026-05-28
+  library_id: /jcputney/scorm-again
+  query: "SCORM 1.2 runtime API LMSInitialize LMSSetValue cmi.core.score.raw lesson_status, single score per SCO"
+  fecha: 2026-05-29
+  version_devuelta: "scorm-again (runtime JS de referencia, High, 1887 snippets). NOTA: es una IMPLEMENTACIÓN del runtime, no el spec normativo; la norma autoritativa es ADL (ver enlaces_oficiales)."
+fecha_consulta: 2026-05-29
 relevancia_para_mod_exelearning: "Formato más común exportado por eXeLearning; soportado por mod_exescorm. Candidato para tracking si el plugin opta por la familia SCORM."
 herramienta_ia:
   interfaz: claude-code

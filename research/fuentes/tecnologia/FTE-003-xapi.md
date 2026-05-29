@@ -8,10 +8,10 @@ enlaces_oficiales:
   - https://github.com/adlnet/xAPI-Spec
 context7:
   library_id: /adlnet/xapi-spec
-  query: "statement format result score scaled raw object id activity definition"
-  fecha: 2026-05-28
-  version_devuelta: "xAPI 1.0.3 spec (ADL)"
-fecha_consulta: 2026-05-28
+  query: "statement structure actor verb object result score scaled raw min max, IRI requirements, completed and answered verbs"
+  fecha: 2026-05-29
+  version_devuelta: "adlnet/xapi-spec (xAPI-Data.md, xAPI-About.md) — High. Re-confirmado verb/result/score y ejemplo cmi.interaction."
+fecha_consulta: 2026-05-29
 relevancia_para_mod_exelearning: "Estándar granular para statements (actor, verb, object, result). Moodle lo soporta nativamente vía core_xapi. Candidato principal para tracking de items independientes."
 herramienta_ia:
   interfaz: claude-code

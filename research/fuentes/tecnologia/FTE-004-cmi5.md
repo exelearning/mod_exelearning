@@ -7,11 +7,11 @@ enlaces_oficiales:
   - https://aicc.github.io/CMI-5_Spec_Current/
   - https://github.com/AICC/CMI-5_Spec_Current
 context7:
-  library_id: "[PENDIENTE: context7]"
-  query: "[PENDIENTE: context7]"
-  fecha: null
-  version_devuelta: "[PENDIENTE: context7]"
-fecha_consulta: 2026-05-28
+  library_id: /adlnet/xapi-spec
+  query: "cmi5 statement example, context category moveon and cmi5, result score scaled raw min max, progress extension, AU launch"
+  fecha: 2026-05-29
+  version_devuelta: "adlnet/xapi-spec (High): incluye el perfil cmi5 (ejemplo de statement con context.category moveon/cmi5 y result.score). Spec normativa cmi5 = AICC (ver enlaces_oficiales)."
+fecha_consulta: 2026-05-29
 relevancia_para_mod_exelearning: "Capa de empaquetado y reglas sobre xAPI que reemplaza SCORM: define `cmi5.xml`, AU (Assignable Units), launch model. Combina manifest tipo SCORM con tracking xAPI."
 herramienta_ia:
   interfaz: claude-code

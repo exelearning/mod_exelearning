@@ -68,6 +68,7 @@ Reglas operativas de investigación: [`research/AGENTS.md`](./research/AGENTS.md
 | DEC-0012 | **Aceptada** | `editor/save.php` re-extrae + re-sincroniza libro tras guardar (RIE-006: estabilidad objectid) |
 | DEC-0013 | **Aceptada** | Editor Online vs embebido: confirma solo-embebido (DEC-0009); reapertura futura iría por opción D (enlace, sin HMAC) |
 | DEC-0014 | **Aceptada** (2026-05-29) | Soporte xAPI A+C: SCORM 1.2 vigente + diseño de referencia; sin empuje upstream (analítica LRS no prioritaria) |
+| DEC-0015 | **Aceptada** (2026-05-29) | Justificación de la multicalificación: DAFO + comparativa (exeweb/exescorm/scorm/h5p); veredicto: merece la pena con matices (deuda = shim SCORM, hoja de ruta = xAPI DEC-0014) |
 
 ## Restricciones inmutables
 

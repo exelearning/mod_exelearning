@@ -7,11 +7,11 @@ enlaces_oficiales:
   - https://adlnet.gov/projects/scorm/
   - https://scorm.com/scorm-explained/technical-scorm/scorm-2004-overview/
 context7:
-  library_id: "[PENDIENTE: context7]"
-  query: "[PENDIENTE: context7]"
-  fecha: null
-  version_devuelta: "[PENDIENTE: context7]"
-fecha_consulta: 2026-05-28
+  library_id: /jcputney/scorm-again
+  query: "SCORM 2004 sequencing, cmi.objectives.n.id and score, multiple objectives per SCO, run-time data model"
+  fecha: 2026-05-29
+  version_devuelta: "scorm-again (runtime JS de referencia, High, 1887 snippets). NOTA: implementación del runtime, no el spec normativo; norma autoritativa = ADL (ver enlaces_oficiales)."
+fecha_consulta: 2026-05-29
 relevancia_para_mod_exelearning: "Alternativa a SCORM 1.2; soporta secuenciación y múltiples objetivos (cmi.objectives), lo que abre la puerta a varios sub-scores por SCO."
 herramienta_ia:
   interfaz: claude-code

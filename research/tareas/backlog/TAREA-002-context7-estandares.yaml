@@ -1,8 +1,8 @@
 id: TAREA-002
 titulo: "Consultas Context7 para rellenar FTE-001..FTE-008"
-estado: Pending
+estado: Done
 fecha: 2026-05-28
-agente: pendiente
+agente: claude-code
 prioridad: alta
 objetivo: "Sustituir los `[PENDIENTE: context7]` de las FTE por consultas reales con library_id resuelto, query, fecha y versión devuelta."
 pasos:
@@ -23,4 +23,12 @@ relacionados:
 criterios_aceptacion:
   - "Ningún campo `context7.*` queda con `[PENDIENTE]` salvo justificación explícita."
   - "Cada FTE cita al menos un fragmento textual de la fuente consultada."
-notas: ""
+notas: |
+  Done (2026-05-29). Bloques context7 resueltos en las 8 fichas:
+  - FTE-006 Moodle Grade API + FTE-007 core_xapi: /websites/moodledev_io_5_2 (consultados; core_xapi_statement_post + handler confirmados).
+  - FTE-008 eXeLearning: /exelearning/exelearning (High, 1712 snippets); confirmado content.xml ODE 2.0, namespace intef.es/xsd/ode, odeId estable vs odeVersionId por-export, export SCORM 1.2 CLI.
+  - FTE-003 xAPI: /adlnet/xapi-spec (High); verb/result/score + cmi.interaction re-confirmados.
+  - FTE-004 cmi5: /adlnet/xapi-spec (perfil cmi5, ejemplo de statement). Spec normativa = AICC.
+  - FTE-001/002 SCORM 1.2/2004: /jcputney/scorm-again (runtime JS de referencia, NO spec normativo; norma = ADL en enlaces_oficiales).
+  - FTE-005 LTI 1.3 AGS: /websites/imsglobal_spec_lti_v1p3_impl (1EdTech, autoritativo).
+  Ningún campo context7 queda [PENDIENTE].
