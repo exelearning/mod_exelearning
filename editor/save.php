@@ -118,6 +118,15 @@ try {
         }
     }
 
+    // Re-extract the freshly saved package to the content filearea (with the
+    // SCORM loader shim) and re-scan its gradable iDevices. Editing in the
+    // embedded editor can add or remove gradable iDevices, so the gradebook
+    // columns must be re-synced: new iDevices create columns, removed ones are
+    // marked deleted (grade history preserved). Both helpers locate the package
+    // at any itemid, so they pick up the new revision stored above.
+    exelearning_extract_stored_package($context->id, (int)$exelearning->revision);
+    exelearning_sync_grade_items($exelearning->id, $context->id);
+
     echo json_encode([
         'success' => true,
         'revision' => $exelearning->revision,
