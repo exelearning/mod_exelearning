@@ -146,6 +146,10 @@ exeweb con un modelo de calificación que va más allá de exescorm.</p>
   <tr><td>Integración continua</td><td>Matriz Moodle 4.5/5.0/5.1 × PHP 8.1–8.4 ×
   pgsql/mariadb (lint, phpcs, phpdoc, phpunit, behat…)</td>
   <td><span class="badge b-ok">verde 18/18</span></td></tr>
+  <tr><td>Estabilidad de ids (RIE-006)</td><td>Resuelto aguas arriba: el PR
+  <code>exelearning/exelearning#1791</code> (merged, ya en <code>main</code>) preserva
+  los <code>odeIdeviceId</code> al importar/exportar → editar+guardar no duplica columnas</td>
+  <td><span class="badge b-ok">resuelto (upstream)</span></td></tr>
   <tr><td>Decisiones (ADR)</td><td>DEC-0003/0004/0014 Aceptadas; DEC-0005 Superseded;
   DEC-0008 rev.; DEC-0011 Aceptada; DEC-0015 (justificación)</td>
   <td><span class="badge b-ok">conciliado</span></td></tr>
@@ -170,8 +174,8 @@ exeweb con un modelo de calificación que va más allá de exescorm.</p>
     <li>Aportación upstream (ids estables, manifiesto gradeitems).</li></ul></div>
   <div class="card t"><h4>Amenazas</h4>
     <ul class="small"><li>Cambios del export de eXeLearning rompen la detección.</li>
-    <li>Reasignación de ids al importar (RIE-006).</li>
-    <li>Presión a futuro contra SCORM 1.2.</li></ul></div>
+    <li>Presión a futuro contra SCORM 1.2.</li>
+    <li class="muted">Reasignación de ids (RIE-006): <strong>resuelta</strong> upstream (#1791).</li></ul></div>
 </div>
 <div class="note small"><strong>Sobre la complejidad:</strong> es <strong>media y
 acotada</strong>, no «alta». La tabla de intentos propia NO es coste extra (el core
@@ -209,12 +213,15 @@ de hecho, más granular en el gradebook — ese es el diferencial.</p>
 <section class="sec">
 <h2>6 · Veredicto y el porqué</h2>
 <div class="verdict">
-  <strong>Sí, merece la pena — con matices.</strong> Ningún plugin existente ofrece a
-  la vez sidebar nativa de eXeLearning y calificación granular por iDevice: exeweb no
-  califica; exescorm/scorm dan una nota; h5p da una columna. El valor pedagógico
-  (evaluar cada ejercicio dentro de un recurso) es real, demandado por ATE, y está
-  implementado y verificado. La complejidad es media y acotada; la única deuda
-  «no estándar» es el shim SCORM 1.2, con salida trazada hacia xAPI (DEC-0014).
+  <strong>Sí, merece la pena — con matices.</strong> El diferencial es la
+  <strong>calificación granular por iDevice (N columnas en el libro)</strong>, algo
+  que <strong>ningún otro plugin ofrece</strong>: exescorm/scorm dan una nota agregada,
+  h5p una columna, exeweb no califica. Ése es el valor buscado y demandado por ATE
+  (evaluar cada ejercicio dentro de un recurso), implementado y verificado. La
+  complejidad es media y acotada; la única deuda «no estándar» es el shim SCORM 1.2,
+  con salida trazada hacia xAPI (DEC-0014). <span class="muted">(La sidebar nativa se
+  preserva y es deseable, pero es una propiedad heredada de mod_exeweb, no el motivo
+  de ser del plugin.)</span>
 </div>
 <h3>El porqué, decisión a decisión</h3>
 <ul class="small">
@@ -243,20 +250,35 @@ LRS); cmi5 le añade reglas de lanzamiento (AU/fetch URL), <code>moveOn</code>/
   catálogos de cursos, no a un recurso embebido y calificado dentro de Moodle.
   Añadiría lanzamiento sin beneficio para este caso.</span></div>
 </div>
-<h3>Qué haría falta en eXeLearning (prerrequisito upstream)</h3>
-<p class="small">Que el paquete <strong>emita statements xAPI</strong> por iDevice
-(vía <code>postMessage</code> o <code>fetch</code>), con un <code>object.id</code>
-(IRI) estable por iDevice y <code>result.score.scaled</code>. Hoy no lo hace — es el
-desbloqueo.</p>
-<h3>Coste de una capa de compatibilidad xAPI en el plugin</h3>
-<p class="small"><strong>Bajo–medio.</strong> Reusa lo ya construido: un
-<code>classes/xapi/handler.php</code> extendiendo <code>\core_xapi\handler</code>,
-el mapeo <code>object.id → itemnumber</code> (análogo al actual
-<code>cmi.suspend_data → itemnumber</code>), y la <strong>misma</strong> tabla
-<code>exelearning_attempt</code> y el <strong>mismo</strong> <code>grade_update</code>
-multi-itemnumber. <strong>Se cambia el transporte (shim SCORM → statements), no el
-modelo de notas.</strong> El shim podría coexistir como fallback. cmi5 quedaría fuera
-de alcance salvo demanda de LRS externo.</p>
+<h3>Coste en eXeLearning (prerrequisito upstream)</h3>
+<p class="small">Hoy la puntuación ya se calcula y se canaliza por un punto único:
+<code>libs/common.js</code> (namespace <code>gamification.scorm</code>:
+<code>scorm.set("cmi.core.score.raw", …)</code>) + <code>libs/SCOFunctions.js</code>.
+Emitir xAPI es <strong>añadir un emisor hermano ahí</strong>, no rehacer nada.</p>
+<table class="small">
+  <tr><th>Fichero a tocar (upstream)</th><th>Cambio</th></tr>
+  <tr><td><code>libs/common.js</code></td><td>nuevo <code>gamification.xapi</code>:
+  construir el statement (<code>verb</code> answered/completed, <code>object.id</code>=
+  IRI del <code>odeIdeviceId</code>, <code>result.score.scaled</code>) y enviarlo por
+  <code>postMessage</code> (Moodle) o <code>fetch</code> (LRS).</td></tr>
+  <tr><td>nuevo <code>libs/xapi_emit.js</code></td><td>wrapper fino (análogo a
+  <code>SCORM_API_wrapper.js</code>).</td></tr>
+  <tr><td>pipeline + plantilla de export</td><td>opción «export con xAPI» + convención
+  de IRI por iDevice (reusa <code>odeIdeviceId</code>, ya estable).</td></tr>
+</table>
+<p class="small"><strong>Coste: medio y acotado</strong> (un puñado de ficheros JS +
+opción de export + convención de IRI; el punto de enganche es único y conocido — no
+es reescritura). <strong>Ventajas:</strong> tracking granular por iDevice nativo (sin
+shim, directo a <code>core_xapi</code> y a cualquier LRS); beneficia a <em>todo</em> el
+export web de eXeLearning, no sólo a este plugin; elimina a futuro la dependencia del
+shim y del parseo de <code>suspend_data</code>.</p>
+<h3>Coste en el plugin (lado Moodle): bajo–medio</h3>
+<p class="small">Reusa lo ya construido: <code>classes/xapi/handler.php</code> extendiendo
+<code>\core_xapi\handler</code>, mapeo <code>object.id → itemnumber</code> (análogo al
+actual <code>cmi.suspend_data → itemnumber</code>), y la <strong>misma</strong> tabla
+<code>exelearning_attempt</code> y el <strong>mismo</strong> <code>grade_update</code>.
+<strong>Se cambia el transporte (shim → statements), no el modelo de notas.</strong>
+El shim puede coexistir como fallback. cmi5 queda fuera salvo demanda de LRS externo.</p>
 </section>
 
 <section class="sec">
@@ -269,10 +291,6 @@ de alcance salvo demanda de LRS externo.</p>
       <td>Coste bajo–medio: reusa intentos + grade_update; cambia el transporte.</td></tr>
   <tr><td>Verificación e2e borrar-iDevice → guardar</td><td><span class="badge b-warn">media</span></td>
       <td>Lógica verificada por simulación; falta el paso 100% por navegador.</td></tr>
-  <tr><td>Robustez ante reasignación de ids (RIE-006)</td><td><span class="badge b-warn">media</span></td>
-      <td>Emparejamiento de respaldo (pageid+tipo+orden) si upstream reasigna.</td></tr>
-  <tr><td>Bump <code>actions/checkout@v4</code> (Node 20→24)</td><td><span class="badge b-warn">2 jun 2026</span></td>
-      <td>GitHub fuerza Node 24 el 2026-06-02; hoy es sólo un warning.</td></tr>
 </table>
 </section>
 

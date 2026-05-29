@@ -81,8 +81,11 @@ finalización es la nativa `completionpassgrade` (DEC-0010).
 - Parsear `content.xml` y mantener la heurística de detección de iDevices
   calificables frente a la evolución del formato de eXeLearning (FTE-008).
 - Mapear `odeIdeviceId → itemnumber` de forma **idempotente** y sobrevivir a
-  re-uploads; la **(in)estabilidad de ids** al importar/exportar es un riesgo
-  real (**RIE-006**), mitigado pero dependiente de upstream.
+  re-uploads. La estabilidad de ids (**RIE-006**) está **resuelta aguas arriba**:
+  el PR `exelearning/exelearning#1791` (merged, ya en `main`) preserva los
+  `odeIdeviceId` al importar/exportar, así que editar+guardar con un editor
+  post-#1791 **no duplica columnas**. (Sólo persiste como limitación con editores
+  anteriores a #1791.)
 - El puente **SCORM 1.2 es un shim**, no tracking nativo: eXeLearning no emite
   xAPI hoy (FTE-007/DEC-0014). Es pragmático y funciona, pero es deuda técnica.
 - Detalles frágiles ya domados: `itemnumber_mapping` (MAX=100), inyección
@@ -172,11 +175,13 @@ gradebook** que H5P — ese es el diferencial. El precio es no tener xAPI nativo
 
 **Sí merece la pena, con matices.**
 
-- **Sí**, porque ningún plugin existente ofrece simultáneamente **sidebar nativa
-  de eXeLearning + calificación granular por iDevice**: `mod_exeweb` no califica;
-  `mod_exescorm`/`mod_scorm` dan una sola nota; `mod_h5pactivity` da una columna.
-  El valor pedagógico (evaluar cada ejercicio dentro de un recurso) es real y
-  demandado por ATE, y está implementado y verificado.
+- **Sí**, porque la **calificación granular por iDevice (N columnas en el libro)**
+  es algo que **ningún otro plugin ofrece**: `mod_exescorm`/`mod_scorm` dan una
+  sola nota agregada; `mod_h5pactivity` da una columna; `mod_exeweb` no califica.
+  Ése es el diferencial buscado y el valor pedagógico (evaluar cada ejercicio
+  dentro de un recurso), real y demandado por ATE, implementado y verificado.
+  *(La sidebar nativa se preserva y es deseable, pero no es el motivo de ser del
+  plugin: es una propiedad heredada de `mod_exeweb`, no el diferencial.)*
 - **Con matices**: la complejidad y la dependencia del shim SCORM 1.2 + formato
   `content.xml` son deuda técnica reconocida. La evolución sana es **xAPI nativo**
   (DEC-0014) cuando eXeLearning emita statements; mientras, el enfoque actual es
@@ -204,10 +209,37 @@ y una secuencia de verbos definida.
   recurso embebido y calificado dentro de Moodle. Añadiría complejidad de
   lanzamiento sin beneficio para este caso.
 
-**Qué haría falta en eXeLearning (prerrequisito upstream):** que el paquete
-**emita statements xAPI** por iDevice calificable (vía `postMessage` al padre o
-`fetch` a un endpoint), con un `object.id` (IRI) estable por iDevice y
-`result.score.scaled`. Hoy **no lo hace** (FTE-007); es el desbloqueo.
+**Qué haría falta en eXeLearning (prerrequisito upstream) — coste estimado.**
+Hoy la puntuación ya se calcula y se canaliza por una capa única en el export:
+`libs/common.js` namespace `gamification.scorm` (`initScorm()`,
+`scorm.set("cmi.core.score.raw", …)`, `SetScoreMax/Min`) + `libs/SCOFunctions.js`
+(adaptado de ADL: `doLMSSetValue`, `lesson_status`). Emitir xAPI es **añadir un
+emisor hermano en ese mismo punto**, no rehacer nada.
+
+Ficheros a tocar upstream (orden de magnitud):
+- `libs/common.js` — añadir `gamification.xapi`: construir el statement
+  `{actor, verb:"answered/completed", object.id: IRI(odeIdeviceId),
+  result.score.scaled}` y enviarlo por `postMessage` al padre (caso Moodle
+  embebido) o `fetch` a un LRS (caso web).
+- nuevo `libs/xapi_emit.js` (wrapper fino, análogo a `SCORM_API_wrapper.js`).
+- pipeline de export + plantilla: una opción "export con xAPI" que inyecte el
+  wrapper y una convención de IRI por iDevice (reusa `odeIdeviceId`, ya estable).
+
+**Coste: medio y acotado** (un puñado de ficheros JS + la opción de export + la
+convención de IRI). El punto de enganche es **único y conocido**; no es una
+reescritura. La parte de perfil/vocabulario (verbos, activity types) es diseño,
+no código.
+
+**Ventajas de hacerlo (para eXeLearning y para el plugin):**
+- Tracking **granular por iDevice nativo**, sin el shim SCORM (canal directo a
+  `core_xapi` de Moodle y a cualquier LRS).
+- Beneficia a **todo el export web** de eXeLearning (analítica fuera de Moodle),
+  no sólo a este plugin.
+- Elimina a futuro la dependencia frágil del shim y del parseo de `suspend_data`.
+
+**Coste en el plugin (lado Moodle): bajo–medio** — ver más abajo: reusa la misma
+tabla de intentos y el mismo `grade_update` multi-itemnumber; sólo cambia el
+transporte (shim → statements).
 
 **Coste de una capa de compatibilidad xAPI en el plugin (cuando upstream emita):**
 - *Bajo–medio.* Reusa lo ya construido: `classes/xapi/handler.php` extendiendo
