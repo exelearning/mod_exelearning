@@ -2,6 +2,10 @@
 
 [![Preview in Moodle Playground](https://raw.githubusercontent.com/ateeducacion/action-moodle-playground-pr-preview/refs/heads/main/assets/playground-preview-button.svg)](https://moodle-playground.com/?blueprint-url=https://raw.githubusercontent.com/ateeducacion/mod_exelearning/refs/heads/main/blueprint.json)
 
+> **Activity-type Moodle module to create, edit and grade eXeLearning resources
+> (`.elpx`) directly in Moodle, preserving eXeLearning's native navigation and
+> supporting multiple gradebook items per activity.**
+
 Activity-type module to embed eXeLearning v4 packages (`.elpx`) inside Moodle while
 **preserving the package's native sidebar navigation** and **recording one or more
 gradable items per resource** in the Moodle gradebook (e.g. a single resource with

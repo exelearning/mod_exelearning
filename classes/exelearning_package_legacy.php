@@ -196,10 +196,10 @@ class exelearning_package_legacy {
     /**
      * Sets entry file from package contents by setting the sortorder.
      *
-     * @param array $contentlist
-     * @param integer $contextid
-     * @param integer $itemid
-     * @return \stored_file|boolean
+     * @param array $contentlist List of stored files in the package content area.
+     * @param int $contextid The module context id.
+     * @param int $itemid The file area item id (revision).
+     * @return \stored_file|bool The main file, or false if none was found.
      */
     public static function get_mainfile(array $contentlist, int $contextid, int $itemid = 0) {
         if (empty($contentlist)) {

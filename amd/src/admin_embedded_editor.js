@@ -45,16 +45,6 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
     };
 
     /**
-     * Return runtime configuration derived from PHP context.
-     *
-     * @param {Object} config Configuration object passed from PHP.
-     * @returns {Object}
-     */
-    var getRuntimeConfig = function(config) {
-        return config || {};
-    };
-
-    /**
      * Return the latest-version UI elements used by the widget.
      *
      * @param {jQuery} container The widget container.
@@ -349,9 +339,8 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
      * Begin a polling loop after an action timeout.
      *
      * @param {jQuery} container The widget container.
-     * @param {Object} runtimeConfig Runtime config.
      */
-    var startPolling = function(container, runtimeConfig) {
+    var startPolling = function(container) {
         var iterations = 0;
 
         var poll = function() {
@@ -426,9 +415,8 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
      *
      * @param {jQuery} container The widget container.
      * @param {string} action The action to perform.
-     * @param {Object} runtimeConfig Runtime config.
      */
-    var executeAction = function(container, action, runtimeConfig) {
+    var executeAction = function(container, action) {
         var clickedBtn = container.find('[data-action="' + action + '"]');
         var originalBtnHtml = clickedBtn.html();
 
@@ -455,7 +443,7 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
 
         timeoutHandle = window.setTimeout(function() {
             timedOut = true;
-            startPolling(container, runtimeConfig);
+            startPolling(container);
         }, ACTION_TIMEOUT_MS);
 
         actionPromise = callExecuteAction(action);
@@ -502,9 +490,8 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
      *
      * @param {jQuery} container The widget container.
      * @param {string} action The action string from data-action.
-     * @param {Object} runtimeConfig Runtime config.
      */
-    var handleActionClick = function(container, action, runtimeConfig) {
+    var handleActionClick = function(container, action) {
         if (action === 'uninstall') {
             Str.get_strings([
                 {key: 'confirmuninstalltitle', component: 'mod_exelearning'},
@@ -518,26 +505,25 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
                     strings[2],
                     strings[3],
                     function() {
-                        executeAction(container, action, runtimeConfig);
+                        executeAction(container, action);
                     }
                 );
             }).catch(function() {
                 if (window.confirm(container.attr('data-confirm-uninstall') || '')) {
-                    executeAction(container, action, runtimeConfig);
+                    executeAction(container, action);
                 }
             });
         } else {
-            executeAction(container, action, runtimeConfig);
+            executeAction(container, action);
         }
     };
 
     /**
      * Initialise the widget.
      *
-     * @param {Object} config Configuration object passed from PHP.
+     * @returns {void}
      */
-    var init = function(config) {
-        var runtimeConfig = getRuntimeConfig(config || {});
+    var init = function() {
         var container = getContainer();
         if (!container.length) {
             return;
@@ -558,7 +544,7 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
             if (!action) {
                 return;
             }
-            handleActionClick(container, action, runtimeConfig);
+            handleActionClick(container, action);
         });
     };
 

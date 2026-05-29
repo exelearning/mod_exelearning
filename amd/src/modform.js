@@ -22,8 +22,6 @@
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-/* eslint-disable no-console */
-
 import Log from 'core/log';
 import {get_string as getString} from 'core/str';
 import Prefetch from 'core/prefetch';

@@ -12,6 +12,13 @@
     var config = window.__MOODLE_EXE_CONFIG__ || {};
     var targetOrigin = window.__EXE_EMBEDDING_CONFIG__?.parentOrigin || '*';
 
+    /**
+     * Send a legacy `exeweb-editor` message to the parent window.
+     *
+     * @param {string} type The message type.
+     * @param {Object} [data] Optional message payload.
+     * @returns {void}
+     */
     function notifyParent(type, data) {
         if (window.parent && window.parent !== window) {
             window.parent.postMessage({
@@ -22,6 +29,12 @@
         }
     }
 
+    /**
+     * Post a raw protocol message to the parent window.
+     *
+     * @param {Object} message The message object to post.
+     * @returns {void}
+     */
     function postProtocolMessage(message) {
         if (window.parent && window.parent !== window) {
             window.parent.postMessage(message, targetOrigin);
@@ -31,6 +44,11 @@
     var monitoredYdoc = null;
     var changeNotified = false;
 
+    /**
+     * Attach a one-shot change listener to the editor Y.Doc, if available.
+     *
+     * @returns {void}
+     */
     function monitorDocumentChanges() {
         try {
             var app = window.eXeLearning?.app;
@@ -54,6 +72,11 @@
         }
     }
 
+    /**
+     * Poll until the editor document manager is ready, then notify the parent.
+     *
+     * @returns {Promise<void>}
+     */
     async function notifyWhenDocumentLoaded() {
         try {
             var timeout = 30000;
@@ -81,6 +104,11 @@
         setTimeout(monitorDocumentChanges, 500);
     });
 
+    /**
+     * Initialise the bridge once the editor is ready.
+     *
+     * @returns {Promise<void>}
+     */
     async function init() {
         try {
             if (window.eXeLearning?.ready) {

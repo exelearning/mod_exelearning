@@ -1,7 +1,5 @@
 // This file is part of Moodle - http://moodle.org/
 
-/* eslint-disable no-console */
-
 import {get_string as getString} from 'core/str';
 import Log from 'core/log';
 
