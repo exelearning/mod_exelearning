@@ -12,3 +12,4 @@ items:
   - id: 'DEC-0010', titulo: 'Condiciones de finalización estilo SCORM (aprobar para completar)', estado: 'Aceptada', fecha: '2026-05-28', ruta: 'decisiones/adr/DEC-0010-finalizacion-estilo-scorm.md'
   - id: 'DEC-0011', titulo: 'Presentación de intentos en la portada de la actividad: resumen SCORM, resumen-profesor estilo Tarea, o valor estilo H5P', estado: 'Propuesta', fecha: '2026-05-28', ruta: 'decisiones/adr/DEC-0011-presentacion-intentos-portada.md'
   - id: 'DEC-0012', titulo: 'Re-escaneo de iDevices y re-sincronización del libro tras guardar en el editor embebido', estado: 'Aceptada', fecha: '2026-05-29', ruta: 'decisiones/adr/DEC-0012-resync-libro-tras-guardar-editor.md'
+  - id: 'DEC-0013', titulo: '¿Integrar el editor eXeLearning Online o quedarnos solo con el embebido?', estado: 'Propuesta', fecha: '2026-05-29', ruta: 'decisiones/adr/DEC-0013-editor-online-vs-embebido.md'

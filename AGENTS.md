@@ -66,6 +66,7 @@ Reglas operativas de investigación: [`research/AGENTS.md`](./research/AGENTS.md
 | DEC-0010 | **Aceptada** | Finalización estilo SCORM = core `completionpassgrade` + `gradepass` |
 | DEC-0011 | Propuesta→aceptada | Presentación intentos en portada: resumen profesor (Tarea) + línea alumno; detalle en Informes |
 | DEC-0012 | **Aceptada** | `editor/save.php` re-extrae + re-sincroniza libro tras guardar (RIE-006: estabilidad objectid) |
+| DEC-0013 | Propuesta | Editor Online vs embebido (revisa DEC-0009): 4 ejes auth/flujo/datos/permisos; recomienda confirmar embebido. Pendiente decisión |
 
 ## Restricciones inmutables
 
