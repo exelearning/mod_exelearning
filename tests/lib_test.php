@@ -79,8 +79,18 @@ final class lib_test extends advanced_testcase {
         sort($itemnumbers);
         $this->assertSame([1, 2], $itemnumbers);
 
-        // Grade items 0, 1 and 2 exist (default model BOTH).
-        foreach ([0, 1, 2] as $itemnumber) {
+        // Default model is PERITEM: the overall (itemnumber=0) is absent and the
+        // per-iDevice columns 1 and 2 exist as gradebook items.
+        $overall = grade_item::fetch([
+            'itemtype'     => 'mod',
+            'itemmodule'   => 'exelearning',
+            'iteminstance' => $instance->id,
+            'itemnumber'   => 0,
+            'courseid'     => $instance->course,
+        ]);
+        $this->assertFalse($overall, 'overall (itemnumber=0) must not exist in the default PERITEM model');
+
+        foreach ([1, 2] as $itemnumber) {
             $gi = grade_item::fetch([
                 'itemtype'     => 'mod',
                 'itemmodule'   => 'exelearning',
@@ -91,7 +101,7 @@ final class lib_test extends advanced_testcase {
             $this->assertInstanceOf(
                 grade_item::class,
                 $gi,
-                "grade_item itemnumber={$itemnumber} should exist in BOTH model"
+                "grade_item itemnumber={$itemnumber} should exist in the default PERITEM model"
             );
         }
     }
