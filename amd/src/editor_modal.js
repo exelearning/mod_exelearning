@@ -290,6 +290,13 @@ const uploadExportedFile = async(payload) => {
     hasUnsavedChanges = false;
     await setSaveLabel('savedsuccess', 'Saved successfully');
     close(true);
+
+    // Reload the activity page so the server-rendered blocks (detected gradable
+    // iDevices banner, participation summary, gradebook-driven UI) reflect the
+    // re-synced gradebook after save.php re-scanned the package. Refreshing only
+    // the content iframe would leave those stale (e.g. a removed trueorfalse
+    // would still show in "Gradable iDevices detected").
+    window.location.reload();
 };
 
 const requestExport = async() => {
