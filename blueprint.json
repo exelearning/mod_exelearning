@@ -34,7 +34,10 @@
       "configs": [
         { "name": "editormode",   "value": "embedded",      "plugin": "exelearning" },
         { "name": "display",      "value": "1",             "plugin": "exelearning" },
-        { "name": "printintro",   "value": "1",             "plugin": "exelearning" }
+        { "name": "printintro",   "value": "1",             "plugin": "exelearning" },
+        { "name": "debug",        "value": "32767" },
+        { "name": "debugdisplay", "value": "1" },
+        { "name": "debugstringids", "value": "0" }
       ]
     },
     { "step": "createCategory", "name": "Demo eXeLearning" },
@@ -143,6 +146,11 @@
           }
         }
       ]
+    },
+    {
+      "step": "runPhpCode",
+      "comment": "Parse the SCORM package: addModule stores the zip but does not populate mdl_scorm_scoes, so scorm_get_toc() crashes with array_keys(null). Force scorm_parse() on every local SCORM that has no scoes yet.",
+      "code": "global $DB, $CFG; require_once($CFG->dirroot.'/mod/scorm/lib.php'); require_once($CFG->dirroot.'/mod/scorm/locallib.php'); foreach ($DB->get_records('scorm', ['scormtype' => 'local']) as $scorm) { if (!$DB->record_exists('scorm_scoes', ['scorm' => $scorm->id])) { scorm_parse($scorm, true); } }"
     },
     {
       "step": "addModule",

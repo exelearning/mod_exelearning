@@ -359,6 +359,15 @@ if (is_file($fixtures['scorm']) && !$module_exists('scorm', $scormname)) {
             'groupingid'  => 0,
         ], $completionpass);
         $cm = add_moduleinfo($data, $course);
+        // Belt-and-braces: if the package was stored but its SCOes were not
+        // parsed (some programmatic creation paths skip parsing), scorm_get_toc()
+        // later crashes with array_keys(null). Force a full parse when missing.
+        require_once($CFG->dirroot . '/mod/scorm/locallib.php');
+        $scormrec = $DB->get_record('scorm', ['id' => $cm->instance]);
+        if ($scormrec && !$DB->record_exists('scorm_scoes', ['scorm' => $scormrec->id])) {
+            scorm_parse($scormrec, true);
+            cli_writeln('    · SCOes (re)parseados.');
+        }
         cli_writeln('  · mod_scorm creado (cmid=' . $cm->coursemodule . ').');
     } catch (\Throwable $e) {
         cli_writeln('  ! mod_scorm falló: ' . $e->getMessage());
