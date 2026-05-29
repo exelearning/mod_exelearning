@@ -101,6 +101,25 @@ Reglas operativas de investigación: [`research/AGENTS.md`](./research/AGENTS.md
   allow-popups-to-escape-sandbox` (sin `allow-top-navigation` ni `allow-modals`).
 - **Switch-to-student**: en modo grading silencioso, no romper.
 
+## Normas de codificación
+
+- **Comentarios de código en INGLÉS.** Todo `.php`/`.js` del plugin. La carpeta
+  `research/` (ADRs, fichas, diario, notas) va en **español**. Las librerías de
+  terceros vendoradas (`assets/scorm/*`, wrappers SCORM/pipwerks) no se tocan.
+- **Documentar cada funcionalidad en el código fuente con base en la
+  investigación** (en inglés): cada función/área no trivial lleva un docblock que
+  explica *qué hace y por qué*, citando la decisión/fuente que la justifica
+  (p.ej. `(DEC-0008)`, `(see FTE-006)`, `(RIE-006)`). El "porqué" vive junto al
+  código, no solo en `research/`.
+- **`phpcs --standard=moodle` debe quedar limpio (0/0).** Validar SIEMPRE con
+  `vendor/bin/phpcs --standard=moodle <archivos>`, NO con el ruleset local
+  `.phpcs.xml.dist` (enmascara errores que la CI sí detecta).
+- **PHPDoc completo** (`moodle-plugin-ci phpdoc`): `@param`/`@return` en cada función.
+- **AMD**: tras tocar `amd/src/*.js` hay que regenerar `amd/build/` con el
+  `grunt amd` de Moodle (rollup), no a mano.
+- **`lang/en/exelearning.php`**: strings en orden alfabético ESTRICTO por clave,
+  sin código (`for`/variables) — `moodle.Files.LangFilesOrdering` lo rechaza.
+
 ## Layout
 
 ```

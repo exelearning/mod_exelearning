@@ -8,3 +8,4 @@ items:
   - id: 'FTE-006', titulo: 'Moodle Grade API (`lib/gradelib.php`)', estado: None, fecha: None, ruta: 'fuentes/tecnologia/FTE-006-moodle-grade-api.md'
   - id: 'FTE-007', titulo: 'Moodle core_xapi', estado: None, fecha: None, ruta: 'fuentes/tecnologia/FTE-007-moodle-core-xapi.md'
   - id: 'FTE-008', titulo: 'Formato de paquete publicado por eXeLearning', estado: None, fecha: None, ruta: 'fuentes/tecnologia/FTE-008-exelearning-export.md'
+  - id: 'FTE-009', titulo: 'Comparativa de estándares e-learning: SCORM vs xAPI vs cmi5 (y dónde encaja mod_exelearning)', estado: None, fecha: None, ruta: 'fuentes/tecnologia/FTE-009-comparativa-scorm-xapi-cmi5.md'

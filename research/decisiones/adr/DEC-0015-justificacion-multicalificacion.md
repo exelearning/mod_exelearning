@@ -15,12 +15,14 @@ fuentes:
   - FTE-006
   - FTE-007
   - FTE-008
+  - FTE-009
 relacionados:
   - DEC-0003
   - DEC-0007
   - DEC-0008
   - DEC-0010
   - DEC-0014
+  - AN-010
 herramienta_ia:
   interfaz: claude-code
   modelo: claude-opus-4-8
@@ -88,9 +90,37 @@ finalización es la nativa `completionpassgrade` (DEC-0010).
 - Riesgo de **saturar el libro** con muchas columnas (mitigado: `grademodel`
   por defecto por iDevice, conmutable a global — DEC-0008 rev.).
 
-**¿Más simple o más complicado?** Más complicado en implementación y
-mantenimiento; pero la complejidad **compra valor pedagógico real** (evaluación
-granular) que ninguna alternativa ofrece con sidebar nativa.
+**¿Más simple o más complicado? Complejidad MEDIA y acotada, no "alta"**
+(desglose en **AN-010**). Matices importantes para no exagerar:
+
+- La **tabla de intentos propia NO es coste extra**: es el estándar. `mod_scorm`
+  crea `scorm_attempt` / `scorm_aicc_session` / `scorm_scoes_value`, y
+  `mod_h5pactivity` crea `h5pactivity_attempts` / `_attempts_results`. Nuestra
+  `exelearning_attempt` **calca** los campos de `h5pactivity_attempts`. Registrar
+  intentos es lo que hace cualquier actividad evaluable de Moodle.
+- El **multi-itemnumber** es un patrón **documentado del core** (FTE-006), ya usado
+  por `mod_workshop`. No es territorio nuevo.
+- La complejidad real se concentra en **2-3 puntos aislados**: el parser de
+  `content.xml`, el **shim SCORM 1.2** y la estabilidad de ids (RIE-006). El resto
+  es código mecánico cubierto por tests + CI.
+
+Es decir: la parte delicada no es el volumen de código sino el **acoplamiento al
+formato de export de eXeLearning** (riesgo externo), más el shim. La complejidad
+**compra valor pedagógico real** (evaluación granular) que ninguna alternativa
+ofrece con sidebar nativa.
+
+### ¿Qué es el "shim" SCORM 1.2 y por qué existe?
+
+Un **shim** es una pequeña capa de compatibilidad que finge ser algo que el
+contenido espera encontrar. El contenido eXeLearning publicado está preparado para
+hablar **SCORM 1.2**: busca un objeto JavaScript `window.API` (con
+`LMSInitialize`, `LMSSetValue`, `LMSCommit`…) en la ventana padre. `mod_exelearning`
+**no es un SCORM**, así que inyecta ese `window.API` falso (el shim) en `view.php`,
+junto con el wrapper pipwerks. Cuando el iDevice "guarda su puntuación", llama al
+shim, que reenvía los datos por AJAX a `track.php`; ahí se parsea
+`cmi.suspend_data` y se reparte por `itemnumber` (una nota por iDevice). **Por qué
+se hace así:** es la única vía hoy, porque eXeLearning **no emite xAPI** (FTE-007);
+el shim reaprovecha el canal que el contenido ya sabe usar sin tocar el paquete.
 
 ## DAFO
 
@@ -129,7 +159,8 @@ granular) que ninguna alternativa ofrece con sidebar nativa.
 | Finalización por nota | no | sí | sí | sí | **sí (completionpassgrade)** |
 | Edición in-situ | sí (editor embebido) | parcial | no | editor H5P externo | **sí (editor embebido)** |
 | Formato de entrada | `.elpx` v4 | `.elp`/`.elpx` | `.zip` SCORM | `.h5p` | `.elpx` v4 |
-| Complejidad de impl. | baja | media | media | media | **alta** |
+| Complejidad de impl. | baja | media | media | media | **media (acotada, ver AN-010)** |
+| Tabla de intentos propia | no | sí (`scorm_attempt`…) | sí | sí (`h5pactivity_attempts`) | **sí (`exelearning_attempt`, calca h5p)** |
 
 Matiz sobre **H5P**: `mod_h5pactivity` es el modelo "moderno" (xAPI nativo, gran
 detalle de interacción interno), pero **expone una sola columna** en el libro.
@@ -154,6 +185,44 @@ gradebook** que H5P — ese es el diferencial. El precio es no tener xAPI nativo
 En resumen: la multicalificación es la **razón de ser** del plugin y justifica
 su coste; el camino de reducción de deuda está trazado (DEC-0014) y condicionado
 a upstream.
+
+## Hoja de ruta de tracking: ¿xAPI o cmi5? (ver FTE-009)
+
+Diferencia esencial: **cmi5 es un perfil de xAPI** para el caso "el LMS lanza el
+contenido". xAPI es la capa de comunicación (statements a un LRS); cmi5 le añade
+reglas de lanzamiento (AU/fetch URL), `moveOn`/`masteryScore`, sesión/registration
+y una secuencia de verbos definida.
+
+**¿Cuál encaja en mod_exelearning?**
+
+- **xAPI puro** es el objetivo natural: Moodle ya lo consume nativamente con
+  `core_xapi` (FTE-007: webservice `core_xapi_statement_post` + clase `handler`),
+  igual que `mod_h5pactivity` (AN-003). Encaja con el modelo actual (contenido
+  **embebido** en Moodle, no lanzado a un LRS externo).
+- **cmi5 es probablemente excesivo** aquí: su valor (AU lanzables, fetch URL,
+  catálogo de cursos) aplica a LRS externos y a "contenido como servicio", no a un
+  recurso embebido y calificado dentro de Moodle. Añadiría complejidad de
+  lanzamiento sin beneficio para este caso.
+
+**Qué haría falta en eXeLearning (prerrequisito upstream):** que el paquete
+**emita statements xAPI** por iDevice calificable (vía `postMessage` al padre o
+`fetch` a un endpoint), con un `object.id` (IRI) estable por iDevice y
+`result.score.scaled`. Hoy **no lo hace** (FTE-007); es el desbloqueo.
+
+**Coste de una capa de compatibilidad xAPI en el plugin (cuando upstream emita):**
+- *Bajo–medio.* Reusa lo ya construido: `classes/xapi/handler.php` extendiendo
+  `\core_xapi\handler`, mapeo `object.id → itemnumber` (igual que hoy mapeamos
+  `cmi.suspend_data → itemnumber`), y la **misma** tabla `exelearning_attempt` y el
+  **mismo** `grade_update` multi-itemnumber. Se sustituye el transporte (shim
+  SCORM → statements xAPI), no el modelo de notas.
+- El shim SCORM 1.2 podría **coexistir** (paquetes antiguos) o retirarse según la
+  versión mínima de eXeLearning soportada.
+- cmi5 quedaría fuera de alcance salvo demanda explícita de LRS externo.
+
+**Pasos a futuro (resumen):** (1) seguir/empujar en upstream la emisión de xAPI por
+iDevice; (2) cuando exista, implementar `handler` + `xapi_bridge.js` reusando el
+modelo de intentos/notas actual; (3) decidir versión mínima y si el shim SCORM se
+mantiene como fallback. Detallado en DEC-0014.
 
 ## Consecuencias
 

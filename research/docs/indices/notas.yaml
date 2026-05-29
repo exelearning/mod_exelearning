@@ -9,3 +9,4 @@ items:
   - id: 'AN-007', titulo: 'El SCORM 1.2 export de eXeLearning v4 agrega iDevices: confirma parsear content.xml', estado: None, fecha: '2026-05-28', ruta: 'analisis/notas/AN-007-scorm-export-2-idevices.md'
   - id: 'AN-008', titulo: 'Comparativa: iframe simple (mod_exelearning) vs SCORM player de Moodle core', estado: None, fecha: '2026-05-28', ruta: 'analisis/notas/AN-008-iframe-vs-scorm-player.md'
   - id: 'AN-009', titulo: 'Catálogo de features de mod_scorm player: adoptar / adaptar / aplazar / descartar', estado: None, fecha: '2026-05-28', ruta: 'analisis/notas/AN-009-scorm-player-features.md'
+  - id: 'AN-010', titulo: "Desglose honesto de la complejidad de mod_exelearning (¿es 'alta'? no: media y acotada)", estado: None, fecha: '2026-05-29', ruta: 'analisis/notas/AN-010-desglose-complejidad.md'
