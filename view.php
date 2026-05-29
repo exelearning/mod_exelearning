@@ -51,15 +51,10 @@ if (!in_array($mode, ['grading', 'preview'], true)) {
     $mode = 'grading';
 }
 
-// Whether to show the teacher preview/grading toggle banner (mod_exeweb parity:
-// teachermodevisible). It is a presentation choice only — capability still gates
-// the preview mode itself, so a student can never reach preview regardless.
-// When the toggle is hidden, also force grading so a teacher can't get stuck in
-// preview with no exit banner.
-$showpreviewtoggle = $canpreview && !empty($exelearning->teachermodevisible);
-if (!$showpreviewtoggle && $mode === 'preview') {
-    $mode = 'grading';
-}
+// Whether to show the teacher preview/grading toggle banner (DEC-0006). Shown to
+// anyone who can manage the activity; capability still gates the preview mode
+// itself, so a student can never reach preview regardless.
+$showpreviewtoggle = $canpreview;
 
 exelearning_view($exelearning, $course, $cm, $context);
 
@@ -129,8 +124,7 @@ if (!empty($exelearning->intro)) {
     );
 }
 
-// Preview mode banner + toggle links (DEC-0006), unless the teacher has hidden
-// it (teachermodevisible=0, mod_exeweb parity).
+// Preview mode banner + toggle links (DEC-0006).
 if ($showpreviewtoggle) {
     if ($mode === 'preview') {
         $exiturl = new moodle_url('/mod/exelearning/view.php', ['id' => $cm->id]);
@@ -439,6 +433,14 @@ JS;
         'sandbox' => 'allow-scripts allow-same-origin allow-popups allow-forms allow-popups-to-escape-sandbox',
         'style'  => 'border: 1px solid var(--bs-border-color, #dee2e6); border-radius: .5rem;',
     ]);
+
+    // Hide eXeLearning's teacher-mode toggle inside the package (mod_exeweb
+    // parity): when teachermodevisible=0, inject CSS into the iframe content to
+    // hide #teacher-mode-toggler-wrapper. The iframe is same-origin (served via
+    // pluginfile.php) so the parent can reach its content document.
+    if (empty($exelearning->teachermodevisible)) {
+        exelearning_require_teacher_mode_hider('exelearningobject');
+    }
 }
 
 echo $OUTPUT->footer();

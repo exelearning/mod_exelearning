@@ -188,7 +188,7 @@ class mod_exelearning_mod_form extends moodleform_mod {
             'teachermodevisible',
             get_string('teachermodevisible', 'mod_exelearning')
         );
-        $mform->setDefault('teachermodevisible', 1);
+        $mform->setDefault('teachermodevisible', 0);
         $mform->addHelpButton('teachermodevisible', 'teachermodevisible', 'mod_exelearning');
 
         $this->standard_coursemodule_elements();

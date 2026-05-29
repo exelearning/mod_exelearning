@@ -90,10 +90,12 @@ creates the gradebook columns for every gradable iDevice it detects.
 
 **Appearance**
 
-- **Show teacher preview toggle** — when enabled (the default), teachers see a
-  *Try as a student (preview)* button on the activity page. Disabling it only
-  hides the button; students can never enter preview mode regardless of this
-  setting.
+- **Show eXeLearning teacher-mode toggle** — eXeLearning packages can include a
+  "teacher mode" toggle that reveals content marked for teachers only. When this
+  setting is disabled (the default), that toggle is hidden inside the resource by
+  injecting CSS into the package, so students never see it. Enable it to let the
+  toggle appear. This is independent of the *Try as a student (preview)* button,
+  which is always available to teachers.
 
 The form also includes Moodle's standard common module settings (visibility,
 completion conditions, groups, and so on).
@@ -172,9 +174,8 @@ affecting any grades.
    nothing is written to the gradebook.
 5. Click **Exit preview mode** to return to the normal (grading) view.
 
-The preview button is only available to teachers and only when **Show teacher
-preview toggle** is enabled in the activity settings. Students cannot enter
-preview mode under any circumstances.
+The preview button is only available to teachers (users who can manage the
+activity). Students cannot enter preview mode under any circumstances.
 
 ---
 
@@ -271,10 +272,10 @@ A dedicated **Styles** management page is also reachable directly under
 
 **The "Edit with eXeLearning" button does not appear.**
 Two common causes: (a) the embedded editor is not installed — ask your
-administrator to install it from the plugin settings (section 7); or (b) the
-activity has **Show teacher preview toggle** related capabilities limited, or
-you are viewing as a student. The button only appears for users who can manage
-the activity and only when the editor is installed.
+administrator to install it from the plugin settings (section 7); or (b) you are
+viewing as a student or without the capability to manage the activity. The button
+only appears for users who can manage the activity and only when the editor is
+installed.
 
 **"Gradable iDevices detected" shows nothing / no columns are created.**
 The package contains no gradable iDevices of the supported types. Only the

@@ -273,5 +273,32 @@ function xmldb_exelearning_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026052900, 'exelearning');
     }
 
+    // Stage 8 (2026052901): teachermodevisible changes meaning. It used to gate
+    // the Moodle "Try as a student" preview banner; now it controls eXeLearning's
+    // in-package teacher-mode toggle (#teacher-mode-toggler-wrapper), hidden by
+    // default via injected CSS (mod_exeweb parity). Lower the default 1 -> 0 and
+    // reset existing rows to the new default so the toggle is hidden by default.
+    if ($oldversion < 2026052901) {
+        $instance = new xmldb_table('exelearning');
+
+        $DB->set_field('exelearning', 'teachermodevisible', 0);
+
+        $field = new xmldb_field(
+            'teachermodevisible',
+            XMLDB_TYPE_INTEGER,
+            '2',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            '0',
+            'reviewmode'
+        );
+        if ($dbman->field_exists($instance, $field)) {
+            $dbman->change_field_default($instance, $field);
+        }
+
+        upgrade_mod_savepoint(true, 2026052901, 'exelearning');
+    }
+
     return true;
 }

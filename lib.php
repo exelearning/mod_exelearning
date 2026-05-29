@@ -105,7 +105,7 @@ function exelearning_add_instance($data, $mform = null) {
         $data->reviewmode = \mod_exelearning\local\attempts::REVIEW_ALWAYS;
     }
     if (!isset($data->teachermodevisible)) {
-        $data->teachermodevisible = 1;
+        $data->teachermodevisible = 0;
     }
 
     $data->id = $DB->insert_record('exelearning', $data);
@@ -161,7 +161,7 @@ function exelearning_update_instance($data, $mform = null) {
         $data->reviewmode = \mod_exelearning\local\attempts::REVIEW_ALWAYS;
     }
     if (!isset($data->teachermodevisible)) {
-        $data->teachermodevisible = 1;
+        $data->teachermodevisible = 0;
     }
 
     $DB->update_record('exelearning', $data);
@@ -598,6 +598,34 @@ function exelearning_extract_stored_package(int $contextid, int $revision): void
     // load at page-load time, that check passes and the iDevice recognises the
     // SCORM environment.
     exelearning_inject_scorm_loader($context->id, (int) $data->revision);
+}
+
+/**
+ * Hide eXeLearning's teacher-mode toggle (#teacher-mode-toggler-wrapper) inside
+ * the package iframe (mod_exeweb parity). Queues parent-page JS that injects a
+ * <style> into the iframe's content document once it loads. The iframe is
+ * same-origin (served via pluginfile.php), so this DOM access is allowed.
+ *
+ * @param string $iframeid The id attribute of the package iframe.
+ * @return void
+ */
+function exelearning_require_teacher_mode_hider(string $iframeid): void {
+    global $PAGE;
+
+    $iframeidjson = json_encode($iframeid);
+    $cssjson = json_encode('#teacher-mode-toggler-wrapper { visibility: hidden !important; }');
+
+    $js = "(function(){"
+        . "var iframe=document.getElementById(" . $iframeidjson . ");"
+        . "if(!iframe){return;}"
+        . "var css=" . $cssjson . ";"
+        . "var inject=function(){try{if(!iframe.contentDocument){return;}"
+        . "var d=iframe.contentDocument;var st=d.createElement('style');st.textContent=css;"
+        . "(d.head||d.documentElement).appendChild(st);}catch(e){}};"
+        . "iframe.addEventListener('load', inject);inject();"
+        . "})();";
+
+    $PAGE->requires->js_init_code($js);
 }
 
 /**
