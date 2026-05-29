@@ -696,12 +696,17 @@ function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null
         }
     }
 
-    // Marcar como deleted los items previos que ya no aparecen.
+    // Mark previously-known items that are gone as deleted, AND remove their
+    // gradebook column. Marking our own row is not enough: the Moodle grade
+    // item only disappears from the gradebook when grade_update() is called
+    // with ['deleted' => true]. Grade history in grade_grades is preserved.
     foreach ($existing as $objectid => $row) {
         if (!isset($seen[$objectid]) && !$row->deleted) {
             $row->deleted = 1;
             $row->timemodified = time();
             $DB->update_record('exelearning_grade_item', $row);
+            grade_update('mod/exelearning', $instance->course, 'mod', 'exelearning',
+                    $instance->id, (int) $row->itemnumber, null, ['deleted' => true]);
         }
     }
 

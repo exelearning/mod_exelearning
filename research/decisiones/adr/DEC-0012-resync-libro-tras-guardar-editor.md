@@ -99,6 +99,18 @@ Mitigaciones:
   emparejamiento de respaldo por (pageid + idevicetype + orden) cuando el
   objectid no casa, antes de crear columna nueva.
 
+## Corrección posterior (2026-05-29): el borrado debe llamar a grade_update
+
+Al verificar el caso "el profesor borra un iDevice evaluable" se detectó que
+`exelearning_sync_grade_items()` marcaba `deleted=1` en NUESTRA tabla
+`exelearning_grade_item` pero **no eliminaba la columna del libro**: la columna
+quedaba como fantasma (`gradebook_peritem_cols` no bajaba). El grade item de
+Moodle sólo desaparece cuando se le llama `grade_update(..., ['deleted'=>true])`.
+Corregido: el bucle de borrado ahora hace ambas cosas (marca la fila propia Y
+llama a `grade_update` con `deleted`), preservando el historial en `grade_grades`.
+Verificado: borrar un iDevice deja el libro con sólo el overall + los iDevices
+restantes (las columnas eliminadas desaparecen).
+
 ## Validación
 
 Verificado en Docker (erseco/alpine-moodle:v5.0.7), instancia demo:
