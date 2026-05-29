@@ -15,14 +15,14 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * mod_exelearning · seed de demo
+ * mod_exelearning demo seed script.
  *
- * Crea un curso, dos estudiantes y una actividad mod_exelearning con el
- * fixture `actividad-evaluable.elpx`. Idempotente: vuelve a ejecutarse sin
- * duplicar nada.
+ * Creates a course, two students and a mod_exelearning activity backed by the
+ * `actividad-evaluable.elpx` fixture. Idempotent: can be re-run without
+ * duplicating anything.
  *
- * Pensado para invocarse desde `POST_CONFIGURE_COMMANDS` del docker-compose,
- * o a mano: `php mod/exelearning/scripts/setup_demo.php`.
+ * Intended to be called from `POST_CONFIGURE_COMMANDS` in docker-compose,
+ * or manually: `php mod/exelearning/scripts/setup_demo.php`.
  *
  * @package    mod_exelearning
  * @copyright  2026 ATE (Área de Tecnología Educativa)
@@ -66,11 +66,11 @@ $config = [
 
 \core\session\manager::set_user(get_admin());
 
-// Workaround para erseco/alpine-moodle:v5.0.7: el observer de mod_forum
-// (mod_forum_observer::course_created) lee $CFG->forum_announcementsubscription
-// y $CFG->forum_announcementmaxattachments y, si no están seteados, inserta
-// NULL en `forcesubscribe`/`maxattachments` de mdl_forum → exception.
-// Fijamos defaults razonables ANTES de create_course().
+// Workaround for erseco/alpine-moodle:v5.0.7: the mod_forum observer
+// (mod_forum_observer::course_created) reads $CFG->forum_announcementsubscription
+// and $CFG->forum_announcementmaxattachments and, if they are not set, inserts
+// NULL into `forcesubscribe`/`maxattachments` of mdl_forum → exception.
+// Set reasonable defaults BEFORE create_course().
 if (!isset($CFG->forum_announcementsubscription)) {
     set_config('forum_announcementsubscription', '1'); // FORUM_FORCESUBSCRIBE.
     $CFG->forum_announcementsubscription = '1';
@@ -147,14 +147,14 @@ $ensureuser = function (array $u, string $pass, int $roleid) use ($course, $cour
         cli_writeln('    · Usuario existente: ' . $user->username . ' (id=' . $user->id . ')');
     }
 
-    // Matriculación manual.
+    // Manual enrolment.
     $enrol = enrol_get_plugin('manual');
     $instance = $DB->get_record('enrol', ['courseid' => $course->id, 'enrol' => 'manual'], '*');
     if (!$instance) {
         $courseobj = $DB->get_record('course', ['id' => $course->id], '*', MUST_EXIST);
-        // En Moodle 5.0.7 + erseco/alpine-moodle, los defaults globales pueden
-        // no estar seteados → add_default_instance() inserta NULL en `status`
-        // y la fila falla. Pasamos campos explícitos.
+        // In Moodle 5.0.7 + erseco/alpine-moodle the global defaults may not be
+        // set → add_default_instance() inserts NULL into `status` and the row
+        // fails. Pass explicit field values.
         $fields = [
             'status'           => ENROL_INSTANCE_ENABLED,
             'enrolperiod'      => 0,
@@ -224,8 +224,8 @@ if (!is_enrolled($coursecontext, $adminuser, '', true)) {
 
 require_once($CFG->libdir . '/completionlib.php');
 
-// Habilitar finalización en el curso (necesario para "exigir nota para
-// aprobar", la condición estilo SCORM — DEC-0010).
+// Enable completion tracking in the course (required for "require passing grade",
+// the SCORM-style condition — DEC-0010).
 if (empty($course->enablecompletion)) {
     $DB->set_field('course', 'enablecompletion', 1, ['id' => $course->id]);
     $course->enablecompletion = 1;
@@ -258,7 +258,7 @@ $moduleexists = function (string $modname, string $name) use ($course): bool {
     );
 };
 
-// Crea un draft itemid con un fichero del disco.
+// Create a draft itemid from a file on disk.
 $makedraft = function (string $pathname) use ($adminctx, $fs): int {
     $draftid = file_get_unused_draft_itemid();
     $fs->create_file_from_pathname([
@@ -272,9 +272,9 @@ $makedraft = function (string $pathname) use ($adminctx, $fs): int {
     return $draftid;
 };
 
-// Campos de finalización "estilo SCORM: hay que aprobar" (DEC-0010): usamos la
-// condición core "exigir nota para aprobar" (completionpassgrade), uniforme
-// para exelearning, SCORM y H5P.
+// Completion fields "SCORM style: must pass" (DEC-0010): use the core
+// "require passing grade" condition (completionpassgrade), uniform across
+// exelearning, SCORM and H5P.
 $completionpass = [
     'completion'                => COMPLETION_TRACKING_AUTOMATIC,
     'completionview'            => 0,

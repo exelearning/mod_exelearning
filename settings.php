@@ -17,12 +17,11 @@
 /**
  * mod_exelearning admin settings.
  *
- * DEC-0009: sólo modo editor embebido. La integración con eXeLearning Online
- * queda descartada para evitar dependencias externas. La instalación /
- * actualización / reparación / desinstalación del editor (descargando una
- * release desde GitHub) y la gestión de estilos definidos se realizan
- * íntegramente desde esta misma página de ajustes, con la capability
- * `mod/exelearning:manageembeddededitor`.
+ * DEC-0009: embedded editor mode only. Integration with eXeLearning Online
+ * was discarded to avoid external dependencies. Installing, updating, repairing,
+ * and uninstalling the editor (by downloading a release from GitHub) and managing
+ * defined styles are done entirely from this settings page, gated by the
+ * `mod/exelearning:manageembeddededitor` capability.
  *
  * @package    mod_exelearning
  * @copyright  2026 ATE (Área de Tecnología Educativa)

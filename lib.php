@@ -17,13 +17,13 @@
 /**
  * mod_exelearning public API.
  *
- * Implementa dos cosas:
- *   1. Almacenamiento + extracción de un paquete ELPX (estilo mod_exeweb):
- *      `mod_exelearning/package/0/<file>.elpx` y `mod_exelearning/content/<revision>/…`
- *      servidos vía `exelearning_pluginfile()`.
- *   2. Patrón multi-itemnumber para gradebook (AN-002 + AN-007):
- *      parsea `content.xml`, enumera iDevices calificables y registra N
- *      grade items con `grade_update(..., itemnumber=$n, ...)`.
+ * Implements two concerns:
+ *   1. Storage and extraction of an ELPX package (mod_exeweb style):
+ *      `mod_exelearning/package/0/<file>.elpx` and `mod_exelearning/content/<revision>/…`
+ *      served via `exelearning_pluginfile()`.
+ *   2. Multi-itemnumber gradebook pattern (AN-002 + AN-007):
+ *      parses `content.xml`, enumerates gradable iDevices and registers N
+ *      grade items with `grade_update(..., itemnumber=$n, ...)`.
  *
  * @package    mod_exelearning
  * @copyright  2026 ATE (Área de Tecnología Educativa)
@@ -110,12 +110,12 @@ function exelearning_add_instance($data, $mform = null) {
 
     $data->id = $DB->insert_record('exelearning', $data);
 
-    // Persistir el ELPX subido + extraerlo a la filearea de contenido.
+    // Persist the uploaded ELPX and extract it to the content filearea.
     exelearning_save_and_extract_package($data);
 
-    // Detectar iDevices calificables y sincronizar grade items.
-    // Pasamos el contextid explícitamente porque la course_module row la crea
-    // Moodle DESPUÉS de retornar de _add_instance.
+    // Detect gradable iDevices and synchronise grade items.
+    // We pass the contextid explicitly because the course_module row is created
+    // by Moodle AFTER returning from _add_instance.
     $contextid = context_module::instance($data->coursemodule)->id;
     exelearning_sync_grade_items($data->id, $contextid);
 
@@ -213,8 +213,8 @@ function exelearning_delete_instance($id) {
 }
 
 /**
- * Stub para el grade item canónico (itemnumber=0). En multi-item los demás se
- * crean directamente en exelearning_sync_grade_items().
+ * Stub for the canonical grade item (itemnumber=0). In multi-item mode the rest
+ * are created directly in exelearning_sync_grade_items().
  *
  * @param stdClass $exelearning
  * @param mixed $grades
@@ -245,11 +245,11 @@ function exelearning_grade_item_update($exelearning, $grades = null) {
 }
 
 /**
- * Necesario para que Moodle 5.x muestre items con itemnumber>0 en
- * "Course overview" (sin esta función Moodle no sabe etiquetar las columnas).
+ * Required so that Moodle 5.x can display items with itemnumber>0 in
+ * "Course overview" (without this function Moodle cannot label the columns).
  *
- * @param array $items grade_item objects (mismo iteminstance, distintos itemnumber).
- * @return array<int,string> indexado por grade_item->id.
+ * @param array $items grade_item objects (same iteminstance, different itemnumber).
+ * @return array<int,string> indexed by grade_item->id.
  */
 function exelearning_get_grade_item_names(array $items): array {
     global $DB;
@@ -272,11 +272,11 @@ function exelearning_get_grade_item_names(array $items): array {
 }
 
 /**
- * pluginfile callback: sirve archivos del paquete extraído.
+ * pluginfile callback: serves files from the extracted package.
  *
- * Esquema (mismo que mod_exeweb):
- *   - `package`   itemid=0           ZIP original (sólo profesores).
- *   - `content`   itemid=$revision    Archivos extraídos del ZIP.
+ * Scheme (same as mod_exeweb):
+ *   - `package`   itemid=0           Original ZIP (teachers only).
+ *   - `content`   itemid=$revision    Files extracted from the ZIP.
  *
  * @param stdClass $course
  * @param stdClass $cm
@@ -298,7 +298,7 @@ function exelearning_pluginfile($course, $cm, $context, $filearea, $args, $force
     require_capability('mod/exelearning:view', $context);
 
     if ($filearea === 'package') {
-        // Sólo profesores pueden bajarse el ELPX completo.
+        // Only teachers can download the full ELPX package.
         require_capability('moodle/course:manageactivities', $context);
         $itemid = (int) array_shift($args);
         $fs = get_file_storage();
@@ -322,7 +322,7 @@ function exelearning_pluginfile($course, $cm, $context, $filearea, $args, $force
 
     $file = $fs->get_file_by_hash(sha1($fullpath));
     if (!$file) {
-        // Fallback a index.html dentro de la carpeta solicitada (como mod_exeweb).
+        // Fallback to index.html inside the requested folder (as mod_exeweb does).
         foreach (['index.html', 'index.htm', 'Default.htm'] as $candidate) {
             $file = $fs->get_file_by_hash(sha1("{$fullpath}/{$candidate}"));
             if ($file) {
@@ -334,18 +334,18 @@ function exelearning_pluginfile($course, $cm, $context, $filearea, $args, $force
         return false;
     }
 
-    // Servir SVG inline (eXeLearning v4 embebe iconos en content/css/icons/
-    // que deben renderizar, no descargarse). Mismo flag que usa mod_scorm.
+    // Serve SVG inline (eXeLearning v4 embeds icons in content/css/icons/ that
+    // must render, not be downloaded). Same flag used by mod_scorm.
     $options['dontforcesvgdownload'] = true;
 
-    // Cache-control razonable: bump de revision invalida automáticamente la URL.
+    // Reasonable cache-control: a revision bump automatically invalidates the URL.
     $lifetime = $CFG->filelifetime ?? 86400;
     send_stored_file($file, $lifetime, 0, $forcedownload, $options);
     return null;
 }
 
 /**
- * Indica que esta actividad tiene contenido descargable bajo `content` y `package`.
+ * Indicates that this activity has downloadable content under `content` and `package`.
  *
  * @param stdClass $course
  * @param stdClass $cm
@@ -391,10 +391,10 @@ function exelearning_view(
 }
 
 /**
- * Añade la pestaña "Informes" a la navegación de la actividad, como mod_scorm.
+ * Adds the "Reports" tab to the activity navigation, like mod_scorm.
  *
- * Aparece en la navegación secundaria del módulo para quien tenga la capability
- * mod/exelearning:viewreport, enlazando al informe de intentos (report.php).
+ * It appears in the module's secondary navigation for anyone with the capability
+ * mod/exelearning:viewreport, linking to the attempts report (report.php).
  *
  * @param settings_navigation $settings
  * @param navigation_node $node
@@ -420,7 +420,7 @@ function exelearning_extend_settings_navigation(
         new pix_icon('i/report', '')
     );
 
-    // Insertar antes del nodo de roles/permisos si existe, como hace SCORM.
+    // Insert before the roles/permissions node if present, as SCORM does.
     if ($beforekey = exelearning_navigation_before_key($node)) {
         $node->add_node($reportnode, $beforekey);
     } else {
@@ -429,9 +429,9 @@ function exelearning_extend_settings_navigation(
 }
 
 /**
- * Devuelve la clave del primer nodo "administrativo" de la navegación del módulo
- * (roles/permisos/filtros) para insertar "Informes" justo antes, replicando el
- * orden de mod_scorm.
+ * Returns the key of the first "administrative" node in the module navigation
+ * (roles/permissions/filters) so that "Reports" is inserted just before it,
+ * replicating mod_scorm's ordering.
  *
  * @param navigation_node $node
  * @return string|null
@@ -446,9 +446,9 @@ function exelearning_navigation_before_key(navigation_node $node): ?string {
 }
 
 /**
- * Guarda el ELPX subido en filearea 'package' y lo extrae a 'content/{revision}/'.
+ * Saves the uploaded ELPX in the 'package' filearea and extracts it to 'content/{revision}/'.
  *
- * @param stdClass $data Datos del formulario (con `coursemodule`, `package` draftid, `revision`).
+ * @param stdClass $data Form data (with `coursemodule`, `package` draftid, `revision`).
  */
 function exelearning_save_and_extract_package(stdClass $data): void {
     if (empty($data->package)) {
@@ -457,7 +457,7 @@ function exelearning_save_and_extract_package(stdClass $data): void {
     $context = context_module::instance($data->coursemodule);
     $fs = get_file_storage();
 
-    // 1) Persistir el ZIP en 'package/0/'.
+    // 1) Persist the ZIP in 'package/0/'.
     $fs->delete_area_files($context->id, 'mod_exelearning', 'package');
     file_save_draft_area_files(
         $data->package,
@@ -468,7 +468,7 @@ function exelearning_save_and_extract_package(stdClass $data): void {
         ['subdirs' => 0, 'maxfiles' => 1]
     );
 
-    // 2) Extraer el ZIP recién guardado al filearea de contenido.
+    // 2) Extract the newly saved ZIP to the content filearea.
     exelearning_extract_stored_package($context->id, (int) $data->revision);
 }
 
@@ -503,13 +503,13 @@ function exelearning_get_stored_package(int $contextid): ?\stored_file {
 }
 
 /**
- * Extrae a `content/{revision}/` el ELPX ya almacenado en `package`.
+ * Extracts the ELPX already stored in `package` to `content/{revision}/`.
  *
- * Separado de exelearning_save_and_extract_package() para poder re-ejecutarse
- * SIN un draft itemid (p.ej. el self-heal de view.php cuando una subida
- * programática como el `addModule` del Playground dejó el paquete en
- * filearea 'package' pero no extrajo/sincronizó). Idempotente: limpia el
- * contenido previo y vuelve a extraer.
+ * Kept separate from exelearning_save_and_extract_package() so it can be
+ * re-run WITHOUT a draft itemid (e.g. the view.php self-heal when a programmatic
+ * upload such as the Playground's `addModule` left the package in the 'package'
+ * filearea but did not extract/sync it). Idempotent: clears previous content
+ * and re-extracts.
  *
  * @param int $contextid
  * @param int $revision
@@ -526,7 +526,7 @@ function exelearning_extract_stored_package(int $contextid, int $revision): void
     $data = (object) ['revision' => $revision];
     $context = (object) ['id' => $contextid];
 
-    // 3) Limpiar contenido previo y extraer al revision actual.
+    // 3) Clear previous content and extract to the current revision.
     $fs->delete_area_files($context->id, 'mod_exelearning', 'content');
 
     $packer = get_file_packer('application/zip');
@@ -539,7 +539,7 @@ function exelearning_extract_stored_package(int $contextid, int $revision): void
         '/'
     );
 
-    // 4) Asegurar entrada index.html como mainfile (para el navegador del archivo).
+    // 4) Ensure index.html is set as mainfile (for the file browser).
     $entry = $fs->get_file(
         $context->id,
         'mod_exelearning',
@@ -560,10 +560,10 @@ function exelearning_extract_stored_package(int $contextid, int $revision): void
         );
     }
 
-    // 5) Si el paquete (export web) no trae libs/SCORM_API_wrapper.js,
-    // inyectarlo desde assets/ del plugin. eXeLearning v4 sólo incluye
-    // este wrapper en el export SCORM; sin él, los iDevices calificables
-    // muestran "esta página no forma parte de un paquete SCORM".
+    // 5) If the package (web export) does not include libs/SCORM_API_wrapper.js,
+    // inject it from the plugin's assets/ directory. eXeLearning v4 only bundles
+    // this wrapper in the SCORM export; without it, gradable iDevices display
+    // "this page is not part of a SCORM package".
     foreach (['SCORM_API_wrapper.js', 'SCOFunctions.js'] as $shimname) {
         $present = $fs->get_file(
             $context->id,
@@ -590,19 +590,19 @@ function exelearning_extract_stored_package(int $contextid, int $revision): void
         ], $assetpath);
     }
 
-    // 6) Inyectar <script src="libs/SCORM_API_wrapper.js"></script> en los
-    // HTMLs del paquete. eXeLearning v4 sólo carga el wrapper on-demand
-    // cuando el usuario pulsa "Guardar puntuación", pero antes (en
-    // libs/common.js:1052) ya hace un check `typeof pipwerks === 'undefined'`
-    // que decide si mostrar el mensaje "no es paquete SCORM" o la barra
-    // de guardar nota. Forzando la carga al cargar la página, ese check
-    // pasa y el iDevice reconoce el entorno SCORM.
+    // 6) Inject <script src="libs/SCORM_API_wrapper.js"></script> into the
+    // package HTML files. eXeLearning v4 only loads the wrapper on-demand when
+    // the user clicks "Save score", but before that (in libs/common.js:1052) it
+    // already checks `typeof pipwerks === 'undefined'` to decide whether to show
+    // the "not a SCORM package" message or the save-score bar. By forcing the
+    // load at page-load time, that check passes and the iDevice recognises the
+    // SCORM environment.
     exelearning_inject_scorm_loader($context->id, (int) $data->revision);
 }
 
 /**
- * Inyecta script-tags del wrapper SCORM en el <head> de index.html y de
- * todas las páginas html/<slug>.html del paquete extraído.
+ * Injects SCORM wrapper script tags into the <head> of index.html and all
+ * html/<slug>.html pages of the extracted package.
  *
  * @param int $contextid
  * @param int $revision
@@ -610,11 +610,11 @@ function exelearning_extract_stored_package(int $contextid, int $revision): void
 function exelearning_inject_scorm_loader(int $contextid, int $revision): void {
     $fs = get_file_storage();
     $marker = '<!-- mod_exelearning:scorm-loader -->';
-    // Tras cargar el wrapper, forzamos `pipwerks.SCORM.init()` para que
-    // connection.isActive=true y los `set()` posteriores SÍ lleguen a
-    // window.parent.API.LMSSetValue. eXeLearning sólo invoca init() en el
-    // flujo on-click; en isScorm==1 (auto-save tras cada pregunta) no llega
-    // a iniciarse, así que lo hacemos aquí.
+    // After loading the wrapper, force `pipwerks.SCORM.init()` so that
+    // connection.isActive=true and subsequent `set()` calls DO reach
+    // window.parent.API.LMSSetValue. eXeLearning only invokes init() in the
+    // on-click flow; with isScorm==1 (auto-save after each question) it never
+    // gets called, so we trigger it here.
     $initscript = "\n    <script>\n" .
             "      (function(){\n" .
             "        var t = setInterval(function(){\n" .
@@ -634,7 +634,7 @@ function exelearning_inject_scorm_loader(int $contextid, int $revision): void {
             "\n    <script src=\"../libs/SCOFunctions.js\"></script>" .
             $initscript;
 
-    // Recorrer todos los HTML del filearea.
+    // Iterate over all HTML files in the filearea.
     $files = $fs->get_area_files(
         $contextid,
         'mod_exelearning',
@@ -657,12 +657,12 @@ function exelearning_inject_scorm_loader(int $contextid, int $revision): void {
         }
         $path = $file->get_filepath();
         $payload = ($path === '/') ? $tags : $tagshtml;
-        // Insertar justo antes de </head> (case-insensitive).
+        // Insert just before </head> (case-insensitive).
         $newhtml = preg_replace('~</head>~i', $payload . '</head>', $html, 1);
         if ($newhtml === null || $newhtml === $html) {
             continue;
         }
-        // Reemplazar contenido en filearea: borrar y recrear.
+        // Replace content in the filearea: delete and recreate.
         $record = [
             'contextid' => $contextid,
             'component' => 'mod_exelearning',
@@ -677,7 +677,7 @@ function exelearning_inject_scorm_loader(int $contextid, int $revision): void {
 }
 
 /**
- * Detecta iDevices calificables en el paquete almacenado y sincroniza grade items.
+ * Detects gradable iDevices in the stored package and synchronises grade items.
  *
  * @param int $exelearningid
  * @param int|null $contextid
@@ -707,12 +707,12 @@ function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null
 
     $grademodel = (int) ($instance->grademodel ?? EXELEARNING_GRADEMODEL_PERITEM);
 
-    // Grade item canónico (itemnumber=0) según el modelo de calificación (DEC-0008).
+    // Canonical grade item (itemnumber=0) according to the grading model (DEC-0008).
     if ($grademodel === EXELEARNING_GRADEMODEL_OVERALL) {
-        // Sólo overall: el libro muestra una única columna agregada (estilo SCORM).
+        // Overall only: the gradebook shows a single aggregated column (SCORM-style).
         exelearning_grade_item_update($instance);
     } else {
-        // Por iDevice (default): el overall no debe existir en el libro.
+        // Per iDevice (default): the overall must not exist in the gradebook.
         grade_update(
             'mod/exelearning',
             $instance->course,
@@ -725,7 +725,7 @@ function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null
         );
     }
 
-    // Detección.
+    // Detection.
     $detected = (new \mod_exelearning\local\package($elpx))->detect_gradable_idevices();
     if ($detected === []) {
         return;
@@ -778,8 +778,8 @@ function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null
         $seen[$d->objectid] = true;
 
         if ($grademodel === EXELEARNING_GRADEMODEL_OVERALL) {
-            // Sólo overall: no exponer columnas por iDevice en el libro
-            // (la fila se conserva para el report de intentos).
+            // Overall only: do not expose per-iDevice columns in the gradebook
+            // (the row is kept for the attempts report).
             grade_update(
                 'mod/exelearning',
                 $instance->course,
@@ -834,9 +834,10 @@ function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null
 }
 
 /**
- * Recalcula las notas del libro de un alumno desde su histórico de intentos,
- * respetando grademethod y grademodel. Usado tras borrar un intento (DEC-0007
- * fase 2). Si un item ya no tiene intentos, limpia su nota (rawgrade=null).
+ * Recalculates a student's gradebook grades from their attempt history,
+ * respecting grademethod and grademodel. Used after deleting an attempt
+ * (DEC-0007 phase 2). If an item has no remaining attempts, clears its grade
+ * (rawgrade=null).
  *
  * @param stdClass $instance
  * @param int $userid
@@ -897,7 +898,7 @@ function exelearning_recalculate_user_grades(stdClass $instance, int $userid): v
 }
 
 /**
- * Nombre legible de la columna del libro de calificaciones para un iDevice.
+ * Human-readable label for the gradebook column of an iDevice.
  *
  * @param stdClass $instance
  * @param stdClass $detected
@@ -914,22 +915,22 @@ function exelearning_grade_item_name(stdClass $instance, stdClass $detected): st
 }
 
 // -----------------------------------------------------------------------------
-// Embedded eXeLearning editor support (portado de mod_exeweb).
+// Embedded eXeLearning editor support (ported from mod_exeweb).
 //
 // These functions are the hooks consumed by the embedded editor
 // (editor/index.php, editor/save.php and the "Edit" button in view.php).
 
 /**
- * Devuelve la URL del ELPX almacenado en la filearea 'package' de una instancia.
+ * Returns the URL of the ELPX stored in the 'package' filearea of an instance.
  *
- * Portado de mod_exeweb::exeweb_get_package_url() y adaptado a este plugin:
- * filearea 'package', component 'mod_exelearning'. El itemid se toma del fichero
- * almacenado (las subidas del editor usan itemid = revision; las del formulario
- * usan itemid = 0) para construir una URL servible vía exelearning_pluginfile().
+ * Ported from mod_exeweb::exeweb_get_package_url() and adapted to this plugin:
+ * filearea 'package', component 'mod_exelearning'. The itemid is taken from the
+ * stored file (editor uploads use itemid = revision; form uploads use itemid = 0)
+ * to build a URL servable via exelearning_pluginfile().
  *
- * @param stdClass $exelearning Registro de la instancia.
- * @param context $context Contexto del módulo.
- * @return moodle_url|null URL al fichero del paquete, o null si no existe.
+ * @param stdClass $exelearning Instance record.
+ * @param context $context Module context.
+ * @return moodle_url|null URL to the package file, or null if it does not exist.
  */
 function exelearning_get_package_url($exelearning, $context) {
     $fs = get_file_storage();
@@ -956,23 +957,23 @@ function exelearning_get_package_url($exelearning, $context) {
 }
 
 /**
- * Devuelve la ruta absoluta al index.html del editor embebido instalado.
+ * Returns the absolute path to the index.html of the installed embedded editor.
  *
- * Wrapper de embedded_editor_source_resolver::get_index_source() (moodledata →
- * bundled → null). Portado de mod_exeweb::exeweb_get_embedded_editor_index_source().
+ * Wrapper for embedded_editor_source_resolver::get_index_source() (moodledata →
+ * bundled → null). Ported from mod_exeweb::exeweb_get_embedded_editor_index_source().
  *
- * @return string|null Ruta a index.html, o null si no hay editor disponible.
+ * @return string|null Path to index.html, or null when no editor is available.
  */
 function exelearning_get_embedded_editor_index_source(): ?string {
     return \mod_exelearning\local\embedded_editor_source_resolver::get_index_source();
 }
 
 /**
- * Indica si hay un editor embebido disponible (moodledata o bundled).
+ * Returns whether an embedded editor is available (moodledata or bundled).
  *
- * Usado por view.php para decidir si muestra el botón "Editar con eXeLearning".
+ * Used by view.php to decide whether to show the "Edit with eXeLearning" button.
  *
- * @return bool True si existe una fuente local válida del editor.
+ * @return bool True when a valid local editor source exists.
  */
 function exelearning_embedded_editor_enabled(): bool {
     return \mod_exelearning\local\embedded_editor_source_resolver::has_local_source();

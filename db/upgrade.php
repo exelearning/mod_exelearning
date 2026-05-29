@@ -88,7 +88,7 @@ function xmldb_exelearning_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026052800, 'exelearning');
     }
 
-    // Stage 2 (2026052801): añadir gradedisplaytype en exelearning.
+    // Stage 2 (2026052801): add gradedisplaytype column to exelearning.
     if ($oldversion < 2026052801) {
         $instance = new xmldb_table('exelearning');
         $field = new xmldb_field(
@@ -107,8 +107,8 @@ function xmldb_exelearning_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026052801, 'exelearning');
     }
 
-    // Stage 3 (2026052802): intentos (DEC-0007) — tabla exelearning_attempt +
-    // campo grademethod (agregación de intentos) en la instancia.
+    // Stage 3 (2026052802): attempts (DEC-0007) — exelearning_attempt table +
+    // grademethod field (attempt aggregation) on the instance.
     if ($oldversion < 2026052802) {
         $instance = new xmldb_table('exelearning');
         $grademethod = new xmldb_field(
@@ -204,9 +204,9 @@ function xmldb_exelearning_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026052803, 'exelearning');
     }
 
-    // Stage 5 (2026052804): asegurar el campo gradepass (DEC-0010). En install.xml
-    // ya existe para instalaciones nuevas; este savepoint cubre los sitios que
-    // actualizaron por 2026052802/03 antes de que gradepass se añadiera a esa fase.
+    // Stage 5 (2026052804): ensure the gradepass field exists (DEC-0010). It is
+    // already in install.xml for fresh installs; this savepoint covers sites that
+    // upgraded through 2026052802/03 before gradepass was added to that phase.
     if ($oldversion < 2026052804) {
         $instance = new xmldb_table('exelearning');
         $gradepass = new xmldb_field(

@@ -17,12 +17,12 @@
 /**
  * mod_exelearning tracking endpoint (SCORM bridge).
  *
- * Recibe pares CMI desde el shim SCORM 1.2 que vive en `view.php` y los
- * traduce a `grade_update()` en Moodle gradebook. v1 sólo gestiona el
- * grade item canónico (itemnumber=0); el routing per-iDevice llegará con el
- * bridge xAPI completo.
+ * Receives CMI pairs from the SCORM 1.2 shim that lives in `view.php` and
+ * translates them into `grade_update()` calls in the Moodle gradebook. v1 only
+ * manages the canonical grade item (itemnumber=0); per-iDevice routing will
+ * arrive with the full xAPI bridge.
  *
- * Endpoint: POST con sesskey + JSON `{ id: <cmid>, cmi: { "cmi.core.score.raw": "85", ... } }`.
+ * Endpoint: POST with sesskey + JSON `{ id: <cmid>, cmi: { "cmi.core.score.raw": "85", ... } }`.
  *
  * @package    mod_exelearning
  * @copyright  2026 ATE (Área de Tecnología Educativa)
@@ -47,8 +47,8 @@ $exelearning = $DB->get_record('exelearning', ['id' => $cm->instance], '*', MUST
 require_login($course, false, $cm);
 $context = context_module::instance($cm->id);
 
-// Modo preview (DEC-0006): sólo si quien llama tiene capability de gestión.
-// Alumno común que cambie ?mode=preview cae a grading silenciosamente.
+// Preview mode (DEC-0006): only when the caller has management capability.
+// A regular student who changes ?mode=preview falls back to grading silently.
 $ispreview = ($mode === 'preview')
         && has_capability('moodle/course:manageactivities', $context);
 if (!$ispreview) {
@@ -65,8 +65,8 @@ if (!is_array($payload) || !isset($payload['cmi']) || !is_array($payload['cmi'])
 // and apply it to the canonical grade item (itemnumber=0). Multi-iDevice via
 // xAPI will arrive in TAREA-008.
 $cmi = $payload['cmi'];
-// Token de sesión de página (DEC-0007): agrupa los auto-commits de una misma
-// carga de view.php en un único intento.
+// Page-load session token (DEC-0007): groups the auto-commits from a single
+// view.php page load into one attempt.
 $sessiontoken = isset($payload['session'])
         ? clean_param((string) $payload['session'], PARAM_ALPHANUMEXT) : '';
 $rawscore = $cmi['cmi.core.score.raw'] ?? $cmi['cmi.score.raw'] ?? null;
@@ -74,27 +74,27 @@ $maxscore = $cmi['cmi.core.score.max'] ?? $cmi['cmi.score.max'] ?? null;
 $status   = $cmi['cmi.core.lesson_status'] ?? $cmi['cmi.completion_status'] ?? null;
 
 if ($rawscore === null || $rawscore === '') {
-    // No hay nada que persistir aún; sólo ack.
+    // Nothing to persist yet; just acknowledge.
     echo json_encode(['ok' => true, 'noop' => true]);
     die;
 }
 
-// Normalizar a la escala del grade item (grademax de la instancia).
+// Normalise to the grade item scale (instance grademax).
 $score = (float) $rawscore;
 if ($maxscore !== null && (float) $maxscore > 0) {
     $score = ($score / (float) $maxscore) * (float) ($exelearning->grademax ?? 100);
 }
 
-// Modo preview: NO actualizamos gradebook; sólo ack (DEC-0006).
+// Preview mode: do NOT update the gradebook; only acknowledge (DEC-0006).
 if ($ispreview) {
     echo json_encode(['ok' => true, 'mode' => 'preview', 'rawscore' => $score, 'status' => $status]);
     die;
 }
 
-// Per-iDevice routing desde cmi.suspend_data.
-// eXeLearning v4 serializa `{N}. "{title}"; Puntuación: {S}%; Peso: {W}%`
-// separados por ".\t" donde N=index DOM+1. Eso coincide con nuestro itemnumber
-// asignado por el orden en content.xml (classes/local/package.php).
+// Per-iDevice routing from cmi.suspend_data.
+// eXeLearning v4 serialises `{N}. "{title}"; Score: {S}%; Weight: {W}%`
+// separated by ".\t" where N=DOM index+1. This matches our itemnumber
+// assigned by the order in content.xml (classes/local/package.php).
 $suspend = $cmi['cmi.suspend_data'] ?? '';
 $peritem = [];
 if (is_string($suspend) && $suspend !== '') {
@@ -129,15 +129,15 @@ $itemdetailsbase = [
     'display'   => (int) ($exelearning->gradedisplaytype ?? GRADE_DISPLAY_TYPE_DEFAULT),
 ];
 
-// Resolver el número de intento (uno por carga de página).
+// Resolve the attempt number (one per page load).
 $attempt = \mod_exelearning\local\attempts::resolve_attempt_number(
     $exelearning->id,
     $USER->id,
     $sessiontoken
 );
 
-// Límite de intentos (DEC-0007 fase 2): si esta carga de página inaugura un
-// intento nuevo y el alumno ya agotó maxattempt, rechazar sin grabar.
+// Attempt limit (DEC-0007 phase 2): if this page load would open a new attempt
+// and the student has already exhausted maxattempt, reject without saving.
 $maxattempt = (int) ($exelearning->maxattempt ?? 0);
 if ($maxattempt > 0) {
     $sessionknown = ($sessiontoken !== '') && $DB->record_exists(
@@ -156,7 +156,7 @@ if ($maxattempt > 0) {
     }
 }
 
-// 1) Intentos + nota agregada por iDevice (itemnumber > 0).
+// 1) Attempts + aggregated grade per iDevice (itemnumber > 0).
 $persaved = [];
 if ($peritem) {
     $rows = $DB->get_records(
@@ -180,7 +180,7 @@ if ($peritem) {
             'completed',
             $sessiontoken
         );
-        // Nota del libro = agregación de los intentos según grademethod.
+        // Gradebook grade = aggregation of attempts according to grademethod.
         $scaled = \mod_exelearning\local\attempts::aggregate_scaled(
             $exelearning->id,
             $USER->id,
@@ -188,8 +188,8 @@ if ($peritem) {
             $grademethod
         );
         $finalitem = ($scaled === null) ? $rawitem : ($scaled * $grademax);
-        // En modo "sólo overall" no se publican columnas por iDevice (DEC-0008),
-        // pero el intento SÍ se registra para el report.
+        // In "overall only" mode per-iDevice columns are not published (DEC-0008),
+        // but the attempt IS recorded for the report.
         if ($grademodel !== EXELEARNING_GRADEMODEL_OVERALL) {
             grade_update(
                 'mod/exelearning',
@@ -206,7 +206,7 @@ if ($peritem) {
     }
 }
 
-// 2) Intento + nota agregada del overall (itemnumber=0).
+// 2) Attempt + aggregated overall grade (itemnumber=0).
 $overallstatus = in_array($status, ['passed', 'failed', 'completed', 'incomplete'], true)
         ? $status : 'completed';
 \mod_exelearning\local\attempts::record_item(
@@ -230,12 +230,12 @@ $finaloverall = ($scaledoverall === null) ? $score : ($scaledoverall * $grademax
 $grade = (object) [
     'userid'    => $USER->id,
     'rawgrade'  => $finaloverall,
-    // DEC-0008: no exponer la cadena CMI cruda como retroalimentación; el
-    // estado funcional vive en mdl_exelearning_attempt.status.
+    // DEC-0008: do not expose the raw CMI string as feedback; the functional
+    // status lives in mdl_exelearning_attempt.status.
     'feedback'  => null,
 ];
 
-// En modo "sólo por iDevice" no existe columna overall (DEC-0008).
+// In "per-iDevice only" mode the overall column does not exist (DEC-0008).
 if ($grademodel === EXELEARNING_GRADEMODEL_PERITEM) {
     $result = GRADE_UPDATE_OK;
 } else {
@@ -253,9 +253,9 @@ if ($grademodel === EXELEARNING_GRADEMODEL_PERITEM) {
     );
 }
 
-// Recalcular finalización: con "exigir nota para aprobar" (completionpassgrade,
-// estilo SCORM) Moodle marca completada la actividad al alcanzar la nota de
-// aprobado. Forzamos la reevaluación tras grabar la nota.
+// Recalculate completion: with "require passing grade" (completionpassgrade,
+// SCORM style) Moodle marks the activity complete when the passing grade is
+// reached. Force re-evaluation after saving the grade.
 $completion = new completion_info($course);
 if ($completion->is_enabled($cm)) {
     $completion->update_state($cm, COMPLETION_UNKNOWN, $USER->id);

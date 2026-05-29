@@ -17,17 +17,17 @@
 /**
  * Grade item mappings for mod_exelearning.
  *
- * Moodle 5.x exige que los plugins con itemnumber > 0 declaren un mapeo
- * itemnumber → identificador de string. Como el número real de iDevices
- * calificables depende del paquete subido (es dinámico), pre-asignamos un
- * rango fijo de 20 slots por instancia, que cubre los paquetes eXeLearning
- * realistas. Aumentarlo es trivial; el coste es UX (dropdown más largo en
- * el formulario de completion-via-grade).
+ * Moodle 5.x requires plugins with itemnumber > 0 to declare a mapping of
+ * itemnumber → string identifier. Because the actual number of gradable iDevices
+ * depends on the uploaded package (it is dynamic), we pre-assign a fixed range
+ * of slots per instance that covers realistic eXeLearning packages. Increasing
+ * it is trivial; the cost is UX (a longer dropdown in the completion-via-grade
+ * form).
  *
- *   itemnumber 0       → 'overall'   (nota agregada)
- *   itemnumber 1..N    → 'ideviceN'  (un slot por iDevice calificable)
+ *   itemnumber 0       → 'overall'   (aggregated grade)
+ *   itemnumber 1..N    → 'ideviceN'  (one slot per gradable iDevice)
  *
- * Strings asociadas en lang/en/exelearning.php:
+ * Associated strings in lang/en/exelearning.php:
  *   $string['grade_overall_name']  = 'Overall';
  *   $string['grade_idevice1_name'] = 'iDevice 1'; …
  *

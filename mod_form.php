@@ -50,7 +50,7 @@ class mod_exelearning_mod_form extends moodleform_mod {
 
         $this->standard_intro_elements();
 
-        // Filemanager para el paquete ELPX v4.
+        // File manager for the ELPX v4 package.
         $mform->addElement(
             'filemanager',
             'package',
@@ -66,7 +66,7 @@ class mod_exelearning_mod_form extends moodleform_mod {
         $mform->addHelpButton('package', 'package', 'mod_exelearning');
         $mform->addRule('package', null, 'required', null, 'client');
 
-        // Configuración de calificación.
+        // Grading configuration.
         $mform->addElement(
             'header',
             'gradingsection',
@@ -92,8 +92,8 @@ class mod_exelearning_mod_form extends moodleform_mod {
         $mform->setType('grademin', PARAM_FLOAT);
         $mform->setDefault('grademin', 0);
 
-        // Nota para aprobar el overall: alimenta la finalización por nota de
-        // Moodle ("exigir nota para aprobar"), estilo SCORM (DEC-0010).
+        // Passing grade for the overall: feeds Moodle's completion-by-grade
+        // ("require passing grade"), SCORM style (DEC-0010).
         $mform->addElement(
             'text',
             'gradepass',
@@ -104,8 +104,8 @@ class mod_exelearning_mod_form extends moodleform_mod {
         $mform->setDefault('gradepass', 0);
         $mform->addHelpButton('gradepass', 'gradepass', 'mod_exelearning');
 
-        // Agregación de intentos (DEC-0007): cómo se combina el histórico de
-        // intentos del alumno para la nota del libro de calificaciones.
+        // Attempt aggregation (DEC-0007): how the student's attempt history is
+        // combined for the gradebook grade.
         $methodoptions = [];
         foreach (\mod_exelearning\local\attempts::grademethod_options() as $val => $strkey) {
             $methodoptions[$val] = get_string($strkey, 'mod_exelearning');
@@ -119,7 +119,7 @@ class mod_exelearning_mod_form extends moodleform_mod {
         $mform->setDefault('grademethod', \mod_exelearning\local\attempts::GRADE_HIGHEST);
         $mform->addHelpButton('grademethod', 'grademethod', 'mod_exelearning');
 
-        // Modelo de columnas en el libro de calificaciones (DEC-0008).
+        // Gradebook columns model (DEC-0008).
         $mform->addElement(
             'select',
             'grademodel',
@@ -132,7 +132,7 @@ class mod_exelearning_mod_form extends moodleform_mod {
         $mform->setDefault('grademodel', EXELEARNING_GRADEMODEL_PERITEM);
         $mform->addHelpButton('grademodel', 'grademodel', 'mod_exelearning');
 
-        // Límite de intentos por alumno (DEC-0007 fase 2): 0 = ilimitados.
+        // Attempt limit per student (DEC-0007 phase 2): 0 = unlimited.
         $mform->addElement(
             'text',
             'maxattempt',
@@ -143,7 +143,7 @@ class mod_exelearning_mod_form extends moodleform_mod {
         $mform->setDefault('maxattempt', 0);
         $mform->addHelpButton('maxattempt', 'maxattempt', 'mod_exelearning');
 
-        // Revisión de intentos por el alumno (DEC-0007 fase 2).
+        // Student attempt review (DEC-0007 phase 2).
         $reviewoptions = [];
         foreach (\mod_exelearning\local\attempts::reviewmode_options() as $val => $strkey) {
             $reviewoptions[$val] = get_string($strkey, 'mod_exelearning');
@@ -157,9 +157,9 @@ class mod_exelearning_mod_form extends moodleform_mod {
         $mform->setDefault('reviewmode', \mod_exelearning\local\attempts::REVIEW_ALWAYS);
         $mform->addHelpButton('reviewmode', 'reviewmode', 'mod_exelearning');
 
-        // Cómo se muestra la nota en el gradebook (numérico, porcentaje, letra).
-        // Moodle ALMACENA siempre numérico; este selector sólo afecta a la
-        // visualización por columna (gradedisplaytype del grade_item).
+        // How the grade is displayed in the gradebook (numeric, percentage, letter).
+        // Moodle always stores the raw number; this selector only affects the
+        // per-column display (gradedisplaytype on the grade_item).
         $displayoptions = [
             GRADE_DISPLAY_TYPE_DEFAULT       => get_string('gradedisplay_default', 'mod_exelearning'),
             GRADE_DISPLAY_TYPE_REAL          => get_string('gradedisplay_real', 'mod_exelearning'),

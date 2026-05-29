@@ -17,9 +17,9 @@
 /**
  * mod_exelearning activity view.
  *
- * Renderiza el paquete eXeLearning v4 extraído dentro de un iframe que apunta
- * al `index.html` servido vía `pluginfile.php`, preservando la sidebar nativa
- * del paquete (técnica heredada de mod_exeweb, AN-001).
+ * Renders the extracted eXeLearning v4 package inside an iframe pointing to the
+ * `index.html` served via `pluginfile.php`, preserving the package's native
+ * sidebar (technique inherited from mod_exeweb, AN-001).
  *
  * @package    mod_exelearning
  * @copyright  2026 ATE (Área de Tecnología Educativa)
@@ -41,8 +41,8 @@ require_course_login($course, true, $cm);
 $context = context_module::instance($cm->id);
 require_capability('mod/exelearning:view', $context);
 
-// Modo preview/test SÓLO para usuarios con capability de gestión (DEC-0006).
-// Un alumno sin permiso que cambia la URL a ?mode=preview cae a grading.
+// Preview/test mode is ONLY for users with management capability (DEC-0006).
+// A student without permission who changes the URL to ?mode=preview falls back to grading.
 $canpreview = has_capability('moodle/course:manageactivities', $context);
 if ($mode === 'preview' && !$canpreview) {
     $mode = 'grading';
@@ -72,8 +72,8 @@ $PAGE->set_title(format_string($exelearning->name));
 $PAGE->set_heading(format_string($course->fullname));
 $PAGE->set_context($context);
 
-// Inicializar el AMD del editor embebido sólo cuando el botón "Editar" se va a
-// mostrar (gestor + editor instalado). El listener escucha clicks en
+// Initialise the embedded editor AMD only when the "Edit" button is going to be
+// shown (manager + editor installed). The listener responds to clicks on
 // [data-action="mod_exelearning/editor-open"].
 $showeditorbutton = $canpreview && exelearning_embedded_editor_enabled();
 if ($showeditorbutton) {
@@ -90,11 +90,11 @@ $mainfile = $fs->get_file(
     'index.html'
 );
 
-// Self-heal para subidas programáticas (p.ej. `addModule` del Moodle
-// Playground): si el ELPX está en filearea 'package' pero el contenido no se
-// extrajo o los grade items no se detectaron (porque esa vía no pasó por
-// exelearning_add_instance), recuperarlo aquí. Idempotente: sólo actúa cuando
-// falta algo, así que no penaliza la vista normal.
+// Self-heal for programmatic uploads (e.g. the Moodle Playground `addModule`):
+// if the ELPX is in the 'package' filearea but the content was not extracted or
+// the grade items were not detected (because that path bypassed
+// exelearning_add_instance), recover here. Idempotent: only acts when something
+// is missing, so it does not penalise the normal view.
 $haspackage = (exelearning_get_stored_package($context->id) !== null);
 if ($haspackage) {
     if (!$mainfile) {
@@ -129,8 +129,8 @@ if (!empty($exelearning->intro)) {
     );
 }
 
-// Banner del modo preview + enlaces para alternar (DEC-0006), salvo que el
-// profesor lo haya ocultado (teachermodevisible=0, paridad mod_exeweb).
+// Preview mode banner + toggle links (DEC-0006), unless the teacher has hidden
+// it (teachermodevisible=0, mod_exeweb parity).
 if ($showpreviewtoggle) {
     if ($mode === 'preview') {
         $exiturl = new moodle_url('/mod/exelearning/view.php', ['id' => $cm->id]);
@@ -162,10 +162,10 @@ if ($showpreviewtoggle) {
     }
 }
 
-// Botón "Editar con eXeLearning": abre el editor embebido en un overlay/modal
-// (gestionado por amd/src/editor_modal.js). Sólo para gestores y cuando hay un
-// editor instalado. Los atributos data-* deben coincidir EXACTAMENTE con los
-// que lee editor_modal.js::init()/open().
+// Edit with eXeLearning button: opens the embedded editor in an overlay/modal
+// (managed by amd/src/editor_modal.js). Only for managers when an editor is
+// installed. The data-* attributes must match EXACTLY what editor_modal.js::init()/open()
+// reads.
 if ($showeditorbutton) {
     $editorurl = new moodle_url(
         '/mod/exelearning/editor/index.php',
@@ -208,7 +208,7 @@ if (!$mainfile) {
         '/',
         'index.html'
     );
-    // Lista de grade items detectados (para feedback rápido al profesor).
+    // List of detected grade items (for quick feedback to the teacher).
     $items = $DB->get_records(
         'exelearning_grade_item',
         ['exelearningid' => $exelearning->id, 'deleted' => 0],
@@ -269,7 +269,7 @@ if (!$mainfile) {
         );
         echo html_writer::end_div();
     }
-    // Resumen de intentos para el alumno (DEC-0007 fase 2).
+    // Attempt summary for the student (DEC-0007 phase 2).
     if (!$canpreview) {
         $myattempts = $DB->get_records('exelearning_attempt', [
             'exelearningid' => $exelearning->id,
@@ -319,7 +319,7 @@ if (!$mainfile) {
                     ? 'alert alert-warning mb-3' : 'alert alert-secondary mb-3';
             echo html_writer::div($label, $class);
         }
-        // Revisión de intentos previos, según reviewmode.
+        // Review of previous attempts, according to reviewmode.
         $reviewmode = (int) ($exelearning->reviewmode
                 ?? \mod_exelearning\local\attempts::REVIEW_ALWAYS);
         $iscomplete = false;
@@ -350,12 +350,12 @@ if (!$mainfile) {
             );
         }
     }
-    // SCORM 1.2 shim: inyecta window.API en la ventana padre del iframe.
-    // pipwerks SCORM (que usan los iDevices de eXeLearning v4) hace
-    // `findAPI()` recorriendo `window.parent` buscando un objeto `API` con
-    // `LMSInitialize`. Si no lo encuentra, el iDevice muestra "Esta página
-    // no forma parte de un paquete SCORM". Implementación mínima viable:
-    // bufferiza pares CMI y los manda a track.php en LMSCommit/LMSFinish.
+    // SCORM 1.2 shim: injects window.API into the parent window of the iframe.
+    // pipwerks SCORM (used by eXeLearning v4 iDevices) calls `findAPI()`,
+    // walking `window.parent` looking for an `API` object with `LMSInitialize`.
+    // If not found, the iDevice shows "This page is not part of a SCORM package".
+    // Minimal viable implementation: buffers CMI pairs and sends them to
+    // track.php on LMSCommit/LMSFinish.
     $trackurl = (new moodle_url(
         '/mod/exelearning/track.php',
         ['id' => $cm->id, 'sesskey' => sesskey(), 'mode' => $mode]
@@ -363,18 +363,18 @@ if (!$mainfile) {
     $shimjs = <<<JS
 (function () {
     var errCode = '0', cmi = {}, dirty = false, autoTimer = null;
-    // Token único por carga de página: agrupa los auto-commits en un intento.
+    // Unique token per page load: groups the auto-commits into a single attempt.
     var session = '%SESSION%';
     function send(sync) {
         if (!dirty) { return true; }
         try {
             var xhr = new XMLHttpRequest();
-            // Síncrono en LMSFinish (alumno cierra la pestaña); async normalmente.
+            // Synchronous in LMSFinish (student closes the tab); async otherwise.
             xhr.open('POST', '%TRACKURL%', sync !== true);
             xhr.setRequestHeader('Content-Type', 'application/json');
             xhr.send(JSON.stringify({ id: %CMID%, session: session, cmi: cmi }));
             dirty = false;
-            // En modo async no podemos chequear el status; asumimos OK.
+            // In async mode we cannot check the status; assume OK.
             return sync === true ? (xhr.status >= 200 && xhr.status < 300) : true;
         } catch (e) { errCode = '101'; return false; }
     }
@@ -390,8 +390,8 @@ if (!$mainfile) {
         LMSGetValue:     function (k) { return cmi[k] || ''; },
         LMSSetValue:     function (k, v) {
             cmi[k] = String(v); dirty = true;
-            // Autocommit en valores críticos para que la nota llegue al
-            // gradebook incluso si eXeLearning no llama a Commit explícito.
+            // Autocommit on critical keys so the grade reaches the gradebook
+            // even if eXeLearning does not call Commit explicitly.
             if (k === 'cmi.core.score.raw' || k === 'cmi.core.lesson_status'
                     || k === 'cmi.score.raw' || k === 'cmi.completion_status'
                     || k === 'cmi.success_status') {
@@ -403,7 +403,7 @@ if (!$mainfile) {
         LMSGetErrorString:  function () { return ''; },
         LMSGetDiagnostic:   function () { return ''; },
     };
-    // Persistir al cerrar la pestaña (síncrono).
+    // Persist when the tab is closed (synchronous).
     window.addEventListener('beforeunload', function () {
         if (autoTimer) clearTimeout(autoTimer);
         send(true);
@@ -418,16 +418,16 @@ JS;
     );
     echo html_writer::tag('script', $shimjs);
 
-    // Iframe del paquete. Política de sandbox documentada en AN-008:
-    // - allow-scripts        eXeLearning v4 usa jQuery + JS de iDevices.
-    // - allow-same-origin    rutas relativas a pluginfile.php/.../content/<rev>/
-    // + futuro postMessage al endpoint xAPI.
-    // - allow-popups         interactive-video, hidden-image, …
-    // - allow-forms          quick-questions, form, scrambled-list, …
-    // - allow-popups-to-escape-sandbox  los popups cargan sin restricciones.
-    // SE BLOQUEAN explícitamente (no incluidas):
-    // - allow-top-navigation (un paquete malicioso no debe cambiar la URL padre).
-    // - allow-modals (no alert/confirm/prompt, son interrupciones de UX).
+    // Package iframe. Sandbox policy documented in AN-008:
+    // allow-scripts: eXeLearning v4 uses jQuery + iDevice JS.
+    // allow-same-origin: relative paths to pluginfile.php/.../content/<rev>/
+    // and future postMessage to the xAPI endpoint.
+    // allow-popups: interactive-video, hidden-image, etc.
+    // allow-forms: quick-questions, form, scrambled-list, etc.
+    // allow-popups-to-escape-sandbox: popups load without restrictions.
+    // Explicitly BLOCKED (not included):
+    // allow-top-navigation: a malicious package must not change the parent URL.
+    // allow-modals: no alert/confirm/prompt, they are UX interruptions.
     echo html_writer::tag('iframe', '', [
         'src'    => $iframeurl->out(false),
         'name'   => 'exelearningobject',

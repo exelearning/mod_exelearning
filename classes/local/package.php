@@ -17,12 +17,12 @@
 namespace mod_exelearning\local;
 
 /**
- * Parser ligero del manifest propietario `content.xml` de eXeLearning v4.
+ * Lightweight parser for the proprietary `content.xml` manifest of eXeLearning v4.
  *
- * Sólo lee los campos que `mod_exelearning` necesita para registrar
- * grade items (multi-itemnumber pattern, ver research/analisis/notas/AN-002.md
- * y AN-007.md). No interpreta secuencia ni renderiza páginas — eso lo hace
- * el JS embebido del propio paquete dentro del iframe.
+ * Only reads the fields that `mod_exelearning` needs to register grade items
+ * (multi-itemnumber pattern, see research/analisis/notas/AN-002.md and AN-007.md).
+ * It does not interpret sequencing or render pages — that is handled by the
+ * package's own embedded JS inside the iframe.
  *
  * @package    mod_exelearning
  * @copyright  2026 ATE (Área de Tecnología Educativa)
@@ -30,10 +30,10 @@ namespace mod_exelearning\local;
  */
 class package {
     /**
-     * Tipos de iDevice que SE registran como grade item.
+     * iDevice types that ARE registered as a grade item.
      *
-     * Whitelist conservadora basada en la inspección del Manual de eXeLearning
-     * v4 (FTE-008). Cualquier tipo no listado aquí se ignora silenciosamente.
+     * Conservative whitelist based on inspection of the eXeLearning v4 manual
+     * (FTE-008). Any type not listed here is silently ignored.
      *
      * @var string[]
      */
@@ -60,7 +60,7 @@ class package {
         'scrambled-list',
     ];
 
-    /** @var \stored_file ELPX zip almacenado en filearea 'package'. */
+    /** @var \stored_file ELPX zip stored in the 'package' filearea. */
     private \stored_file $file;
 
     /**
@@ -73,14 +73,14 @@ class package {
     }
 
     /**
-     * Devuelve la lista ordenada de iDevices calificables detectados.
+     * Returns the ordered list of detected gradable iDevices.
      *
-     * Cada entrada es un stdClass con:
-     *   - objectid    string IRI/ID estable del iDevice.
-     *   - idevicetype string slug (trueorfalse, guess, …).
-     *   - pageid      string ID estable de la página propietaria.
-     *   - pagename    string nombre de la página (best-effort, puede vacío).
-     *   - orderhint   int    orden de aparición en el documento (0-based).
+     * Each entry is a stdClass with:
+     *   - objectid    string Stable IRI/ID of the iDevice.
+     *   - idevicetype string Slug (trueorfalse, guess, …).
+     *   - pageid      string Stable ID of the owning page.
+     *   - pagename    string Page name (best-effort, may be empty).
+     *   - orderhint   int    Order of appearance in the document (0-based).
      *
      * @return \stdClass[]
      */
@@ -90,12 +90,12 @@ class package {
             return [];
         }
 
-        // Parser conservador con expresiones regulares: las etiquetas usadas en
-        // content.xml no anidan en namespaces y son consistentes en v4.
-        // (Se evita XMLReader para no exigir libxml + ext-zip en backports.)
+        // Conservative regex-based parser: the tags used in content.xml do not
+        // nest inside namespaces and are consistent across v4.
+        // (XMLReader is avoided to avoid requiring libxml + ext-zip in backports.)
         $items = [];
 
-        // Mapa odePageId → pageName (best-effort: en el árbol odeNavStructures).
+        // Map odePageId → pageName (best-effort: from the odeNavStructures tree).
         $pagenames = [];
         if (
             preg_match_all(
@@ -165,9 +165,8 @@ class package {
             }
         }
 
-        // Fallback: algunos exports (paquetes generados sin la jerarquía
-        // odePage anidada) listan los iDevices en plano. Captura los que
-        // queden fuera del primer pase.
+        // Fallback: some exports (packages generated without the nested odePage
+        // hierarchy) list iDevices flat. Capture those missed by the first pass.
         if ($items === []) {
             if (
                 preg_match_all(
@@ -195,9 +194,9 @@ class package {
     }
 
     /**
-     * Lee `content.xml` del ZIP almacenado.
+     * Reads `content.xml` from the stored ZIP.
      *
-     * @return string|null Contenido del fichero, o null si no se encuentra.
+     * @return string|null File contents, or null if not found.
      */
     private function read_content_xml(): ?string {
         $packer = get_file_packer('application/zip');
