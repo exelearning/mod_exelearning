@@ -164,6 +164,7 @@
       "section": 1,
       "name":    "Actividad H5P evaluable (demo)",
       "intro":   "Conjunto de preguntas H5P (varias tareas evaluables con intentos múltiples y finalización por aprobado).",
+      "timecreated": 1748476800,
       "gradepass": 50,
       "completion": 2,
       "completionusegrade": 1,
