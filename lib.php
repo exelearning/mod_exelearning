@@ -832,19 +832,21 @@ function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null
         }
     }
 
-    // Modo BOTH (DEC-0008): el overall se muestra pero NO suma al total del
-    // curso (evita el doble conteo overall + iDevices).
+    // BOTH model (DEC-0008): the overall item stays visible but must NOT add to
+    // the course total (avoids double-counting overall + per-iDevice items).
     if ($grademodel === EXELEARNING_GRADEMODEL_BOTH) {
         exelearning_exclude_overall_from_total($instance);
     }
 }
 
 /**
- * Excluye el grade item overall (itemnumber=0) del total del curso fijando su
- * peso a 0 en la agregación Natural (modo BOTH, DEC-0008). El overall sigue
- * visible como "total de la actividad" pero no se suma dos veces.
+ * Exclude the overall grade item (itemnumber=0) from the course total by setting
+ * its aggregation weight to 0 under Natural aggregation (BOTH model, DEC-0008).
+ * The overall item remains visible as the "activity total" but is not counted
+ * twice. No-op when the per-iDevice items have not been created yet.
  *
- * @param stdClass $instance
+ * @param stdClass $instance The exelearning instance record.
+ * @return void
  */
 function exelearning_exclude_overall_from_total(stdClass $instance): void {
     global $CFG;
@@ -858,6 +860,11 @@ function exelearning_exclude_overall_from_total(stdClass $instance): void {
         'courseid'     => $instance->course,
     ]);
     if (!$gi) {
+        return;
+    }
+    // Only touch the item when the weight is not already overridden to 0, to
+    // avoid redundant grade recalculations on every re-sync.
+    if ((int) $gi->weightoverride === 1 && (float) $gi->aggregationcoef2 === 0.0) {
         return;
     }
     $gi->weightoverride = 1;
