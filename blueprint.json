@@ -127,8 +127,8 @@
     },
     {
       "step": "runPhpCode",
-      "comment": "addModule stores the ELPX in filearea 'package' but bypasses exelearning_add_instance, so the content is not extracted and no grade items are detected (same self-heal that view.php runs on first open). Force extract + sync on every exelearning that still has no per-iDevice grade items.",
-      "code": "global $DB, $CFG; require_once($CFG->dirroot.'/mod/exelearning/lib.php'); $fs = get_file_storage(); foreach ($DB->get_records('exelearning') as $exe) { $cm = get_coursemodule_from_instance('exelearning', $exe->id); if (!$cm) { continue; } $ctx = context_module::instance($cm->id); if (exelearning_get_stored_package($ctx->id) === null) { continue; } if (!$fs->get_file($ctx->id, 'mod_exelearning', 'content', (int)$exe->revision, '/', 'index.html')) { exelearning_extract_stored_package($ctx->id, (int)$exe->revision); } if (!$DB->record_exists_select('exelearning_grade_item', 'exelearningid = ? AND deleted = 0 AND itemnumber > 0', [$exe->id])) { exelearning_sync_grade_items($exe->id, $ctx->id); } }"
+      "comment": "addModule stores the ELPX in filearea 'package' but bypasses exelearning_add_instance, so the content is not extracted and no grade items are detected (same self-heal that view.php runs on first open). runPhpCode runs raw PHP CLI with no Moodle bootstrap, so we require config.php first. Force extract + sync on every exelearning that still has no per-iDevice grade items.",
+      "code": "define('CLI_SCRIPT', true); foreach (['/www/moodle/config.php', getcwd().'/config.php', '/var/www/html/config.php'] as $c) { if (is_file($c)) { require($c); break; } } global $DB, $CFG; require_once($CFG->dirroot.'/mod/exelearning/lib.php'); $fs = get_file_storage(); foreach ($DB->get_records('exelearning') as $exe) { $cm = get_coursemodule_from_instance('exelearning', $exe->id); if (!$cm) { continue; } $ctx = context_module::instance($cm->id); if (exelearning_get_stored_package($ctx->id) === null) { continue; } if (!$fs->get_file($ctx->id, 'mod_exelearning', 'content', (int)$exe->revision, '/', 'index.html')) { exelearning_extract_stored_package($ctx->id, (int)$exe->revision); } if (!$DB->record_exists_select('exelearning_grade_item', 'exelearningid = ? AND deleted = 0 AND itemnumber > 0', [$exe->id])) { exelearning_sync_grade_items($exe->id, $ctx->id); } }"
     },
     {
       "step": "addModule",
@@ -154,8 +154,8 @@
     },
     {
       "step": "runPhpCode",
-      "comment": "Parse the SCORM package: addModule stores the zip but does not populate mdl_scorm_scoes, so scorm_get_toc() crashes with array_keys(null). Force scorm_parse() on every local SCORM that has no scoes yet.",
-      "code": "global $DB, $CFG; require_once($CFG->dirroot.'/mod/scorm/lib.php'); require_once($CFG->dirroot.'/mod/scorm/locallib.php'); foreach ($DB->get_records('scorm', ['scormtype' => 'local']) as $scorm) { if (!$DB->record_exists('scorm_scoes', ['scorm' => $scorm->id])) { scorm_parse($scorm, true); } }"
+      "comment": "Parse the SCORM package: addModule stores the zip but does not populate mdl_scorm_scoes, so scorm_get_toc() crashes with array_keys(null). runPhpCode runs raw PHP CLI with no Moodle bootstrap, so we require config.php first. Force scorm_parse() on every local SCORM that has no scoes yet.",
+      "code": "define('CLI_SCRIPT', true); foreach (['/www/moodle/config.php', getcwd().'/config.php', '/var/www/html/config.php'] as $c) { if (is_file($c)) { require($c); break; } } global $DB, $CFG; require_once($CFG->dirroot.'/mod/scorm/lib.php'); require_once($CFG->dirroot.'/mod/scorm/locallib.php'); foreach ($DB->get_records('scorm', ['scormtype' => 'local']) as $scorm) { if (!$DB->record_exists('scorm_scoes', ['scorm' => $scorm->id])) { scorm_parse($scorm, true); } }"
     },
     {
       "step": "addModule",
