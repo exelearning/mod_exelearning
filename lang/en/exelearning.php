@@ -153,6 +153,12 @@ $string['manage_editor_link']     = 'Manage embedded editor';
 
 // Embedded editor management (inline in settings, ported from exelearning/mod_exeweb).
 $string['editwitheditor'] = 'Edit with eXeLearning';
+// Embedded editor modal (amd/src/editor_modal.js).
+$string['savetomoodle'] = 'Save to Moodle';
+$string['saving'] = 'Saving...';
+$string['savingwait'] = 'Please wait while the file is being saved.';
+$string['unsavedchanges'] = 'You have unsaved changes. Are you sure you want to close?';
+$string['savedsuccess'] = 'Changes saved successfully';
 $string['embeddededitorsettings'] = 'Editor type';
 $string['embeddededitorstatus'] = 'Embedded editor';
 $string['noeditorinstalled'] = 'No editor installed';

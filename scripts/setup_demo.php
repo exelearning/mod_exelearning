@@ -193,6 +193,35 @@ foreach ($config['students'] as $s) {
     $ensure_user($s, $config['student_pass'], $studentroleid);
 }
 
+// Enrol the site administrator too, so the demo course shows up under their
+// "My courses" dashboard. The admin user already exists, so we only enrol it
+// (as editing teacher) reusing the manual enrol instance.
+cli_writeln('  · Administrador:');
+$adminuser = get_admin();
+$enrol = enrol_get_plugin('manual');
+$instance = $DB->get_record('enrol', ['courseid' => $course->id, 'enrol' => 'manual'], '*');
+if (!$instance) {
+    $courseobj = $DB->get_record('course', ['id' => $course->id], '*', MUST_EXIST);
+    $instanceid = $enrol->add_instance($courseobj, [
+        'status'          => ENROL_INSTANCE_ENABLED,
+        'enrolperiod'     => 0,
+        'expirynotify'    => 0,
+        'notifyall'       => 0,
+        'expirythreshold' => 86400,
+        'roleid'          => 0,
+        'customint1'      => 0,
+        'enrolstartdate'  => 0,
+        'enrolenddate'    => 0,
+    ]);
+    $instance = $DB->get_record('enrol', ['id' => $instanceid], '*', MUST_EXIST);
+}
+if (!is_enrolled($coursecontext, $adminuser, '', true)) {
+    $enrol->enrol_user($instance, $adminuser->id, $teacherroleid);
+    cli_writeln('    · ' . $adminuser->username . ' matriculado como editingteacher.');
+} else {
+    cli_writeln('    · ' . $adminuser->username . ' ya matriculado.');
+}
+
 // --- 4) Actividades demo (idempotentes) ---------------------------------
 
 require_once($CFG->libdir . '/completionlib.php');

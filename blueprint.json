@@ -71,6 +71,12 @@
     },
     {
       "step": "enrolUser",
+      "username": "{{ADMIN_USER}}",
+      "course":   "EXEDEMO",
+      "role":     "editingteacher"
+    },
+    {
+      "step": "enrolUser",
       "username": "{{TEACHER_USER}}",
       "course":   "EXEDEMO",
       "role":     "editingteacher"
