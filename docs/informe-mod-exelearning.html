@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>mod_exelearning — Informe ejecutivo</title>
+<style>
+  :root{
+    --ink:#1f2933; --muted:#5b6b79; --line:#dfe6ec;
+    --brand:#7b1fa2;        /* morado eXeLearning */
+    --brand2:#2a7ae2;       /* azul Moodle */
+    --ok:#1e8e3e; --warn:#b06000; --bad:#c5221f; --soft:#f6f8fa;
+  }
+  @page{ size:A4; margin:18mm 16mm 16mm 16mm; }
+  *{ box-sizing:border-box; }
+  html{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  body{ font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+        color:var(--ink); font-size:10.5pt; line-height:1.5; margin:0; }
+  h1,h2,h3{ line-height:1.2; color:var(--ink); }
+  h2{ font-size:15pt; margin:1.6em 0 .5em; padding-bottom:.25em;
+      border-bottom:2px solid var(--brand); color:var(--brand); }
+  h3{ font-size:11.5pt; margin:1.1em 0 .35em; color:var(--brand2); }
+  p{ margin:.4em 0; } ul{ margin:.4em 0 .6em; padding-left:1.2em; } li{ margin:.18em 0; }
+  code{ background:var(--soft); padding:.05em .35em; border-radius:4px;
+        font-family:"SF Mono",Menlo,Consolas,monospace; font-size:9pt; }
+  .muted{ color:var(--muted); }
+  /* Portada */
+  .cover{ height:255mm; display:flex; flex-direction:column; justify-content:center;
+          page-break-after:always; }
+  .cover .kicker{ color:var(--brand); font-weight:700; letter-spacing:.12em;
+                  text-transform:uppercase; font-size:10pt; }
+  .cover h1{ font-size:30pt; margin:.15em 0 .1em; }
+  .cover .sub{ font-size:13pt; color:var(--muted); max-width:80%; }
+  .cover .meta{ margin-top:2.2em; font-size:9.5pt; color:var(--muted);
+                border-top:1px solid var(--line); padding-top:1em; }
+  .bar{ height:8px; width:120px; background:linear-gradient(90deg,var(--brand),var(--brand2));
+        border-radius:4px; margin:.4em 0 1.2em; }
+  /* Componentes */
+  table{ border-collapse:collapse; width:100%; margin:.6em 0; font-size:9pt; }
+  th,td{ border:1px solid var(--line); padding:5px 7px; text-align:left; vertical-align:top; }
+  th{ background:var(--soft); font-weight:700; }
+  tr:nth-child(even) td{ background:#fbfcfd; }
+  .col-exe{ background:#f5ecfa !important; font-weight:700; }
+  .badge{ display:inline-block; font-size:8pt; font-weight:700; padding:1px 7px;
+          border-radius:10px; color:#fff; }
+  .b-ok{ background:var(--ok); } .b-warn{ background:var(--warn); } .b-bad{ background:var(--bad); }
+  .b-info{ background:var(--brand2); }
+  .grid{ display:flex; gap:10px; flex-wrap:wrap; margin:.5em 0; }
+  .card{ flex:1 1 45%; border:1px solid var(--line); border-radius:8px; padding:10px 12px;
+         background:#fff; }
+  .card h4{ margin:0 0 .3em; font-size:10pt; }
+  .dafo .card{ flex:1 1 46%; }
+  .dafo .s{ border-top:3px solid var(--ok); }
+  .dafo .w{ border-top:3px solid var(--bad); }
+  .dafo .o{ border-top:3px solid var(--brand2); }
+  .dafo .t{ border-top:3px solid var(--warn); }
+  .verdict{ border-left:4px solid var(--brand); background:var(--soft);
+            padding:10px 14px; border-radius:0 8px 8px 0; margin:.6em 0; }
+  .small{ font-size:8.5pt; } .nowrap{ white-space:nowrap; }
+  .toc li{ margin:.1em 0; }
+  footer{ position:fixed; bottom:6mm; left:16mm; right:16mm; font-size:8pt;
+          color:var(--muted); border-top:1px solid var(--line); padding-top:3px;
+          display:flex; justify-content:space-between; }
+  .sec{ page-break-inside:avoid; }
+</style>
+</head>
+<body>
+
+<section class="cover">
+  <div class="kicker">ATE · Área de Tecnología Educativa</div>
+  <h1>mod_exelearning</h1>
+  <div class="bar"></div>
+  <div class="sub">Plugin de actividad para Moodle que sirve recursos eXeLearning v4
+  con su sidebar nativa y los califica de forma <strong>granular: una columna de
+  libro por iDevice evaluable</strong>.</div>
+  <div class="sub" style="margin-top:.8em;">Informe ejecutivo: qué hemos averiguado,
+  qué hemos resuelto, el porqué de las decisiones y los pasos futuros.</div>
+  <div class="meta">
+    Repositorio: <code>github.com/ateeducacion/mod_exelearning</code> &nbsp;·&nbsp;
+    Versión: <code>0.5.0-dev</code> &nbsp;·&nbsp;
+    Moodle 4.5 LTS → 5.1 &nbsp;·&nbsp; Fecha: 29 may 2026 &nbsp;·&nbsp;
+    Estado: funcional end-to-end, CI verde (18/18)
+  </div>
+</section>
+
+<section class="sec">
+<h2>1 · Por qué existe: el problema</h2>
+<p>Dos plugins de ATE cubrían parcialmente el caso de uso, dejando un hueco:</p>
+<div class="grid">
+  <div class="card"><h4>mod_exeweb</h4>Sirve el paquete eXeLearning con su
+  <strong>sidebar nativa</strong>, pero <strong>no califica</strong> (es un visor:
+  sin libro, intentos ni finalización).</div>
+  <div class="card"><h4>mod_exescorm</h4>Califica, pero con <strong>una sola nota</strong>
+  por paquete (SCORM agregado) y presenta el contenido con el TOC de SCORM, no con
+  la sidebar nativa.</div>
+</div>
+<p><strong>La necesidad de ATE:</strong> evaluar <em>cada ejercicio (iDevice)</em>
+de un mismo recurso por separado, manteniendo la navegación nativa. Eso exige
+<strong>N columnas en el gradebook (una por iDevice)</strong> — la
+<em>multicalificación</em>. <code>mod_exelearning</code> fusiona la sidebar de
+exeweb con un modelo de calificación que va más allá de exescorm.</p>
+</section>
+
+<section class="sec">
+<h2>2 · Qué hemos averiguado (research)</h2>
+<h3>Formato del paquete eXeLearning v4 (.elpx)</h3>
+<ul>
+  <li><code>content.xml</code> raíz, ODE <code>2.0</code>, namespace
+  <code>http://www.intef.es/xsd/ode</code>; árbol de navegación en
+  <code>&lt;odeNavStructures&gt;</code>; cada iDevice con
+  <code>&lt;odeIdeviceId&gt;</code> estable + <code>&lt;odeIdeviceTypeName&gt;</code>.</li>
+  <li>Identificadores: <code>odeId</code> (proyecto, <strong>estable, nunca se
+  regenera</strong>) vs <code>odeVersionId</code> (nuevo en cada export). Los
+  <code>odeIdeviceId</code> sólo se reasignan <strong>al importar</strong> el .elpx,
+  no al re-exportar.</li>
+  <li>Fuente autoritativa: doc upstream <code>doc/elpx-format/</code> (vía Context7
+  <code>/exelearning/exelearning</code>).</li>
+</ul>
+<h3>Estándares de tracking (fichas FTE-001…008, resueltas)</h3>
+<ul>
+  <li><strong>SCORM 1.2</strong>: una sola <code>cmi.core.score.raw</code> por SCO →
+  la multicalificación se logra mapeando <code>1 iDevice → 1 itemnumber</code> a mano.</li>
+  <li><strong>xAPI</strong> (ADL): granular por <code>object.id</code> + <code>result.score.scaled</code>;
+  Moodle lo soporta nativo vía <code>core_xapi</code> (webservice
+  <code>core_xapi_statement_post</code> + clase <code>handler</code>). eXeLearning
+  <strong>no emite xAPI hoy</strong> → es la hoja de ruta, no el presente.</li>
+  <li><strong>Moodle Grade API</strong>: <code>grade_update(..., itemnumber, ...)</code>
+  con <code>itemnumber &gt; 0</code> es el mecanismo canónico para multi-columna.</li>
+</ul>
+<h3>Hallazgos de integración (Moodle Playground)</h3>
+<ul>
+  <li><code>runPhpCode</code> del Playground es PHP CLI <strong>crudo sin Moodle
+  bootstrapeado</strong> → hay que <code>require config.php</code>.</li>
+  <li><code>addModule</code> hace <strong>INSERT directo</strong> (no
+  <code>add_moduleinfo</code>) → se salta <code>*_add_instance</code>: SCORM sin
+  SCOes, H5P sin <code>timecreated</code>, exelearning sin grade items.</li>
+</ul>
+</section>
+
+<section class="sec">
+<h2>3 · Qué hemos resuelto</h2>
+<table>
+  <tr><th>Área</th><th>Resuelto</th><th>Estado</th></tr>
+  <tr><td>Modelo de calificación</td><td>Eliminado el modo <code>both</code>; selector
+  <code>peritem</code> (default) / <code>overall</code> (DEC-0008 rev.) + migración BD</td>
+  <td><span class="badge b-ok">hecho</span></td></tr>
+  <tr><td>Informe de intentos</td><td><code>report.php</code> refleja el modo;
+  «Delete attempt» por intento con fallback de borrabilidad</td>
+  <td><span class="badge b-ok">hecho</span></td></tr>
+  <tr><td>Demo Playground</td><td>Blueprint completa los 20 pasos: bootstrap
+  <code>config.php</code>, filearea <code>package/0</code>, <code>scorm</code> con
+  <code>reference</code> + scoes, H5P con <code>timecreated</code></td>
+  <td><span class="badge b-ok">verificado en navegador</span></td></tr>
+  <tr><td>Toggle docente</td><td><code>teachermodevisible</code> inyecta CSS para ocultar
+  <code>#teacher-mode-toggler-wrapper</code> del iframe (paridad mod_exeweb), oculto por defecto</td>
+  <td><span class="badge b-ok">hecho</span></td></tr>
+  <tr><td>Calidad</td><td>Comentarios de código a inglés; <code>phpcs --standard=moodle</code> limpio</td>
+  <td><span class="badge b-ok">hecho</span></td></tr>
+  <tr><td>CI</td><td>Matriz Moodle 4.5/5.0/5.1 × PHP 8.1–8.4 × pgsql/mariadb</td>
+  <td><span class="badge b-ok">verde 18/18</span></td></tr>
+  <tr><td>Decisiones</td><td>DEC-0003/0004/0014 Aceptadas; DEC-0005 Superseded;
+  DEC-0008 rev.; DEC-0011 Aceptada; DEC-0015 nueva</td>
+  <td><span class="badge b-ok">conciliado</span></td></tr>
+</table>
+</section>
+
+<section class="sec">
+<h2>4 · ¿Merece la pena? DAFO</h2>
+<div class="grid dafo">
+  <div class="card s"><h4>Fortalezas</h4>
+    <ul class="small"><li><strong>Único</strong> con sidebar nativa eXe + calificación
+    granular por iDevice.</li><li>Reutiliza piezas probadas (iframe exeweb, puente SCORM,
+    patrón multi-itemnumber del core).</li><li>Intentos + finalización nativos; CI verde.</li></ul></div>
+  <div class="card w"><h4>Debilidades</h4>
+    <ul class="small"><li>Puente SCORM 1.2 es un <em>shim</em>, no xAPI nativo.</li>
+    <li>Depende del formato <code>content.xml</code> y de la estabilidad de ids (RIE-006).</li>
+    <li>Tope <code>MAX=100</code>; posible saturación del libro.</li></ul></div>
+  <div class="card o"><h4>Oportunidades</h4>
+    <ul class="small"><li>xAPI nativo (DEC-0014) cuando eXeLearning emita statements →
+    analítica LRS.</li><li>Impulso de eXeLearning v4 e interés ATE/INTEF.</li>
+    <li>Aportación upstream (ids estables, manifiesto gradeitems).</li></ul></div>
+  <div class="card t"><h4>Amenazas</h4>
+    <ul class="small"><li>Cambios del export de eXeLearning rompen la detección.</li>
+    <li>Reasignación de ids al importar (RIE-006).</li>
+    <li>Cambios de la Grade API; presión a futuro contra SCORM 1.2.</li></ul></div>
+</div>
+</section>
+
+<section class="sec">
+<h2>5 · Comparativa con alternativas</h2>
+<table>
+  <tr><th>Dimensión</th><th>mod_exeweb</th><th>mod_exescorm</th><th>mod_scorm</th>
+      <th>mod_h5pactivity</th><th class="col-exe">mod_exelearning</th></tr>
+  <tr><td>Calificación en libro</td><td>ninguna</td><td>1 nota</td><td>1 nota</td>
+      <td>1 columna</td><td class="col-exe">N columnas + global opcional</td></tr>
+  <tr><td>Granularidad</td><td>—</td><td>baja</td><td>baja</td><td>media</td>
+      <td class="col-exe">alta</td></tr>
+  <tr><td>Sidebar nativa eXe</td><td>sí</td><td>no</td><td>no</td><td>n/a</td>
+      <td class="col-exe">sí (iframe)</td></tr>
+  <tr><td>Tracking</td><td>no</td><td>SCORM</td><td>SCORM</td>
+      <td>xAPI nativo</td><td class="col-exe">SCORM 1.2 shim → multi-itemnumber</td></tr>
+  <tr><td>Intentos</td><td>no</td><td>sí</td><td>sí</td><td>sí</td>
+      <td class="col-exe">sí (tabla propia + grademethod)</td></tr>
+  <tr><td>Edición in-situ</td><td>sí</td><td>parcial</td><td>no</td><td>editor H5P</td>
+      <td class="col-exe">sí (editor embebido)</td></tr>
+  <tr><td>Complejidad impl.</td><td>baja</td><td>media</td><td>media</td><td>media</td>
+      <td class="col-exe">alta</td></tr>
+</table>
+<p class="small muted">Matiz H5P: es el modelo «moderno» (xAPI nativo, gran detalle interno)
+pero expone <strong>una sola columna</strong>. La multicalificación de mod_exelearning es,
+de hecho, más granular en el gradebook — ese es el diferencial. El precio: aún sin xAPI nativo.</p>
+</section>
+
+<section class="sec">
+<h2>6 · Veredicto y el porqué</h2>
+<div class="verdict">
+  <strong>Sí, merece la pena — con matices.</strong> Ningún plugin existente ofrece a
+  la vez sidebar nativa de eXeLearning y calificación granular por iDevice: exeweb no
+  califica; exescorm/scorm dan una nota; h5p da una columna. El valor pedagógico
+  (evaluar cada ejercicio dentro de un recurso) es real, demandado por ATE, y está
+  implementado y verificado. La complejidad y el shim SCORM 1.2 son deuda técnica
+  reconocida; la evolución sana es xAPI nativo (DEC-0014) cuando upstream lo permita.
+</div>
+<h3>El porqué, decisión a decisión</h3>
+<ul class="small">
+  <li><strong>DEC-0003</strong> — SCORM 1.2 como tracking vigente y suficiente; xAPI a futuro.</li>
+  <li><strong>DEC-0007</strong> — intentos en tabla propia + <code>grademethod</code> (modelo h5pactivity, no SCORM).</li>
+  <li><strong>DEC-0008</strong> (rev.) — <code>grademodel</code> por iDevice por defecto; eliminado <code>both</code>.</li>
+  <li><strong>DEC-0009</strong> — sólo editor embebido; sin eXeLearning Online.</li>
+  <li><strong>DEC-0010</strong> — finalización estilo SCORM (<code>completionpassgrade</code>).</li>
+  <li><strong>DEC-0014</strong> — xAPI: diseño de referencia, activable cuando eXeLearning emita statements.</li>
+  <li><strong>DEC-0015</strong> — esta justificación (DAFO + comparativa + veredicto).</li>
+</ul>
+</section>
+
+<section class="sec">
+<h2>7 · Pasos futuros</h2>
+<table>
+  <tr><th>Pendiente</th><th>Prioridad</th><th>Notas</th></tr>
+  <tr><td>xAPI nativo (<code>core_xapi</code> handler)</td><td><span class="badge b-info">roadmap</span></td>
+      <td>Bloqueado por upstream: requiere que eXeLearning emita statements (DEC-0014).</td></tr>
+  <tr><td>Verificación e2e borrar-iDevice → guardar</td><td><span class="badge b-warn">media</span></td>
+      <td>Lógica ya verificada por simulación; falta el paso 100% por navegador.</td></tr>
+  <tr><td>Robustez ante reasignación de ids (RIE-006)</td><td><span class="badge b-warn">media</span></td>
+      <td>Emparejamiento de respaldo (pageid+tipo+orden) si upstream reasigna.</td></tr>
+  <tr><td>Bump <code>actions/checkout@v4</code> (Node 20→24)</td><td><span class="badge b-warn">2 jun 2026</span></td>
+      <td>GitHub fuerza Node 24 el 2026-06-02; sólo es un warning hoy.</td></tr>
+  <tr><td>Cuantificar matriz de DEC-0003 (0–5)</td><td><span class="badge b-info">opcional</span></td>
+      <td>Documental; DEC-0003 ya aceptada.</td></tr>
+</table>
+</section>
+
+<footer>
+  <span>mod_exelearning · Informe ejecutivo · ATE</span>
+  <span>29 may 2026</span>
+</footer>
+
+</body>
+</html>
