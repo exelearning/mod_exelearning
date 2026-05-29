@@ -1,8 +1,9 @@
 ---
 id: DEC-0013
 titulo: "¿Integrar el editor eXeLearning Online o quedarnos solo con el embebido?"
-estado: Propuesta
+estado: Aceptada
 fecha: 2026-05-29
+fecha_aceptacion: 2026-05-29
 agentes:
   - erseco
   - claude-code
@@ -186,9 +187,35 @@ Si se decidiera reintroducir Online (C):
 - Si se quisiera Online, ¿se acepta la opción D (enlace, vuelta manual) como
   punto intermedio, o se exige integración de datos completa (C)?
 
+## Decisión (2026-05-29, erseco)
+
+**Aceptada la opción A: solo editor embebido**, confirmando DEC-0009 ahora con el
+análisis de fondo de los cuatro ejes (no solo la UX de admin). Es una decisión
+**vigente y revisable**, no un portazo definitivo, por los matices recogidos en
+las respuestas del mantenedor:
+
+- **Co-edición en tiempo real**: NO es un requisito presente, solo hipotético a
+  futuro. Por eso no justifica hoy la complejidad del Online. Si se materializa,
+  la vía preferente es la **opción D** (enlace "Abrir en eXeLearning Online" sin
+  integrar datos), que evita los ejes 1-4; se abriría un ADR específico.
+- **Instancia Online**: ATE **sí opera** una instancia de eXeLearning Online. Es
+  un dato relevante (haría más barata una futura integración), pero NO cambia la
+  decisión hoy: el plugin debe funcionar en cualquier Moodle (incluido
+  Playground y despliegues aislados), así que el Online no puede ser dependencia
+  ni siquiera opcional sin asumir los cuatro ejes de riesgo.
+- **GDPR / datos fuera de Moodle**: **a consultar** (sin resolver). Mientras no
+  haya una respuesta legal afirmativa, mantener todo el contenido dentro de
+  Moodle (opción A) es lo prudente. Este punto es, por sí solo, bloqueante para
+  B/C hasta que se aclare.
+
+En resumen: A es la decisión correcta HOY; el camino de reapertura, si llega,
+es D (no C), y quedaría condicionado a (a) un requisito real de co-edición y
+(b) luz verde de GDPR.
+
 ## Seguimiento
 
-- DECISIÓN PENDIENTE de erseco: confirmar A (cerrar DEC-0009 con este análisis)
-  o reabrir hacia C/D.
-- Si A: anotar en DEC-0009 que DEC-0013 lo confirma con análisis de fondo.
-- Si D/C: abrir ADR(s) de diseño del puente (auth, callback, versionado, GDPR).
+- DEC-0009 queda **confirmado** por este análisis de fondo (se anota en su ADR).
+- Restricción inmutable intacta: no se reintroducen `editormode` /
+  `exeonlinebaseuri` / `hmackey1`.
+- Si en el futuro se pide co-edición Y GDPR lo permite → abrir ADR de la opción
+  D (enlace a la instancia Online de ATE, vuelta manual del `.elpx`).

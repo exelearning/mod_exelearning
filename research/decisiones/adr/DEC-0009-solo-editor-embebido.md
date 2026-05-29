@@ -170,3 +170,12 @@ Negativas:
   `DEC-0009` en `status.yaml`.
 - TAREA-031 (próxima sesión si no se cierra ahora): pulir la página de gestión
   con i18n completa y un POC de "descargar release de GitHub".
+
+## Confirmación (2026-05-29) por DEC-0013
+
+DEC-0009 se tomó por simplicidad de UX de admin. **DEC-0013 lo confirma** con el
+análisis de fondo que faltaba (autenticación HMAC, flujo ida/vuelta, desconexión
+/ ubicación de datos, permisos + co-edición). Decisión vigente: **solo embebido**.
+La eventual reapertura (si surge co-edición real y GDPR lo permite) iría por la
+opción D de DEC-0013 (enlace a Online sin integrar datos), no por reintroducir el
+modo Online con HMAC. Ver DEC-0013 para el detalle.

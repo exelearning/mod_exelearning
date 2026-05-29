@@ -60,16 +60,29 @@ decisiones_bloqueantes:
     notas: "Supersede DEC-0005. Quita editormode, exeonlinebaseuri, hmackey1. Toggle único + página Manage embedded editor. REVISADO a fondo por DEC-0013 (2026-05-29)."
   DEC-0013:
     titulo: "¿Editor eXeLearning Online vs solo embebido?"
-    estado: Propuesta
+    estado: Aceptada
     ruta: decisiones/adr/DEC-0013-editor-online-vs-embebido.md
     fecha: 2026-05-29
+    fecha_aceptacion: 2026-05-29
     revisa: DEC-0009
     notas: >-
-      Reabre el debate Online con análisis de fondo (no solo UX como DEC-0009).
-      4 ejes: autenticación HMAC, flujo ida/vuelta, desconexión/ubicación de
-      archivos, permisos+colab. Opciones A=embebido / B=online / C=ambos /
-      D=embebido+enlace. Recomienda confirmar A (y D si hiciera falta co-edición).
-      PENDIENTE de decisión de erseco.
+      Aceptada opción A (solo embebido), confirmando DEC-0009 con análisis de
+      fondo (4 ejes: auth HMAC, flujo, datos, permisos+colab). Vigente-revisable:
+      co-edición sólo hipotética; ATE SÍ tiene instancia Online (no cambia hoy la
+      decisión); GDPR a consultar (bloquea B/C hasta aclarar). Reapertura futura
+      iría por opción D (enlace a Online sin integrar datos), no por HMAC.
+  DEC-0014:
+    titulo: "Soporte xAPI: requisitos en eXeLearning y plugin"
+    estado: Propuesta
+    ruta: decisiones/adr/DEC-0014-soporte-xapi.md
+    fecha: 2026-05-29
+    relacionados: [DEC-0003, DEC-0007]
+    notas: >-
+      eXeLearning NO emite xAPI hoy (verificado: 0 hits xapi/tincan/cmi5 en
+      upstream). Para soportarlo haría falta: upstream emita statements por
+      iDevice (desbloqueo), + plugin con xapi_bridge.js + handler core_xapi
+      (modelo mod_h5pactivity). Recomienda A (SCORM 1.2 vigente) + C (hoja de
+      ruta xAPI condicionada a upstream). PENDIENTE decisión.
   DEC-0006:
     titulo: "Modos preview (test) y grading (calificar)"
     estado: Aceptada

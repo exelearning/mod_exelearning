@@ -95,9 +95,30 @@ Mitigaciones:
 - Mientras el `objectid` se mantenga estable (caso normal del editor v4 al
   reabrir/guardar el mismo proyecto), el sync es idempotente — **verificado**:
   re-sincronizar el mismo paquete dos veces NO duplica columnas (sigue en 2).
-- [PENDIENTE] Si se confirma reasignación de ids upstream, añadir un
-  emparejamiento de respaldo por (pageid + idevicetype + orden) cuando el
-  objectid no casa, antes de crear columna nueva.
+
+### RESUELTO por upstream (2026-05-29): PR exelearning/exelearning#1791
+
+El riesgo RIE-006 está **resuelto en upstream**. El PR
+[`exelearning/exelearning#1791`](https://github.com/exelearning/exelearning/pull/1791)
+("fix(ids): unify and harden the four stable-identifier PRs", **merged
+2026-05-19**) hace que `<odeIdeviceId>`, `<odePageId>` y `<odeBlockId>` se
+**preserven verbatim** al importar un `.elpx`; sólo se reasignan ante una
+colisión real (modo merge). La invariante garantizada por el PR es: *"Round-trip
+a `.elpx` twice without changes → diff of `content.xml` is empty (modulo
+legitimate timestamps)"*.
+
+Consecuencia para mod_exelearning: con un editor embebido **post-#1791**, editar
+y guardar (`editor/save.php` → import en el editor → re-export → re-sync)
+**preserva los `objectid`**, por lo que el re-sync es idempotente y **NO se
+duplican columnas**. El antiguo comportamiento (reasignar ids en `buildPageData`)
+era anterior a este PR.
+
+Por tanto **NO se implementa** el emparejamiento de respaldo (pageid + tipo +
+orden): sería código defensivo contra un bug ya corregido aguas arriba. Única
+cautela: un despliegue que use un build del editor **anterior a #1791** podría
+ver el comportamiento viejo; se documenta como limitación de versiones antiguas
+del editor, no del plugin. La nota de seguimiento que pedía el respaldo queda
+**cerrada**.
 
 ## Corrección posterior (2026-05-29): el borrado debe llamar a grade_update
 
