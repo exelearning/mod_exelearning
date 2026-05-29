@@ -42,3 +42,7 @@ Feature: View a mod_exelearning activity and its attempts report
     Given I am on the "Evaluable unit" "exelearning activity" page logged in as student1
     Then I should see "Evaluable unit"
     And I should not see "View attempts report"
+
+  Scenario: A teacher sees the participation summary line with no attempts yet
+    Given I am on the "Evaluable unit" "exelearning activity" page logged in as teacher1
+    Then I should see "0 of 1 students have attempted this activity."

@@ -6,6 +6,10 @@
 > (`.elpx`) directly in Moodle, preserving eXeLearning's native navigation and
 > supporting multiple gradebook items per activity.**
 
+> **For teachers and administrators:** see the [User Guide](docs/USER_GUIDE.md)
+> for step-by-step instructions on adding, editing and grading eXeLearning
+> resources, plus site-administration and troubleshooting notes.
+
 Activity-type module to embed eXeLearning v4 packages (`.elpx`) inside Moodle while
 **preserving the package's native sidebar navigation** and **recording one or more
 gradable items per resource** in the Moodle gradebook (e.g. a single resource with

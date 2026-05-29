@@ -159,4 +159,93 @@ final class attempts_test extends advanced_testcase {
         attempts::record_item($eid, $uid, 2, 0, 8, 10, 'completed', 's2');
         $this->assertSame(2, attempts::count_user_attempts($eid, $uid));
     }
+
+    /**
+     * count_user_attempts tracks the attempt ceiling used to enforce maxattempt.
+     *
+     * Several page-load sessions each allocate a fresh attempt number, so the
+     * distinct-attempt count grows by one per session, which is what the
+     * maxattempt comparison in track.php relies on.
+     */
+    public function test_count_user_attempts_maxattempt_semantics(): void {
+        $eid = $this->instance->id;
+        $uid = $this->student->id;
+
+        // Simulate three separate page-load sessions, each a new attempt.
+        foreach (['ses-1', 'ses-2', 'ses-3'] as $i => $token) {
+            $attempt = attempts::resolve_attempt_number($eid, $uid, $token);
+            $this->assertSame($i + 1, $attempt);
+            attempts::record_item($eid, $uid, $attempt, 0, 5, 10, 'completed', $token);
+        }
+        $this->assertSame(3, attempts::count_user_attempts($eid, $uid));
+
+        // A repeated commit within the last session does not allocate a new one.
+        $attempt = attempts::resolve_attempt_number($eid, $uid, 'ses-3');
+        attempts::record_item($eid, $uid, $attempt, 0, 9, 10, 'completed', 'ses-3');
+        $this->assertSame(3, attempts::count_user_attempts($eid, $uid));
+    }
+
+    /**
+     * participation_summary counts attempted users and the mean best percent.
+     */
+    public function test_participation_summary(): void {
+        $eid = $this->instance->id;
+
+        // A second enrolled student to make total=2.
+        $course = get_course($this->instance->course);
+        $student2 = $this->getDataGenerator()->create_user();
+        $this->getDataGenerator()->enrol_user($student2->id, $course->id, 'student');
+
+        $userids = [$this->student->id, $student2->id];
+
+        // No attempts yet: total=2, none attempted, no mean.
+        $empty = attempts::participation_summary($eid, $userids);
+        $this->assertSame(2, $empty['total']);
+        $this->assertSame(0, $empty['attempted']);
+        $this->assertNull($empty['meanpercent']);
+
+        // Student 1 records an overall (itemnumber=0) best scaled 0.8 (80%).
+        attempts::record_item($eid, $this->student->id, 1, 0, 6, 10, 'completed', 'a');
+        attempts::record_item($eid, $this->student->id, 2, 0, 8, 10, 'completed', 'b');
+
+        $summary = attempts::participation_summary($eid, $userids);
+        $this->assertSame(2, $summary['total']);
+        $this->assertSame(1, $summary['attempted']);
+        // Mean of the single attempted user's best (0.8) → 80.0%.
+        $this->assertEqualsWithDelta(80.0, (float) $summary['meanpercent'], 0.0001);
+    }
+
+    /**
+     * participation_summary with an empty user list returns the zero summary.
+     */
+    public function test_participation_summary_empty_userids(): void {
+        $summary = attempts::participation_summary($this->instance->id, []);
+        $this->assertSame(0, $summary['total']);
+        $this->assertSame(0, $summary['attempted']);
+        $this->assertNull($summary['meanpercent']);
+    }
+
+    /**
+     * The option/stringkey maps expose the expected method and review constants.
+     */
+    public function test_option_maps(): void {
+        $this->assertSame([
+            attempts::GRADE_HIGHEST => 'grademethod_highest',
+            attempts::GRADE_AVERAGE => 'grademethod_average',
+            attempts::GRADE_FIRST   => 'grademethod_first',
+            attempts::GRADE_LAST    => 'grademethod_last',
+            attempts::GRADE_LOWEST  => 'grademethod_lowest',
+        ], attempts::grademethod_options());
+
+        $this->assertSame([
+            attempts::REVIEW_ALWAYS          => 'reviewmode_always',
+            attempts::REVIEW_AFTERCOMPLETION => 'reviewmode_aftercompletion',
+            attempts::REVIEW_NONE            => 'reviewmode_none',
+        ], attempts::reviewmode_options());
+
+        // The string-key helper resolves known values and falls back to highest.
+        $this->assertSame('grademethod_average', attempts::grademethod_stringkey(attempts::GRADE_AVERAGE));
+        $this->assertSame('grademethod_last', attempts::grademethod_stringkey(attempts::GRADE_LAST));
+        $this->assertSame('grademethod_highest', attempts::grademethod_stringkey(999));
+    }
 }
