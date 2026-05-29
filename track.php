@@ -61,9 +61,9 @@ if (!is_array($payload) || !isset($payload['cmi']) || !is_array($payload['cmi'])
     throw new \moodle_exception('invalidparameter', 'error');
 }
 
-// v1: tomamos el `cmi.core.score.raw` (SCORM 1.2) o `cmi.score.raw` (SCORM 2004)
-// y lo aplicamos al grade item canónico (itemnumber=0). Multi-iDevice via
-// xAPI llegará en TAREA-008.
+// V1: take the `cmi.core.score.raw` (SCORM 1.2) or `cmi.score.raw` (SCORM 2004)
+// and apply it to the canonical grade item (itemnumber=0). Multi-iDevice via
+// xAPI will arrive in TAREA-008.
 $cmi = $payload['cmi'];
 // Token de sesión de página (DEC-0007): agrupa los auto-commits de una misma
 // carga de view.php en un único intento.
@@ -103,8 +103,13 @@ if (is_string($suspend) && $suspend !== '') {
         if ($line === '') {
             continue;
         }
-        if (preg_match('~^(\d+)\.\s"([^"]*)";\s[^:]+:\s([\d.]+)%;\s[^:]+:\s([\d.]+)%\.?$~',
-                $line, $m)) {
+        if (
+            preg_match(
+                '~^(\d+)\.\s"([^"]*)";\s[^:]+:\s([\d.]+)%;\s[^:]+:\s([\d.]+)%\.?$~',
+                $line,
+                $m
+            )
+        ) {
             $peritem[(int) $m[1]] = [
                 'title'    => $m[2],
                 'scorepct' => (float) $m[3], // 0..100
@@ -126,14 +131,19 @@ $itemdetailsbase = [
 
 // Resolver el número de intento (uno por carga de página).
 $attempt = \mod_exelearning\local\attempts::resolve_attempt_number(
-        $exelearning->id, $USER->id, $sessiontoken);
+    $exelearning->id,
+    $USER->id,
+    $sessiontoken
+);
 
 // Límite de intentos (DEC-0007 fase 2): si esta carga de página inaugura un
 // intento nuevo y el alumno ya agotó maxattempt, rechazar sin grabar.
 $maxattempt = (int) ($exelearning->maxattempt ?? 0);
 if ($maxattempt > 0) {
-    $sessionknown = ($sessiontoken !== '') && $DB->record_exists('exelearning_attempt',
-            ['exelearningid' => $exelearning->id, 'userid' => $USER->id, 'sessiontoken' => $sessiontoken]);
+    $sessionknown = ($sessiontoken !== '') && $DB->record_exists(
+        'exelearning_attempt',
+        ['exelearningid' => $exelearning->id, 'userid' => $USER->id, 'sessiontoken' => $sessiontoken]
+    );
     $priorcount = \mod_exelearning\local\attempts::count_user_attempts($exelearning->id, $USER->id);
     if (!$sessionknown && $priorcount >= $maxattempt) {
         echo json_encode([
@@ -149,27 +159,48 @@ if ($maxattempt > 0) {
 // 1) Intentos + nota agregada por iDevice (itemnumber > 0).
 $persaved = [];
 if ($peritem) {
-    $rows = $DB->get_records('exelearning_grade_item',
-            ['exelearningid' => $exelearning->id, 'deleted' => 0],
-            'itemnumber ASC', 'itemnumber, name, objectid');
+    $rows = $DB->get_records(
+        'exelearning_grade_item',
+        ['exelearningid' => $exelearning->id, 'deleted' => 0],
+        'itemnumber ASC',
+        'itemnumber, name, objectid'
+    );
     foreach ($peritem as $itemnumber => $info) {
         if (!isset($rows[$itemnumber])) {
             continue;
         }
         $rawitem = ($info['scorepct'] / 100.0) * $grademax;
-        \mod_exelearning\local\attempts::record_item($exelearning->id, $USER->id,
-                $attempt, (int) $itemnumber, $rawitem, $grademax, 'completed', $sessiontoken);
+        \mod_exelearning\local\attempts::record_item(
+            $exelearning->id,
+            $USER->id,
+            $attempt,
+            (int) $itemnumber,
+            $rawitem,
+            $grademax,
+            'completed',
+            $sessiontoken
+        );
         // Nota del libro = agregación de los intentos según grademethod.
         $scaled = \mod_exelearning\local\attempts::aggregate_scaled(
-                $exelearning->id, $USER->id, (int) $itemnumber, $grademethod);
+            $exelearning->id,
+            $USER->id,
+            (int) $itemnumber,
+            $grademethod
+        );
         $finalitem = ($scaled === null) ? $rawitem : ($scaled * $grademax);
         // En modo "sólo overall" no se publican columnas por iDevice (DEC-0008),
         // pero el intento SÍ se registra para el report.
         if ($grademodel !== EXELEARNING_GRADEMODEL_OVERALL) {
-            grade_update('mod/exelearning', $exelearning->course, 'mod', 'exelearning',
-                    $exelearning->id, $itemnumber,
-                    (object) ['userid' => $USER->id, 'rawgrade' => $finalitem],
-                    $itemdetailsbase + ['itemname' => $rows[$itemnumber]->name]);
+            grade_update(
+                'mod/exelearning',
+                $exelearning->course,
+                'mod',
+                'exelearning',
+                $exelearning->id,
+                $itemnumber,
+                (object) ['userid' => $USER->id, 'rawgrade' => $finalitem],
+                $itemdetailsbase + ['itemname' => $rows[$itemnumber]->name]
+            );
         }
         $persaved[$itemnumber] = $finalitem;
     }
@@ -178,10 +209,22 @@ if ($peritem) {
 // 2) Intento + nota agregada del overall (itemnumber=0).
 $overallstatus = in_array($status, ['passed', 'failed', 'completed', 'incomplete'], true)
         ? $status : 'completed';
-\mod_exelearning\local\attempts::record_item($exelearning->id, $USER->id,
-        $attempt, 0, $score, $grademax, $overallstatus, $sessiontoken);
+\mod_exelearning\local\attempts::record_item(
+    $exelearning->id,
+    $USER->id,
+    $attempt,
+    0,
+    $score,
+    $grademax,
+    $overallstatus,
+    $sessiontoken
+);
 $scaledoverall = \mod_exelearning\local\attempts::aggregate_scaled(
-        $exelearning->id, $USER->id, 0, $grademethod);
+    $exelearning->id,
+    $USER->id,
+    0,
+    $grademethod
+);
 $finaloverall = ($scaledoverall === null) ? $score : ($scaledoverall * $grademax);
 
 $grade = (object) [
@@ -196,10 +239,18 @@ $grade = (object) [
 if ($grademodel === EXELEARNING_GRADEMODEL_PERITEM) {
     $result = GRADE_UPDATE_OK;
 } else {
-    $result = grade_update('mod/exelearning', $exelearning->course, 'mod',
-            'exelearning', $exelearning->id, 0, $grade, $itemdetailsbase + [
+    $result = grade_update(
+        'mod/exelearning',
+        $exelearning->course,
+        'mod',
+        'exelearning',
+        $exelearning->id,
+        0,
+        $grade,
+        $itemdetailsbase + [
                 'itemname'  => clean_param($exelearning->name, PARAM_NOTAGS),
-            ]);
+        ]
+    );
 }
 
 // Recalcular finalización: con "exigir nota para aprobar" (completionpassgrade,

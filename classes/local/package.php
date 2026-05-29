@@ -16,8 +16,6 @@
 
 namespace mod_exelearning\local;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Parser ligero del manifest propietario `content.xml` de eXeLearning v4.
  *
@@ -31,7 +29,6 @@ defined('MOODLE_INTERNAL') || die();
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class package {
-
     /**
      * Tipos de iDevice que SE registran como grade item.
      *
@@ -66,6 +63,11 @@ class package {
     /** @var \stored_file ELPX zip almacenado en filearea 'package'. */
     private \stored_file $file;
 
+    /**
+     * Builds the package parser from a stored ELPX file.
+     *
+     * @param \stored_file $file The ELPX zip stored in the 'package' filearea.
+     */
     public function __construct(\stored_file $file) {
         $this->file = $file;
     }
@@ -95,11 +97,18 @@ class package {
 
         // Mapa odePageId → pageName (best-effort: en el árbol odeNavStructures).
         $pagenames = [];
-        if (preg_match_all(
-                '~<odeNavStructure>(.*?)</odeNavStructure>~s', $xml, $structs)) {
+        if (
+            preg_match_all(
+                '~<odeNavStructure>(.*?)</odeNavStructure>~s',
+                $xml,
+                $structs
+            )
+        ) {
             foreach ($structs[1] as $seg) {
-                if (preg_match('~<odePageId>([^<]+)</odePageId>~', $seg, $mp)
-                        && preg_match('~<pageName>([^<]*)</pageName>~', $seg, $mn)) {
+                if (
+                    preg_match('~<odePageId>([^<]+)</odePageId>~', $seg, $mp)
+                        && preg_match('~<pageName>([^<]*)</pageName>~', $seg, $mn)
+                ) {
                     $pagenames[$mp[1]] = trim($mn[1]);
                 }
             }
@@ -112,21 +121,37 @@ class package {
                 if (preg_match('~<odePageId>([^<]+)</odePageId>~', $pagexml, $mp)) {
                     $pageid = $mp[1];
                 }
-                if (preg_match_all(
-                        '~<odeIdevice>(.*?)</odeIdevice>~s', $pagexml, $devs)) {
+                if (
+                    preg_match_all(
+                        '~<odeIdevice>(.*?)</odeIdevice>~s',
+                        $pagexml,
+                        $devs
+                    )
+                ) {
                     foreach ($devs[1] as $devxml) {
                         $id = $type = null;
-                        if (preg_match('~<odeIdeviceId>([^<]+)</odeIdeviceId>~',
-                                $devxml, $mid)) {
+                        if (
+                            preg_match(
+                                '~<odeIdeviceId>([^<]+)</odeIdeviceId>~',
+                                $devxml,
+                                $mid
+                            )
+                        ) {
                             $id = $mid[1];
                         }
-                        if (preg_match(
+                        if (
+                            preg_match(
                                 '~<odeIdeviceTypeName>([^<]+)</odeIdeviceTypeName>~',
-                                $devxml, $mt)) {
+                                $devxml,
+                                $mt
+                            )
+                        ) {
                             $type = $mt[1];
                         }
-                        if ($id !== null && $type !== null
-                                && in_array($type, self::GRADABLE_IDEVICE_TYPES, true)) {
+                        if (
+                            $id !== null && $type !== null
+                                && in_array($type, self::GRADABLE_IDEVICE_TYPES, true)
+                        ) {
                             $items[] = (object) [
                                 'objectid'    => $id,
                                 'idevicetype' => $type,
@@ -144,9 +169,14 @@ class package {
         // odePage anidada) listan los iDevices en plano. Captura los que
         // queden fuera del primer pase.
         if ($items === []) {
-            if (preg_match_all(
+            if (
+                preg_match_all(
                     '~<odeIdeviceId>([^<]+)</odeIdeviceId>\s*<odeIdeviceTypeName>([^<]+)</odeIdeviceTypeName>~',
-                    $xml, $flat, PREG_SET_ORDER)) {
+                    $xml,
+                    $flat,
+                    PREG_SET_ORDER
+                )
+            ) {
                 foreach ($flat as $m) {
                     if (in_array($m[2], self::GRADABLE_IDEVICE_TYPES, true)) {
                         $items[] = (object) [
@@ -172,8 +202,12 @@ class package {
     private function read_content_xml(): ?string {
         $packer = get_file_packer('application/zip');
         $tmpdir = make_request_directory();
-        $extracted = $this->file->extract_to_pathname($packer, $tmpdir,
-                null, true);
+        $extracted = $this->file->extract_to_pathname(
+            $packer,
+            $tmpdir,
+            null,
+            true
+        );
         if (!is_array($extracted)) {
             return null;
         }

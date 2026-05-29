@@ -23,8 +23,6 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * mod_exelearning test data generator.
  *
@@ -33,7 +31,6 @@ defined('MOODLE_INTERNAL') || die();
  * production. Mirrors mod_h5pactivity / mod_scorm generators.
  */
 class mod_exelearning_generator extends \testing_module_generator {
-
     /**
      * Default ELPX fixture (relative to plugin root) used when no package is given.
      *
@@ -81,8 +78,10 @@ class mod_exelearning_generator extends \testing_module_generator {
         // Resolve the fixture path.
         if (!isset($record->packagefilepath)) {
             $record->packagefilepath = $CFG->dirroot . '/mod/exelearning/' . self::DEFAULT_FIXTURE;
-        } else if (strpos($record->packagefilepath, $CFG->dirroot) !== 0
-                && strpos($record->packagefilepath, '/') !== 0) {
+        } else if (
+            strpos($record->packagefilepath, $CFG->dirroot) !== 0
+                && strpos($record->packagefilepath, '/') !== 0
+        ) {
             // Treat as relative to the plugin root.
             $record->packagefilepath = $CFG->dirroot . '/mod/exelearning/' . ltrim($record->packagefilepath, '/');
         }

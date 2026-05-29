@@ -41,8 +41,10 @@ echo $OUTPUT->heading(get_string('modulenameplural', 'mod_exelearning'));
 
 $instances = get_all_instances_in_course('exelearning', $course);
 if (empty($instances)) {
-    notice(get_string('noexelearningactivities', 'mod_exelearning'),
-            new moodle_url('/course/view.php', ['id' => $course->id]));
+    notice(
+        get_string('noexelearningactivities', 'mod_exelearning'),
+        new moodle_url('/course/view.php', ['id' => $course->id])
+    );
 }
 
 $table = new html_table();

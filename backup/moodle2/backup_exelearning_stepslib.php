@@ -21,13 +21,11 @@
  * @copyright  2026 ATE (Área de Tecnología Educativa)
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Define the complete exelearning structure for backup, with file and id annotations.
  */
 class backup_exelearning_activity_structure_step extends backup_activity_structure_step {
-
     /**
      * Defines the backup structure of the module.
      *
@@ -73,13 +71,17 @@ class backup_exelearning_activity_structure_step extends backup_activity_structu
 
         // The grade items are package metadata (not user data), so they are
         // always backed up regardless of userinfo.
-        $gradeitem->set_source_table('exelearning_grade_item',
-            ['exelearningid' => backup::VAR_PARENTID]);
+        $gradeitem->set_source_table(
+            'exelearning_grade_item',
+            ['exelearningid' => backup::VAR_PARENTID]
+        );
 
         // All the rest of elements only happen if we are including user info.
         if ($userinfo) {
-            $attempt->set_source_table('exelearning_attempt',
-                ['exelearningid' => backup::VAR_PARENTID]);
+            $attempt->set_source_table(
+                'exelearning_attempt',
+                ['exelearningid' => backup::VAR_PARENTID]
+            );
         }
 
         // Define id annotations.

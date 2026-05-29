@@ -82,8 +82,10 @@ $context = \context_system::instance();
 // Any user who can view at least one exeweb activity should be able to
 // load the CSS. Check the module capability at system level so the
 // admin preview on /mod/exelearning/admin/styles.php also works.
-if (!has_capability('mod/exelearning:view', $context)
-    && !has_capability('mod/exelearning:manageembeddededitor', $context)) {
+if (
+    !has_capability('mod/exelearning:view', $context)
+    && !has_capability('mod/exelearning:manageembeddededitor', $context)
+) {
     send_header_404();
     die('Forbidden');
 }
@@ -99,8 +101,10 @@ $styledir = styles_service::get_style_dir($slug);
 $fullpath = realpath($styledir . '/' . $file);
 $baseprefix = realpath($styledir);
 
-if ($baseprefix === false || $fullpath === false
-    || strpos($fullpath, $baseprefix . DIRECTORY_SEPARATOR) !== 0) {
+if (
+    $baseprefix === false || $fullpath === false
+    || strpos($fullpath, $baseprefix . DIRECTORY_SEPARATOR) !== 0
+) {
     send_header_404();
     die('File not found');
 }

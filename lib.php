@@ -30,12 +30,10 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
-// DEC-0008: modelo de columnas en el libro de calificaciones.
-define('EXELEARNING_GRADEMODEL_OVERALL', 0); // Sólo nota global (itemnumber=0).
-define('EXELEARNING_GRADEMODEL_PERITEM', 1); // Sólo una columna por iDevice.
-define('EXELEARNING_GRADEMODEL_BOTH', 2);    // Ambas, con overall excluido del total.
+// DEC-0008: gradebook columns model.
+define('EXELEARNING_GRADEMODEL_OVERALL', 0); // Overall grade only (itemnumber=0).
+define('EXELEARNING_GRADEMODEL_PERITEM', 1); // One column per gradable iDevice.
+define('EXELEARNING_GRADEMODEL_BOTH', 2);    // Both, with the overall excluded from the course total.
 
 /**
  * Features supported by this module.
@@ -45,18 +43,30 @@ define('EXELEARNING_GRADEMODEL_BOTH', 2);    // Ambas, con overall excluido del 
  */
 function exelearning_supports($feature) {
     switch ($feature) {
-        case FEATURE_MOD_ARCHETYPE:           return MOD_ARCHETYPE_ASSIGNMENT;
-        case FEATURE_GROUPS:                  return true;
-        case FEATURE_GROUPINGS:               return true;
-        case FEATURE_MOD_INTRO:               return true;
-        case FEATURE_COMPLETION_TRACKS_VIEWS: return true;
-        case FEATURE_COMPLETION_HAS_RULES:    return false;
-        case FEATURE_GRADE_HAS_GRADE:         return true;
-        case FEATURE_GRADE_OUTCOMES:          return false;
-        case FEATURE_BACKUP_MOODLE2:          return true;
-        case FEATURE_SHOW_DESCRIPTION:        return true;
-        case FEATURE_MOD_PURPOSE:             return MOD_PURPOSE_ASSESSMENT;
-        default:                              return null;
+        case FEATURE_MOD_ARCHETYPE:
+            return MOD_ARCHETYPE_ASSIGNMENT;
+        case FEATURE_GROUPS:
+            return true;
+        case FEATURE_GROUPINGS:
+            return true;
+        case FEATURE_MOD_INTRO:
+            return true;
+        case FEATURE_COMPLETION_TRACKS_VIEWS:
+            return true;
+        case FEATURE_COMPLETION_HAS_RULES:
+            return false;
+        case FEATURE_GRADE_HAS_GRADE:
+            return true;
+        case FEATURE_GRADE_OUTCOMES:
+            return false;
+        case FEATURE_BACKUP_MOODLE2:
+            return true;
+        case FEATURE_SHOW_DESCRIPTION:
+            return true;
+        case FEATURE_MOD_PURPOSE:
+            return MOD_PURPOSE_ASSESSMENT;
+        default:
+            return null;
     }
 }
 
@@ -124,8 +134,11 @@ function exelearning_update_instance($data, $mform = null) {
 
     $data->id = $data->instance;
     $data->timemodified = time();
-    $data->revision = (int) ($DB->get_field('exelearning', 'revision',
-            ['id' => $data->id]) ?: 0) + 1;
+    $data->revision = (int) ($DB->get_field(
+        'exelearning',
+        'revision',
+        ['id' => $data->id]
+    ) ?: 0) + 1;
     if (!isset($data->grademax)) {
         $data->grademax = 100;
     }
@@ -175,11 +188,21 @@ function exelearning_delete_instance($id) {
     }
 
     $maxnum = (int) $DB->get_field_sql(
-            "SELECT COALESCE(MAX(itemnumber),0) FROM {exelearning_grade_item}
-             WHERE exelearningid = ?", [$id]);
+        "SELECT COALESCE(MAX(itemnumber),0) FROM {exelearning_grade_item}
+             WHERE exelearningid = ?",
+        [$id]
+    );
     for ($n = 0; $n <= $maxnum; $n++) {
-        grade_update('mod/exelearning', $instance->course, 'mod', 'exelearning',
-                $id, $n, null, ['deleted' => true]);
+        grade_update(
+            'mod/exelearning',
+            $instance->course,
+            'mod',
+            'exelearning',
+            $id,
+            $n,
+            null,
+            ['deleted' => true]
+        );
     }
 
     $DB->delete_records('exelearning_attempt', ['exelearningid' => $id]);
@@ -209,8 +232,16 @@ function exelearning_grade_item_update($exelearning, $grades = null) {
         'gradepass' => $exelearning->gradepass ?? 0,
         'display'   => (int) ($exelearning->gradedisplaytype ?? GRADE_DISPLAY_TYPE_DEFAULT),
     ];
-    return grade_update('mod/exelearning', $exelearning->course, 'mod',
-            'exelearning', $exelearning->id, 0, $grades, $item);
+    return grade_update(
+        'mod/exelearning',
+        $exelearning->course,
+        'mod',
+        'exelearning',
+        $exelearning->id,
+        0,
+        $grades,
+        $item
+    );
 }
 
 /**
@@ -229,9 +260,11 @@ function exelearning_get_grade_item_names(array $items): array {
             $names[$item->id] = get_string('gradeitem_overall', 'mod_exelearning');
             continue;
         }
-        $row = $DB->get_record('exelearning_grade_item',
-                ['exelearningid' => $item->iteminstance, 'itemnumber' => $item->itemnumber],
-                'name');
+        $row = $DB->get_record(
+            'exelearning_grade_item',
+            ['exelearningid' => $item->iteminstance, 'itemnumber' => $item->itemnumber],
+            'name'
+        );
         $names[$item->id] = $row ? format_string($row->name)
                 : ('Item #' . $item->itemnumber);
     }
@@ -334,8 +367,12 @@ function exelearning_get_file_areas($course, $cm, $context) {
  * @param stdClass $cm
  * @param context $context
  */
-function exelearning_view(stdClass $exelearning, stdClass $course,
-        stdClass $cm, context $context): void {
+function exelearning_view(
+    stdClass $exelearning,
+    stdClass $course,
+    stdClass $cm,
+    context $context
+): void {
     global $CFG;
     require_once($CFG->libdir . '/completionlib.php');
 
@@ -362,8 +399,10 @@ function exelearning_view(stdClass $exelearning, stdClass $course,
  * @param settings_navigation $settings
  * @param navigation_node $node
  */
-function exelearning_extend_settings_navigation(settings_navigation $settings,
-        navigation_node $node): void {
+function exelearning_extend_settings_navigation(
+    settings_navigation $settings,
+    navigation_node $node
+): void {
     global $PAGE;
 
     $context = $PAGE->cm->context ?? null;
@@ -373,12 +412,13 @@ function exelearning_extend_settings_navigation(settings_navigation $settings,
 
     $url = new moodle_url('/mod/exelearning/report.php', ['id' => $PAGE->cm->id]);
     $reportnode = navigation_node::create(
-            get_string('reports', 'mod_exelearning'),
-            $url,
-            navigation_node::TYPE_SETTING,
-            null,
-            'exelearningreport',
-            new pix_icon('i/report', ''));
+        get_string('reports', 'mod_exelearning'),
+        $url,
+        navigation_node::TYPE_SETTING,
+        null,
+        'exelearningreport',
+        new pix_icon('i/report', '')
+    );
 
     // Insertar antes del nodo de roles/permisos si existe, como hace SCORM.
     if ($beforekey = exelearning_navigation_before_key($node)) {
@@ -419,9 +459,14 @@ function exelearning_save_and_extract_package(stdClass $data): void {
 
     // 1) Persistir el ZIP en 'package/0/'.
     $fs->delete_area_files($context->id, 'mod_exelearning', 'package');
-    file_save_draft_area_files($data->package, $context->id,
-            'mod_exelearning', 'package', 0,
-            ['subdirs' => 0, 'maxfiles' => 1]);
+    file_save_draft_area_files(
+        $data->package,
+        $context->id,
+        'mod_exelearning',
+        'package',
+        0,
+        ['subdirs' => 0, 'maxfiles' => 1]
+    );
 
     // 2) Extraer el ZIP recién guardado al filearea de contenido.
     exelearning_extract_stored_package($context->id, (int) $data->revision);
@@ -440,9 +485,15 @@ function exelearning_save_and_extract_package(stdClass $data): void {
  */
 function exelearning_get_stored_package(int $contextid): ?\stored_file {
     $fs = get_file_storage();
-    // itemid=false → every itemid in the filearea.
-    $files = $fs->get_area_files($contextid, 'mod_exelearning', 'package', false,
-            'itemid DESC, sortorder, filepath, filename', false);
+    // Itemid=false means every itemid in the filearea.
+    $files = $fs->get_area_files(
+        $contextid,
+        'mod_exelearning',
+        'package',
+        false,
+        'itemid DESC, sortorder, filepath, filename',
+        false
+    );
     foreach ($files as $file) {
         if (!$file->is_directory()) {
             return $file;
@@ -479,24 +530,49 @@ function exelearning_extract_stored_package(int $contextid, int $revision): void
     $fs->delete_area_files($context->id, 'mod_exelearning', 'content');
 
     $packer = get_file_packer('application/zip');
-    $package->extract_to_storage($packer, $context->id, 'mod_exelearning',
-            'content', (int) $data->revision, '/');
+    $package->extract_to_storage(
+        $packer,
+        $context->id,
+        'mod_exelearning',
+        'content',
+        (int) $data->revision,
+        '/'
+    );
 
     // 4) Asegurar entrada index.html como mainfile (para el navegador del archivo).
-    $entry = $fs->get_file($context->id, 'mod_exelearning', 'content',
-            (int) $data->revision, '/', 'index.html');
+    $entry = $fs->get_file(
+        $context->id,
+        'mod_exelearning',
+        'content',
+        (int) $data->revision,
+        '/',
+        'index.html'
+    );
     if ($entry) {
-        file_set_sortorder($context->id, 'mod_exelearning', 'content',
-                (int) $data->revision, '/', 'index.html', 1);
+        file_set_sortorder(
+            $context->id,
+            'mod_exelearning',
+            'content',
+            (int) $data->revision,
+            '/',
+            'index.html',
+            1
+        );
     }
 
     // 5) Si el paquete (export web) no trae libs/SCORM_API_wrapper.js,
-    //    inyectarlo desde assets/ del plugin. eXeLearning v4 sólo incluye
-    //    este wrapper en el export SCORM; sin él, los iDevices calificables
-    //    muestran "esta página no forma parte de un paquete SCORM".
+    // inyectarlo desde assets/ del plugin. eXeLearning v4 sólo incluye
+    // este wrapper en el export SCORM; sin él, los iDevices calificables
+    // muestran "esta página no forma parte de un paquete SCORM".
     foreach (['SCORM_API_wrapper.js', 'SCOFunctions.js'] as $shimname) {
-        $present = $fs->get_file($context->id, 'mod_exelearning', 'content',
-                (int) $data->revision, '/libs/', $shimname);
+        $present = $fs->get_file(
+            $context->id,
+            'mod_exelearning',
+            'content',
+            (int) $data->revision,
+            '/libs/',
+            $shimname
+        );
         if ($present) {
             continue;
         }
@@ -515,12 +591,12 @@ function exelearning_extract_stored_package(int $contextid, int $revision): void
     }
 
     // 6) Inyectar <script src="libs/SCORM_API_wrapper.js"></script> en los
-    //    HTMLs del paquete. eXeLearning v4 sólo carga el wrapper on-demand
-    //    cuando el usuario pulsa "Guardar puntuación", pero antes (en
-    //    libs/common.js:1052) ya hace un check `typeof pipwerks === 'undefined'`
-    //    que decide si mostrar el mensaje "no es paquete SCORM" o la barra
-    //    de guardar nota. Forzando la carga al cargar la página, ese check
-    //    pasa y el iDevice reconoce el entorno SCORM.
+    // HTMLs del paquete. eXeLearning v4 sólo carga el wrapper on-demand
+    // cuando el usuario pulsa "Guardar puntuación", pero antes (en
+    // libs/common.js:1052) ya hace un check `typeof pipwerks === 'undefined'`
+    // que decide si mostrar el mensaje "no es paquete SCORM" o la barra
+    // de guardar nota. Forzando la carga al cargar la página, ese check
+    // pasa y el iDevice reconoce el entorno SCORM.
     exelearning_inject_scorm_loader($context->id, (int) $data->revision);
 }
 
@@ -559,8 +635,14 @@ function exelearning_inject_scorm_loader(int $contextid, int $revision): void {
             $initscript;
 
     // Recorrer todos los HTML del filearea.
-    $files = $fs->get_area_files($contextid, 'mod_exelearning', 'content',
-            $revision, 'filepath, filename', false);
+    $files = $fs->get_area_files(
+        $contextid,
+        'mod_exelearning',
+        'content',
+        $revision,
+        'filepath, filename',
+        false
+    );
     foreach ($files as $file) {
         if ($file->is_directory()) {
             continue;
@@ -626,8 +708,16 @@ function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null
     // Grade item canónico (itemnumber=0) según el modelo de calificación (DEC-0008).
     if ($grademodel === EXELEARNING_GRADEMODEL_PERITEM) {
         // Sólo por iDevice: el overall no debe existir en el libro.
-        grade_update('mod/exelearning', $instance->course, 'mod', 'exelearning',
-                $instance->id, 0, null, ['deleted' => true]);
+        grade_update(
+            'mod/exelearning',
+            $instance->course,
+            'mod',
+            'exelearning',
+            $instance->id,
+            0,
+            null,
+            ['deleted' => true]
+        );
     } else {
         exelearning_grade_item_update($instance);
     }
@@ -639,12 +729,18 @@ function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null
         return;
     }
 
-    $existing = $DB->get_records('exelearning_grade_item',
-            ['exelearningid' => $exelearningid], '', 'objectid, id, itemnumber, deleted');
+    $existing = $DB->get_records(
+        'exelearning_grade_item',
+        ['exelearningid' => $exelearningid],
+        '',
+        'objectid, id, itemnumber, deleted'
+    );
 
     $nextnum = (int) $DB->get_field_sql(
-            "SELECT COALESCE(MAX(itemnumber),0) FROM {exelearning_grade_item}
-             WHERE exelearningid = ?", [$exelearningid]);
+        "SELECT COALESCE(MAX(itemnumber),0) FROM {exelearning_grade_item}
+             WHERE exelearningid = ?",
+        [$exelearningid]
+    );
 
     $seen = [];
     foreach ($detected as $d) {
@@ -682,17 +778,33 @@ function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null
         if ($grademodel === EXELEARNING_GRADEMODEL_OVERALL) {
             // Sólo overall: no exponer columnas por iDevice en el libro
             // (la fila se conserva para el report de intentos).
-            grade_update('mod/exelearning', $instance->course, 'mod', 'exelearning',
-                    $instance->id, $itemnumber, null, ['deleted' => true]);
+            grade_update(
+                'mod/exelearning',
+                $instance->course,
+                'mod',
+                'exelearning',
+                $instance->id,
+                $itemnumber,
+                null,
+                ['deleted' => true]
+            );
         } else {
-            grade_update('mod/exelearning', $instance->course, 'mod', 'exelearning',
-                    $instance->id, $itemnumber, null, [
+            grade_update(
+                'mod/exelearning',
+                $instance->course,
+                'mod',
+                'exelearning',
+                $instance->id,
+                $itemnumber,
+                null,
+                [
                         'itemname'  => $name,
                         'gradetype' => GRADE_TYPE_VALUE,
                         'grademax'  => $instance->grademax ?? 100,
                         'grademin'  => $instance->grademin ?? 0,
                         'display'   => (int) ($instance->gradedisplaytype ?? GRADE_DISPLAY_TYPE_DEFAULT),
-                    ]);
+                ]
+            );
         }
     }
 
@@ -705,8 +817,16 @@ function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null
             $row->deleted = 1;
             $row->timemodified = time();
             $DB->update_record('exelearning_grade_item', $row);
-            grade_update('mod/exelearning', $instance->course, 'mod', 'exelearning',
-                    $instance->id, (int) $row->itemnumber, null, ['deleted' => true]);
+            grade_update(
+                'mod/exelearning',
+                $instance->course,
+                'mod',
+                'exelearning',
+                $instance->id,
+                (int) $row->itemnumber,
+                null,
+                ['deleted' => true]
+            );
         }
     }
 
@@ -766,8 +886,12 @@ function exelearning_recalculate_user_grades(stdClass $instance, int $userid): v
     ];
 
     $items = [0 => clean_param($instance->name, PARAM_NOTAGS)];
-    $rows = $DB->get_records('exelearning_grade_item',
-            ['exelearningid' => $instance->id, 'deleted' => 0], 'itemnumber', 'itemnumber, name');
+    $rows = $DB->get_records(
+        'exelearning_grade_item',
+        ['exelearningid' => $instance->id, 'deleted' => 0],
+        'itemnumber',
+        'itemnumber, name'
+    );
     foreach ($rows as $r) {
         $items[(int) $r->itemnumber] = $r->name;
     }
@@ -780,13 +904,25 @@ function exelearning_recalculate_user_grades(stdClass $instance, int $userid): v
             continue;
         }
         $scaled = \mod_exelearning\local\attempts::aggregate_scaled(
-                $instance->id, $userid, $itemnumber, $grademethod);
+            $instance->id,
+            $userid,
+            $itemnumber,
+            $grademethod
+        );
         $grade = (object) [
             'userid'   => $userid,
             'rawgrade' => ($scaled === null) ? null : ($scaled * $grademax),
         ];
-        grade_update('mod/exelearning', $instance->course, 'mod', 'exelearning',
-                $instance->id, $itemnumber, $grade, $base + ['itemname' => $name]);
+        grade_update(
+            'mod/exelearning',
+            $instance->course,
+            'mod',
+            'exelearning',
+            $instance->id,
+            $itemnumber,
+            $grade,
+            $base + ['itemname' => $name]
+        );
     }
 }
 
@@ -810,9 +946,8 @@ function exelearning_grade_item_name(stdClass $instance, stdClass $detected): st
 // -----------------------------------------------------------------------------
 // Embedded eXeLearning editor support (portado de mod_exeweb).
 //
-// Estas funciones son los enganches que consume el editor embebido
-// (editor/index.php, editor/save.php y el botón "Editar" de view.php).
-// -----------------------------------------------------------------------------
+// These functions are the hooks consumed by the embedded editor
+// (editor/index.php, editor/save.php and the "Edit" button in view.php).
 
 /**
  * Devuelve la URL del ELPX almacenado en la filearea 'package' de una instancia.
@@ -828,8 +963,14 @@ function exelearning_grade_item_name(stdClass $instance, stdClass $detected): st
  */
 function exelearning_get_package_url($exelearning, $context) {
     $fs = get_file_storage();
-    $files = $fs->get_area_files($context->id, 'mod_exelearning', 'package', false,
-            'itemid DESC, sortorder DESC, id ASC', false);
+    $files = $fs->get_area_files(
+        $context->id,
+        'mod_exelearning',
+        'package',
+        false,
+        'itemid DESC, sortorder DESC, id ASC',
+        false
+    );
     $package = reset($files);
     if (!$package) {
         return null;

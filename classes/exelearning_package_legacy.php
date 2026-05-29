@@ -18,7 +18,6 @@
  * exeweb url manager class.
  *
  * @package     mod_exelearning
- * @category    exeweb
  * @copyright   2023 3&Punt
  * @author      Juan Carrera <juan@treipunt.com>
  * @license     https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -26,8 +25,14 @@
 
 namespace mod_exelearning;
 
+/**
+ * Legacy helper to validate eXeLearning packages (exeweb format).
+ *
+ * @package    mod_exelearning
+ * @copyright  2023 3&Punt
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class exelearning_package_legacy {
-
     /**
      * Check that a Zip/ELPX file contains a valid exeweb package.
      *
@@ -92,7 +97,7 @@ class exelearning_package_legacy {
      * @param array $filelist
      * @return array
      */
-    public static function validate_file_list(array $filelist) : array {
+    public static function validate_file_list(array $filelist): array {
         $errors = [];
 
         $config = get_config('exelearning');
@@ -109,7 +114,7 @@ class exelearning_package_legacy {
         $insidedirectory = $firstitem->is_directory ?? false;
         if ($insidedirectory) {
             $dirname = $firstitem->pathname;
-            $pattern = '#^' . $dirname. '#';
+            $pattern = '#^' . $dirname . '#';
             $filepaths = preg_replace($pattern, '', $filepaths);
         }
         // Check for mandatory files. Return as soon as any mandatory RE is mising.
@@ -148,8 +153,14 @@ class exelearning_package_legacy {
 
         // Now extract files.
         $packer = get_file_packer('application/zip');
-        $result = $package->extract_to_storage($packer, $package->get_contextid(),
-            'mod_exelearning', 'content', $package->get_itemid(), '/');
+        $result = $package->extract_to_storage(
+            $packer,
+            $package->get_contextid(),
+            'mod_exelearning',
+            'content',
+            $package->get_itemid(),
+            '/'
+        );
 
         return $result;
     }
@@ -193,7 +204,7 @@ class exelearning_package_legacy {
         if (empty($contentlist)) {
             return false;
         }
-        $mainfilenames = ['index.html', 'index.htm', ];
+        $mainfilenames = ['index.html', 'index.htm' ];
         $fs = get_file_storage();
         $filepath = '/';
         $firstfile = key($contentlist);
@@ -209,5 +220,4 @@ class exelearning_package_legacy {
         }
         return false;
     }
-
 }

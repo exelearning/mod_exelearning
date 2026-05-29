@@ -36,7 +36,6 @@ namespace mod_exelearning\local;
  * If neither is available the embedded editor is not usable.
  */
 class embedded_editor_source_resolver {
-
     /** @var string Active source is the admin-installed copy in moodledata. */
     const SOURCE_MOODLEDATA = 'moodledata';
 

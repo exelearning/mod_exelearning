@@ -29,7 +29,6 @@ require_once($CFG->dirroot . '/mod/exelearning/backup/moodle2/backup_exelearning
  * Provides the steps to perform one complete backup of the exelearning instance.
  */
 class backup_exelearning_activity_task extends backup_activity_task {
-
     /**
      * Defines particular settings this activity can have.
      */

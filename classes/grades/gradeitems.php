@@ -42,15 +42,27 @@ namespace mod_exelearning\grades;
 
 use core_grades\local\gradeitem\itemnumber_mapping;
 
+/**
+ * Maps grade item numbers to their internal item names for mod_exelearning.
+ *
+ * @package    mod_exelearning
+ * @copyright  2026 ATE (Área de Tecnología Educativa)
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class gradeitems implements itemnumber_mapping {
-
+    /** @var int Maximum supported grade item number. */
     public const MAX_ITEMNUMBER = 100;
 
+    /**
+     * Returns the mapping between item numbers and item names for this component.
+     *
+     * @return array The item number to item name mapping.
+     */
     public static function get_itemname_mapping_for_component(): array {
-        // form_trait usa los valores de este array DIRECTAMENTE para construir
-        // strings (grade_<itemname>_name), así que `0 => 'overall'` debe ser
-        // no-vacío aunque component_gradeitems::get_itemname_from_itemnumber
-        // siempre devuelva '' para itemnumber=0.
+        // The form_trait uses the values of this array DIRECTLY to build
+        // strings (grade_<itemname>_name), so `0 => 'overall'` must be
+        // non-empty even though component_gradeitems::get_itemname_from_itemnumber
+        // always returns '' for itemnumber=0.
         $mapping = [0 => 'overall'];
         for ($n = 1; $n <= self::MAX_ITEMNUMBER; $n++) {
             $mapping[$n] = 'idevice' . $n;

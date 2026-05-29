@@ -23,8 +23,6 @@ use core_privacy\local\request\writer;
 use core_privacy\tests\provider_testcase;
 use mod_exelearning\local\attempts;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Privacy provider tests for mod_exelearning.
  *
@@ -35,7 +33,6 @@ defined('MOODLE_INTERNAL') || die();
  * @covers     \mod_exelearning\privacy\provider
  */
 final class provider_test extends provider_testcase {
-
     /** @var \stdClass exelearning instance. */
     protected $instance;
 
@@ -128,10 +125,14 @@ final class provider_test extends provider_testcase {
         $approved = new approved_contextlist($this->student1, $this->component, [$this->context->id]);
         provider::delete_data_for_user($approved);
 
-        $this->assertSame(0, $DB->count_records('exelearning_attempt',
-                ['exelearningid' => $this->instance->id, 'userid' => $this->student1->id]));
-        $this->assertSame(2, $DB->count_records('exelearning_attempt',
-                ['exelearningid' => $this->instance->id, 'userid' => $this->student2->id]));
+        $this->assertSame(0, $DB->count_records(
+            'exelearning_attempt',
+            ['exelearningid' => $this->instance->id, 'userid' => $this->student1->id]
+        ));
+        $this->assertSame(2, $DB->count_records(
+            'exelearning_attempt',
+            ['exelearningid' => $this->instance->id, 'userid' => $this->student2->id]
+        ));
     }
 
     /**
@@ -142,8 +143,10 @@ final class provider_test extends provider_testcase {
 
         provider::delete_data_for_all_users_in_context($this->context);
 
-        $this->assertSame(0, $DB->count_records('exelearning_attempt',
-                ['exelearningid' => $this->instance->id]));
+        $this->assertSame(0, $DB->count_records(
+            'exelearning_attempt',
+            ['exelearningid' => $this->instance->id]
+        ));
     }
 
     /**
@@ -155,9 +158,13 @@ final class provider_test extends provider_testcase {
         $approved = new approved_userlist($this->context, $this->component, [$this->student1->id]);
         provider::delete_data_for_users($approved);
 
-        $this->assertSame(0, $DB->count_records('exelearning_attempt',
-                ['exelearningid' => $this->instance->id, 'userid' => $this->student1->id]));
-        $this->assertSame(2, $DB->count_records('exelearning_attempt',
-                ['exelearningid' => $this->instance->id, 'userid' => $this->student2->id]));
+        $this->assertSame(0, $DB->count_records(
+            'exelearning_attempt',
+            ['exelearningid' => $this->instance->id, 'userid' => $this->student1->id]
+        ));
+        $this->assertSame(2, $DB->count_records(
+            'exelearning_attempt',
+            ['exelearningid' => $this->instance->id, 'userid' => $this->student2->id]
+        ));
     }
 }

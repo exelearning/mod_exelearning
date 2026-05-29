@@ -45,7 +45,7 @@ global $CFG, $DB, $USER;
 
 cli_writeln('=== mod_exelearning · setup_demo ===');
 
-// --- Config ---------------------------------------------------------------
+// Config.
 
 $config = [
     'category_name'     => 'Demo eXeLearning',
@@ -54,15 +54,15 @@ $config = [
     'teacher_username'  => 'teacher_demo',
     'teacher_pass'      => 'Demo!2026',
     'students' => [
-        ['username' => 'alumno1', 'firstname' => 'Alumno', 'lastname' => 'Uno',  'email' => 'alumno1@example.test'],
-        ['username' => 'alumno2', 'firstname' => 'Alumno', 'lastname' => 'Dos',  'email' => 'alumno2@example.test'],
+        ['username' => 'alumno1', 'firstname' => 'Alumno', 'lastname' => 'Uno', 'email' => 'alumno1@example.test'],
+        ['username' => 'alumno2', 'firstname' => 'Alumno', 'lastname' => 'Dos', 'email' => 'alumno2@example.test'],
     ],
     'student_pass'      => 'Demo!2026',
     'activity_name'     => 'Actividad evaluable (demo)',
     'fixture_path'      => $CFG->dirroot . '/mod/exelearning/research/fixtures/elpx/actividad-evaluable.elpx',
 ];
 
-// --- Sesión como admin ----------------------------------------------------
+// Session as admin.
 
 \core\session\manager::set_user(get_admin());
 
@@ -80,7 +80,7 @@ if (!isset($CFG->forum_announcementmaxattachments)) {
     $CFG->forum_announcementmaxattachments = '9';
 }
 
-// --- 1) Categoría ---------------------------------------------------------
+// 1) Category.
 
 $category = $DB->get_record('course_categories', ['name' => $config['category_name']]);
 if (!$category) {
@@ -95,7 +95,7 @@ if (!$category) {
     cli_writeln('  · Categoría existente: ' . $category->name . ' (id=' . $category->id . ')');
 }
 
-// --- 2) Curso -------------------------------------------------------------
+// 2) Course.
 
 $course = $DB->get_record('course', ['shortname' => $config['course_shortname']]);
 if (!$course) {
@@ -116,15 +116,13 @@ if (!$course) {
 }
 $coursecontext = context_course::instance($course->id);
 
-// --- 3) Usuarios + matriculación ----------------------------------------
+// 3) Users and enrolment.
 
 $teacherroleid = $DB->get_field('role', 'id', ['shortname' => 'editingteacher'], MUST_EXIST);
 $studentroleid = $DB->get_field('role', 'id', ['shortname' => 'student'], MUST_EXIST);
 
-/**
- * Garantiza un usuario y lo matricula con el rol indicado.
- */
-$ensure_user = function (array $u, string $pass, int $roleid) use ($course, $coursecontext) {
+// Ensure a user exists and enrol them with the given role.
+$ensureuser = function (array $u, string $pass, int $roleid) use ($course, $coursecontext) {
     global $DB, $CFG;
     require_once($CFG->dirroot . '/user/lib.php');
 
@@ -181,7 +179,7 @@ $ensure_user = function (array $u, string $pass, int $roleid) use ($course, $cou
 };
 
 cli_writeln('  · Profesor:');
-$ensure_user([
+$ensureuser([
     'username'  => $config['teacher_username'],
     'firstname' => 'Profesor',
     'lastname'  => 'Demo',
@@ -190,7 +188,7 @@ $ensure_user([
 
 cli_writeln('  · Estudiantes:');
 foreach ($config['students'] as $s) {
-    $ensure_user($s, $config['student_pass'], $studentroleid);
+    $ensureuser($s, $config['student_pass'], $studentroleid);
 }
 
 // Enrol the site administrator too, so the demo course shows up under their
@@ -222,7 +220,7 @@ if (!is_enrolled($coursecontext, $adminuser, '', true)) {
     cli_writeln('    · ' . $adminuser->username . ' ya matriculado.');
 }
 
-// --- 4) Actividades demo (idempotentes) ---------------------------------
+// 4) Demo activities (idempotent).
 
 require_once($CFG->libdir . '/completionlib.php');
 
@@ -239,7 +237,7 @@ $admin = get_admin();
 $adminctx = context_user::instance($admin->id);
 $fs = get_file_storage();
 $plugindir = $CFG->dirroot . '/mod/exelearning';
-$section = 1; // "Actividades evaluables" si existe; Moodle ajusta a General si no.
+$section = 1; // Section "Actividades evaluables" if present; Moodle falls back to General.
 
 // Fixtures de las actividades.
 $fixtures = [
@@ -248,19 +246,20 @@ $fixtures = [
     'h5p'         => $plugindir . '/research/fixtures/h5p/question-set-demo.h5p',
 ];
 
-// ¿Existe ya una actividad <modname> con ese nombre en el curso?
-$module_exists = function (string $modname, string $name) use ($course): bool {
+// Checks whether a <modname> activity with that name already exists in the course.
+$moduleexists = function (string $modname, string $name) use ($course): bool {
     global $DB;
     return $DB->record_exists_sql(
         'SELECT 1 FROM {' . $modname . '} a
          JOIN {course_modules} cm ON cm.instance = a.id
          JOIN {modules} m ON m.id = cm.module AND m.name = :mname
          WHERE a.course = :course AND a.name = :name',
-        ['mname' => $modname, 'course' => $course->id, 'name' => $name]);
+        ['mname' => $modname, 'course' => $course->id, 'name' => $name]
+    );
 };
 
 // Crea un draft itemid con un fichero del disco.
-$make_draft = function (string $pathname) use ($adminctx, $fs): int {
+$makedraft = function (string $pathname) use ($adminctx, $fs): int {
     $draftid = file_get_unused_draft_itemid();
     $fs->create_file_from_pathname([
         'contextid' => $adminctx->id,
@@ -285,8 +284,8 @@ $completionpass = [
     'completionexpected'        => 0,
 ];
 
-// 4a) mod_exelearning ------------------------------------------------------
-if (is_file($fixtures['exelearning']) && !$module_exists('exelearning', $config['activity_name'])) {
+// 4a) mod_exelearning.
+if (is_file($fixtures['exelearning']) && !$moduleexists('exelearning', $config['activity_name'])) {
     try {
         $data = (object) array_merge([
             'modulename'  => 'exelearning',
@@ -298,7 +297,7 @@ if (is_file($fixtures['exelearning']) && !$module_exists('exelearning', $config[
             'name'        => $config['activity_name'],
             'intro'       => 'Cuestionario demo con dos iDevices calificables (trueorfalse + guess).',
             'introformat' => FORMAT_HTML,
-            'package'     => $make_draft($fixtures['exelearning']),
+            'package'     => $makedraft($fixtures['exelearning']),
             'grademax'    => 100,
             'grademin'    => 0,
             'gradepass'   => 50,
@@ -317,9 +316,9 @@ if (is_file($fixtures['exelearning']) && !$module_exists('exelearning', $config[
     cli_writeln('  · mod_exelearning ya existe (o falta fixture).');
 }
 
-// 4b) mod_scorm ------------------------------------------------------------
+// 4b) mod_scorm.
 $scormname = 'Actividad SCORM evaluable (demo)';
-if (is_file($fixtures['scorm']) && !$module_exists('scorm', $scormname)) {
+if (is_file($fixtures['scorm']) && !$moduleexists('scorm', $scormname)) {
     try {
         $data = (object) array_merge([
             'modulename'  => 'scorm',
@@ -332,7 +331,7 @@ if (is_file($fixtures['scorm']) && !$module_exists('scorm', $scormname)) {
             'intro'       => 'Paquete SCORM 1.2 de ejemplo (exportado desde eXeLearning).',
             'introformat' => FORMAT_HTML,
             'scormtype'   => 'local',
-            'packagefile' => $make_draft($fixtures['scorm']),
+            'packagefile' => $makedraft($fixtures['scorm']),
             'popup'       => 0,
             'width'       => 100,
             'height'      => 500,
@@ -346,10 +345,10 @@ if (is_file($fixtures['scorm']) && !$module_exists('scorm', $scormname)) {
             'displaycoursestructure' => 0,
             'updatefreq'  => 0,
             'auto'        => 0,
-            'grademethod' => 1,   // GRADEHIGHEST.
+            'grademethod' => 1, // GRADEHIGHEST.
             'maxgrade'    => 100,
-            'whatgrade'   => 0,   // HIGHESTATTEMPT.
-            'maxattempt'  => 0,   // Ilimitados.
+            'whatgrade'   => 0, // HIGHESTATTEMPT.
+            'maxattempt'  => 0, // Ilimitados.
             'forcecompleted' => 0,
             'forcenewattempt' => 0,
             'lastattemptlock' => 0,
@@ -376,9 +375,9 @@ if (is_file($fixtures['scorm']) && !$module_exists('scorm', $scormname)) {
     cli_writeln('  · mod_scorm ya existe (o falta fixture).');
 }
 
-// 4c) mod_h5pactivity ------------------------------------------------------
+// 4c) mod_h5pactivity.
 $h5pname = 'Actividad H5P evaluable (demo)';
-if (is_file($fixtures['h5p']) && !$module_exists('h5pactivity', $h5pname)) {
+if (is_file($fixtures['h5p']) && !$moduleexists('h5pactivity', $h5pname)) {
     try {
         $data = (object) array_merge([
             'modulename'   => 'h5pactivity',
@@ -390,10 +389,10 @@ if (is_file($fixtures['h5p']) && !$module_exists('h5pactivity', $h5pname)) {
             'name'         => $h5pname,
             'intro'        => 'Conjunto de preguntas H5P (varias tareas evaluables con intentos).',
             'introformat'  => FORMAT_HTML,
-            'packagefile'  => $make_draft($fixtures['h5p']),
+            'packagefile'  => $makedraft($fixtures['h5p']),
             'displayoptions' => 0,
             'enabletracking' => 1,
-            'grademethod'  => 1,   // GRADEHIGHESTATTEMPT.
+            'grademethod'  => 1, // GRADEHIGHESTATTEMPT.
             'reviewmode'   => 1,
             'grade'        => 100,
             'gradepass'    => 50,

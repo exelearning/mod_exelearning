@@ -24,15 +24,12 @@
 
 namespace mod_exelearning\local;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Stores each user submission as an attempt and aggregates attempts into the
  * gradebook according to the per-instance grademethod, mirroring
  * mod_h5pactivity / mod_scorm.
  */
 class attempts {
-
     /** @var int Aggregation: keep the highest scaled score across attempts. */
     public const GRADE_HIGHEST = 0;
     /** @var int Aggregation: average of all attempts. */
@@ -74,9 +71,10 @@ class attempts {
     public static function count_user_attempts(int $exelearningid, int $userid): int {
         global $DB;
         return (int) $DB->count_records_sql(
-                "SELECT COUNT(DISTINCT attempt) FROM {exelearning_attempt}
+            "SELECT COUNT(DISTINCT attempt) FROM {exelearning_attempt}
                   WHERE exelearningid = ? AND userid = ?",
-                [$exelearningid, $userid]);
+            [$exelearningid, $userid]
+        );
     }
 
     /**
@@ -115,17 +113,19 @@ class attempts {
 
         // Distinct users with at least one overall (itemnumber=0) attempt.
         $attempted = (int) $DB->count_records_sql(
-                "SELECT COUNT(DISTINCT userid) FROM {exelearning_attempt}
+            "SELECT COUNT(DISTINCT userid) FROM {exelearning_attempt}
                   WHERE exelearningid = :exeid AND itemnumber = 0 AND userid $insql",
-                $params);
+            $params
+        );
 
         // Mean of each user's best overall scaled score (0..1) → percent.
         $best = $DB->get_records_sql(
-                "SELECT userid, MAX(scaledscore) AS best
+            "SELECT userid, MAX(scaledscore) AS best
                    FROM {exelearning_attempt}
                   WHERE exelearningid = :exeid AND itemnumber = 0 AND userid $insql
                GROUP BY userid",
-                $params);
+            $params
+        );
         $meanpercent = null;
         if (!empty($best)) {
             $sum = 0.0;
@@ -165,8 +165,11 @@ class attempts {
      * @param string $sessiontoken
      * @return int Attempt number to write to.
      */
-    public static function resolve_attempt_number(int $exelearningid, int $userid,
-            string $sessiontoken): int {
+    public static function resolve_attempt_number(
+        int $exelearningid,
+        int $userid,
+        string $sessiontoken
+    ): int {
         global $DB;
 
         if ($sessiontoken !== '') {
@@ -181,9 +184,10 @@ class attempts {
         }
 
         $max = (int) $DB->get_field_sql(
-                "SELECT COALESCE(MAX(attempt), 0) FROM {exelearning_attempt}
+            "SELECT COALESCE(MAX(attempt), 0) FROM {exelearning_attempt}
                   WHERE exelearningid = ? AND userid = ?",
-                [$exelearningid, $userid]);
+            [$exelearningid, $userid]
+        );
         return $max + 1;
     }
 
@@ -202,9 +206,16 @@ class attempts {
      * @param string $status completed|passed|failed|incomplete
      * @param string $sessiontoken
      */
-    public static function record_item(int $exelearningid, int $userid, int $attempt,
-            int $itemnumber, float $rawscore, float $maxscore, string $status,
-            string $sessiontoken): void {
+    public static function record_item(
+        int $exelearningid,
+        int $userid,
+        int $attempt,
+        int $itemnumber,
+        float $rawscore,
+        float $maxscore,
+        string $status,
+        string $sessiontoken
+    ): void {
         global $DB;
 
         $now = time();
@@ -251,15 +262,20 @@ class attempts {
      * @param int $grademethod One of the GRADE_* constants.
      * @return float|null Scaled score (0..1) or null when there are no attempts.
      */
-    public static function aggregate_scaled(int $exelearningid, int $userid,
-            int $itemnumber, int $grademethod): ?float {
+    public static function aggregate_scaled(
+        int $exelearningid,
+        int $userid,
+        int $itemnumber,
+        int $grademethod
+    ): ?float {
         global $DB;
 
         $scaled = $DB->get_fieldset_sql(
-                "SELECT scaledscore FROM {exelearning_attempt}
+            "SELECT scaledscore FROM {exelearning_attempt}
                   WHERE exelearningid = ? AND userid = ? AND itemnumber = ?
                ORDER BY attempt ASC",
-                [$exelearningid, $userid, $itemnumber]);
+            [$exelearningid, $userid, $itemnumber]
+        );
         if (empty($scaled)) {
             return null;
         }

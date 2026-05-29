@@ -38,7 +38,6 @@ require_once($CFG->libdir . '/gradelib.php');
  * @covers     ::exelearning_sync_grade_items
  */
 final class lib_test extends advanced_testcase {
-
     /**
      * Helper: create a course + exelearning instance with the given overrides.
      *
@@ -65,8 +64,10 @@ final class lib_test extends advanced_testcase {
         $instance = $this->create_activity();
 
         // Two rows in exelearning_grade_item (trueorfalse + guess), none deleted.
-        $rows = $DB->get_records('exelearning_grade_item',
-                ['exelearningid' => $instance->id, 'deleted' => 0]);
+        $rows = $DB->get_records(
+            'exelearning_grade_item',
+            ['exelearningid' => $instance->id, 'deleted' => 0]
+        );
         $this->assertCount(2, $rows);
 
         $types = array_values(array_map(fn($r) => $r->idevicetype, $rows));
@@ -87,8 +88,11 @@ final class lib_test extends advanced_testcase {
                 'itemnumber'   => $itemnumber,
                 'courseid'     => $instance->course,
             ]);
-            $this->assertInstanceOf(grade_item::class, $gi,
-                    "grade_item itemnumber={$itemnumber} should exist in BOTH model");
+            $this->assertInstanceOf(
+                grade_item::class,
+                $gi,
+                "grade_item itemnumber={$itemnumber} should exist in BOTH model"
+            );
         }
     }
 
@@ -115,8 +119,10 @@ final class lib_test extends advanced_testcase {
                 'itemnumber'   => $itemnumber,
                 'courseid'     => $instance->course,
             ]);
-            $this->assertFalse($gi,
-                    "grade_item itemnumber={$itemnumber} must not exist in OVERALL model");
+            $this->assertFalse(
+                $gi,
+                "grade_item itemnumber={$itemnumber} must not exist in OVERALL model"
+            );
         }
     }
 
@@ -143,8 +149,11 @@ final class lib_test extends advanced_testcase {
                 'itemnumber'   => $itemnumber,
                 'courseid'     => $instance->course,
             ]);
-            $this->assertInstanceOf(grade_item::class, $gi,
-                    "grade_item itemnumber={$itemnumber} should exist in PERITEM model");
+            $this->assertInstanceOf(
+                grade_item::class,
+                $gi,
+                "grade_item itemnumber={$itemnumber} should exist in PERITEM model"
+            );
         }
     }
 
@@ -174,10 +183,14 @@ final class lib_test extends advanced_testcase {
         $this->assertTrue(exelearning_delete_instance($instance->id));
 
         $this->assertFalse($DB->record_exists('exelearning', ['id' => $instance->id]));
-        $this->assertSame(0, $DB->count_records('exelearning_grade_item',
-                ['exelearningid' => $instance->id]));
-        $this->assertSame(0, $DB->count_records('exelearning_attempt',
-                ['exelearningid' => $instance->id]));
+        $this->assertSame(0, $DB->count_records(
+            'exelearning_grade_item',
+            ['exelearningid' => $instance->id]
+        ));
+        $this->assertSame(0, $DB->count_records(
+            'exelearning_attempt',
+            ['exelearningid' => $instance->id]
+        ));
     }
 
     /**
@@ -192,14 +205,18 @@ final class lib_test extends advanced_testcase {
 
         // Wipe the mapping rows as if the activity lost its detection.
         $DB->delete_records('exelearning_grade_item', ['exelearningid' => $instance->id]);
-        $this->assertSame(0, $DB->count_records('exelearning_grade_item',
-                ['exelearningid' => $instance->id]));
+        $this->assertSame(0, $DB->count_records(
+            'exelearning_grade_item',
+            ['exelearningid' => $instance->id]
+        ));
 
         // Re-run detection.
         exelearning_sync_grade_items($instance->id, $contextid);
 
-        $rows = $DB->get_records('exelearning_grade_item',
-                ['exelearningid' => $instance->id, 'deleted' => 0]);
+        $rows = $DB->get_records(
+            'exelearning_grade_item',
+            ['exelearningid' => $instance->id, 'deleted' => 0]
+        );
         $this->assertCount(2, $rows);
     }
 }

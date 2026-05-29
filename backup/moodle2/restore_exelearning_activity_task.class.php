@@ -29,7 +29,6 @@ require_once($CFG->dirroot . '/mod/exelearning/backup/moodle2/restore_exelearnin
  * exelearning restore task that provides all the settings and steps to perform one complete restore of the activity.
  */
 class restore_exelearning_activity_task extends restore_activity_task {
-
     /**
      * Defines particular settings this activity can have.
      */

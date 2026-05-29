@@ -39,7 +39,6 @@ namespace mod_exelearning\local;
  * Class styles_service.
  */
 class styles_service {
-
     /** @var string Subdirectory under $CFG->dataroot holding uploaded styles. */
     const MOODLEDATA_SUBDIR = 'mod_exelearning/styles';
 
@@ -57,8 +56,7 @@ class styles_service {
     ];
 
     // ---------------------------------------------------------------------
-    // Storage helpers
-    // ---------------------------------------------------------------------
+    // Storage helpers.
 
     /**
      * Absolute path to the directory that stores uploaded styles.
@@ -102,8 +100,7 @@ class styles_service {
     }
 
     // ---------------------------------------------------------------------
-    // Registry persistence
-    // ---------------------------------------------------------------------
+    // Registry persistence.
 
     /**
      * Load the persisted registry.
@@ -136,8 +133,7 @@ class styles_service {
     }
 
     // ---------------------------------------------------------------------
-    // Public listing
-    // ---------------------------------------------------------------------
+    // Public listing.
 
     /**
      * List built-in themes discovered from the bundled editor's manifest.
@@ -164,7 +160,7 @@ class styles_service {
             return [];
         }
         $themes = $data['themes'];
-        // bundle.json serializes `themes: { themes: [..] }`; accept flat too.
+        // The bundle.json serializes `themes: { themes: [..] }`; accept flat too.
         if (is_array($themes) && isset($themes['themes']) && is_array($themes['themes'])) {
             $themes = $themes['themes'];
         }
@@ -273,8 +269,7 @@ class styles_service {
     }
 
     // ---------------------------------------------------------------------
-    // State changes
-    // ---------------------------------------------------------------------
+    // State changes.
 
     /**
      * Toggle the enabled flag on an uploaded style.
@@ -335,8 +330,7 @@ class styles_service {
     }
 
     // ---------------------------------------------------------------------
-    // ZIP install pipeline
-    // ---------------------------------------------------------------------
+    // ZIP install pipeline.
 
     /**
      * Install a style from a ZIP file on disk.
@@ -410,8 +404,12 @@ class styles_service {
             throw new \moodle_exception('stylesupload_empty', 'mod_exelearning');
         }
         if ($size > self::get_max_zip_size()) {
-            throw new \moodle_exception('stylesupload_toolarge', 'mod_exelearning', '',
-                display_size(self::get_max_zip_size()));
+            throw new \moodle_exception(
+                'stylesupload_toolarge',
+                'mod_exelearning',
+                '',
+                display_size(self::get_max_zip_size())
+            );
         }
         if (!class_exists('\ZipArchive')) {
             throw new \moodle_exception('stylesupload_nozip', 'mod_exelearning');
@@ -574,8 +572,7 @@ class styles_service {
     }
 
     // ---------------------------------------------------------------------
-    // Internal helpers (also exposed for tests)
-    // ---------------------------------------------------------------------
+    // Internal helpers (also exposed for tests).
 
     /**
      * Entries that must never be extracted (absolute paths, traversal, streams, empty).

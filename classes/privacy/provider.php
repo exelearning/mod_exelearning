@@ -32,16 +32,13 @@ use core_privacy\local\request\userlist;
 use core_privacy\local\request\writer;
 use core_privacy\local\request\helper;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Implements the Moodle privacy API for the attempt data stored by the plugin.
  */
 class provider implements
-        \core_privacy\local\metadata\provider,
-        \core_privacy\local\request\plugin\provider,
-        \core_privacy\local\request\core_userlist_provider {
-
+    \core_privacy\local\metadata\provider,
+    \core_privacy\local\request\core_userlist_provider,
+    \core_privacy\local\request\plugin\provider {
     /**
      * Describe the personal data stored by this plugin.
      *
@@ -134,9 +131,11 @@ class provider implements
                 continue;
             }
 
-            $attempts = $DB->get_records('exelearning_attempt',
-                    ['exelearningid' => $cm->instance, 'userid' => $user->id],
-                    'attempt ASC, itemnumber ASC');
+            $attempts = $DB->get_records(
+                'exelearning_attempt',
+                ['exelearningid' => $cm->instance, 'userid' => $user->id],
+                'attempt ASC, itemnumber ASC'
+            );
             if (!$attempts) {
                 continue;
             }
@@ -196,8 +195,10 @@ class provider implements
             if (!$cm) {
                 continue;
             }
-            $DB->delete_records('exelearning_attempt',
-                    ['exelearningid' => $cm->instance, 'userid' => $user->id]);
+            $DB->delete_records(
+                'exelearning_attempt',
+                ['exelearningid' => $cm->instance, 'userid' => $user->id]
+            );
         }
     }
 
@@ -223,7 +224,10 @@ class provider implements
         }
         [$insql, $inparams] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED);
         $params = array_merge(['exelearningid' => $cm->instance], $inparams);
-        $DB->delete_records_select('exelearning_attempt',
-                "exelearningid = :exelearningid AND userid $insql", $params);
+        $DB->delete_records_select(
+            'exelearning_attempt',
+            "exelearningid = :exelearningid AND userid $insql",
+            $params
+        );
     }
 }

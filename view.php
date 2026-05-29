@@ -31,7 +31,7 @@ require_once($CFG->dirroot . '/mod/exelearning/lib.php');
 require_once($CFG->libdir . '/completionlib.php');
 
 $id = required_param('id', PARAM_INT);  // Course module id.
-$mode = optional_param('mode', 'grading', PARAM_ALPHA); // grading | preview.
+$mode = optional_param('mode', 'grading', PARAM_ALPHA); // Grading | preview.
 
 $cm = get_coursemodule_from_id('exelearning', $id, 0, false, MUST_EXIST);
 $course = $DB->get_record('course', ['id' => $cm->course], '*', MUST_EXIST);
@@ -81,8 +81,14 @@ if ($showeditorbutton) {
 }
 
 $fs = get_file_storage();
-$mainfile = $fs->get_file($context->id, 'mod_exelearning', 'content',
-        (int) $exelearning->revision, '/', 'index.html');
+$mainfile = $fs->get_file(
+    $context->id,
+    'mod_exelearning',
+    'content',
+    (int) $exelearning->revision,
+    '/',
+    'index.html'
+);
 
 // Self-heal para subidas programáticas (p.ej. `addModule` del Moodle
 // Playground): si el ELPX está en filearea 'package' pero el contenido no se
@@ -93,11 +99,20 @@ $haspackage = (exelearning_get_stored_package($context->id) !== null);
 if ($haspackage) {
     if (!$mainfile) {
         exelearning_extract_stored_package($context->id, (int) $exelearning->revision);
-        $mainfile = $fs->get_file($context->id, 'mod_exelearning', 'content',
-                (int) $exelearning->revision, '/', 'index.html');
+        $mainfile = $fs->get_file(
+            $context->id,
+            'mod_exelearning',
+            'content',
+            (int) $exelearning->revision,
+            '/',
+            'index.html'
+        );
     }
-    $hasgradable = $DB->record_exists_select('exelearning_grade_item',
-            'exelearningid = ? AND deleted = 0 AND itemnumber > 0', [$exelearning->id]);
+    $hasgradable = $DB->record_exists_select(
+        'exelearning_grade_item',
+        'exelearningid = ? AND deleted = 0 AND itemnumber > 0',
+        [$exelearning->id]
+    );
     if (!$hasgradable) {
         exelearning_sync_grade_items($exelearning->id, $context->id);
     }
@@ -107,8 +122,11 @@ echo $OUTPUT->header();
 echo $OUTPUT->heading(format_string($exelearning->name));
 
 if (!empty($exelearning->intro)) {
-    echo $OUTPUT->box(format_module_intro('exelearning', $exelearning, $cm->id),
-            'generalbox', 'intro');
+    echo $OUTPUT->box(
+        format_module_intro('exelearning', $exelearning, $cm->id),
+        'generalbox',
+        'intro'
+    );
 }
 
 // Banner del modo preview + enlaces para alternar (DEC-0006), salvo que el
@@ -117,21 +135,30 @@ if ($showpreviewtoggle) {
     if ($mode === 'preview') {
         $exiturl = new moodle_url('/mod/exelearning/view.php', ['id' => $cm->id]);
         echo html_writer::start_div('alert alert-warning d-flex justify-content-between align-items-center mb-3');
-        echo html_writer::tag('div',
-                html_writer::tag('strong', get_string('previewmode', 'mod_exelearning')) . ' ' .
-                get_string('previewmode_desc', 'mod_exelearning'));
-        echo html_writer::link($exiturl->out(false),
-                get_string('previewmode_exit', 'mod_exelearning'),
-                ['class' => 'btn btn-sm btn-outline-secondary']);
+        echo html_writer::tag(
+            'div',
+            html_writer::tag('strong', get_string('previewmode', 'mod_exelearning')) . ' ' .
+            get_string('previewmode_desc', 'mod_exelearning')
+        );
+        echo html_writer::link(
+            $exiturl->out(false),
+            get_string('previewmode_exit', 'mod_exelearning'),
+            ['class' => 'btn btn-sm btn-outline-secondary']
+        );
         echo html_writer::end_div();
     } else {
-        $previewurl = new moodle_url('/mod/exelearning/view.php',
-                ['id' => $cm->id, 'mode' => 'preview']);
+        $previewurl = new moodle_url(
+            '/mod/exelearning/view.php',
+            ['id' => $cm->id, 'mode' => 'preview']
+        );
         echo html_writer::div(
-                html_writer::link($previewurl->out(false),
-                        get_string('previewmode_enter', 'mod_exelearning'),
-                        ['class' => 'btn btn-sm btn-outline-secondary']),
-                'mb-3');
+            html_writer::link(
+                $previewurl->out(false),
+                get_string('previewmode_enter', 'mod_exelearning'),
+                ['class' => 'btn btn-sm btn-outline-secondary']
+            ),
+            'mb-3'
+        );
     }
 }
 
@@ -140,15 +167,18 @@ if ($showpreviewtoggle) {
 // editor instalado. Los atributos data-* deben coincidir EXACTAMENTE con los
 // que lee editor_modal.js::init()/open().
 if ($showeditorbutton) {
-    $editorurl = new moodle_url('/mod/exelearning/editor/index.php',
-            ['id' => $cm->id, 'sesskey' => sesskey()]);
+    $editorurl = new moodle_url(
+        '/mod/exelearning/editor/index.php',
+        ['id' => $cm->id, 'sesskey' => sesskey()]
+    );
     $editorsaveurl = new moodle_url('/mod/exelearning/editor/save.php');
     $editorpackageurl = exelearning_get_package_url($exelearning, $context);
     echo html_writer::div(
-            html_writer::tag('button',
-                    '<i class="fa fa-pencil mr-1" aria-hidden="true"></i> '
+        html_writer::tag(
+            'button',
+            '<i class="fa fa-pencil mr-1" aria-hidden="true"></i> '
                     . get_string('editwitheditor', 'mod_exelearning'),
-                    [
+            [
                         'type' => 'button',
                         'class' => 'btn btn-sm btn-primary',
                         'data-action' => 'mod_exelearning/editor-open',
@@ -158,26 +188,32 @@ if ($showeditorbutton) {
                         'data-saveurl' => $editorsaveurl->out(false),
                         'data-sesskey' => sesskey(),
                         'data-activityname' => format_string($exelearning->name),
-                    ]),
-            'mb-3');
+                ]
+        ),
+        'mb-3'
+    );
 }
 
 if (!$mainfile) {
     echo $OUTPUT->notification(
-            get_string('packagenotfound', 'mod_exelearning'),
-            \core\output\notification::NOTIFY_ERROR);
+        get_string('packagenotfound', 'mod_exelearning'),
+        \core\output\notification::NOTIFY_ERROR
+    );
 } else {
     $iframeurl = moodle_url::make_pluginfile_url(
-            $context->id,
-            'mod_exelearning',
-            'content',
-            (int) $exelearning->revision,
-            '/',
-            'index.html');
+        $context->id,
+        'mod_exelearning',
+        'content',
+        (int) $exelearning->revision,
+        '/',
+        'index.html'
+    );
     // Lista de grade items detectados (para feedback rápido al profesor).
-    $items = $DB->get_records('exelearning_grade_item',
-            ['exelearningid' => $exelearning->id, 'deleted' => 0],
-            'itemnumber ASC');
+    $items = $DB->get_records(
+        'exelearning_grade_item',
+        ['exelearningid' => $exelearning->id, 'deleted' => 0],
+        'itemnumber ASC'
+    );
     if (has_capability('mod/exelearning:viewreport', $context) && !empty($items)) {
         echo html_writer::start_div('alert alert-info mb-3');
         echo html_writer::tag('strong', get_string('detecteditems', 'mod_exelearning')) . ' ';
@@ -194,29 +230,43 @@ if (!$mainfile) {
     if (has_capability('mod/exelearning:viewreport', $context)) {
         // Users visible to this teacher (respects separate groups).
         $currentgroup = groups_get_activity_group($cm, true);
-        $enrolled = get_enrolled_users($context, 'mod/exelearning:savetrack',
-                (int) $currentgroup, 'u.id');
+        $enrolled = get_enrolled_users(
+            $context,
+            'mod/exelearning:savetrack',
+            (int) $currentgroup,
+            'u.id'
+        );
         $userids = array_keys($enrolled);
         $summary = \mod_exelearning\local\attempts::participation_summary(
-                $exelearning->id, $userids);
+            $exelearning->id,
+            $userids
+        );
 
         $reporturl = new moodle_url('/mod/exelearning/report.php', ['id' => $cm->id]);
         echo html_writer::start_div('alert alert-info d-flex justify-content-between align-items-center mb-3');
         if ($summary['meanpercent'] === null) {
-            $text = get_string('participation_summary', 'mod_exelearning',
-                    (object) ['attempted' => $summary['attempted'], 'total' => $summary['total']]);
+            $text = get_string(
+                'participation_summary',
+                'mod_exelearning',
+                (object) ['attempted' => $summary['attempted'], 'total' => $summary['total']]
+            );
         } else {
-            $text = get_string('participation_summary_mean', 'mod_exelearning',
-                    (object) [
+            $text = get_string(
+                'participation_summary_mean',
+                'mod_exelearning',
+                (object) [
                         'attempted' => $summary['attempted'],
                         'total'     => $summary['total'],
                         'mean'      => format_float($summary['meanpercent'], 1),
-                    ]);
+                ]
+            );
         }
         echo html_writer::tag('span', $text);
-        echo html_writer::link($reporturl,
-                get_string('viewattemptsreport', 'mod_exelearning'),
-                ['class' => 'btn btn-sm btn-outline-primary']);
+        echo html_writer::link(
+            $reporturl,
+            get_string('viewattemptsreport', 'mod_exelearning'),
+            ['class' => 'btn btn-sm btn-outline-primary']
+        );
         echo html_writer::end_div();
     }
     // Resumen de intentos para el alumno (DEC-0007 fase 2).
@@ -230,8 +280,11 @@ if (!$mainfile) {
         $maxattempt = (int) ($exelearning->maxattempt ?? 0);
         if ($used > 0 || $maxattempt > 0) {
             $label = ($maxattempt > 0)
-                    ? get_string('attemptsofmax', 'mod_exelearning',
-                            (object) ['used' => $used, 'max' => $maxattempt])
+                    ? get_string(
+                        'attemptsofmax',
+                        'mod_exelearning',
+                        (object) ['used' => $used, 'max' => $maxattempt]
+                    )
                     : get_string('attemptsused', 'mod_exelearning', $used);
 
             // Enrich with grading method + reported grade (DEC-0011 option C
@@ -241,13 +294,18 @@ if (!$mainfile) {
                 $grademethod = (int) ($exelearning->grademethod
                         ?? \mod_exelearning\local\attempts::GRADE_HIGHEST);
                 $methodlabel = get_string(
-                        \mod_exelearning\local\attempts::grademethod_stringkey($grademethod),
-                        'mod_exelearning');
+                    \mod_exelearning\local\attempts::grademethod_stringkey($grademethod),
+                    'mod_exelearning'
+                );
                 $extras[] = get_string('grademethod', 'mod_exelearning') . ': ' . $methodlabel;
 
                 $grademax = (float) ($exelearning->grademax ?? 100);
                 $scaled = \mod_exelearning\local\attempts::aggregate_scaled(
-                        $exelearning->id, $USER->id, 0, $grademethod);
+                    $exelearning->id,
+                    $USER->id,
+                    0,
+                    $grademethod
+                );
                 if ($scaled !== null) {
                     $extras[] = get_string('reportedgrade', 'mod_exelearning') . ': '
                             . format_float($scaled * $grademax, 2) . ' / ' . format_float($grademax, 2);
@@ -268,8 +326,11 @@ if (!$mainfile) {
         $cinfo = new completion_info($course);
         if ($cinfo->is_enabled($cm)) {
             $cdata = $cinfo->get_data($cm, false, $USER->id);
-            $iscomplete = in_array((int) $cdata->completionstate,
-                    [COMPLETION_COMPLETE, COMPLETION_COMPLETE_PASS], true);
+            $iscomplete = in_array(
+                (int) $cdata->completionstate,
+                [COMPLETION_COMPLETE, COMPLETION_COMPLETE_PASS],
+                true
+            );
         }
         $canreview = ($reviewmode === \mod_exelearning\local\attempts::REVIEW_ALWAYS)
                 || ($reviewmode === \mod_exelearning\local\attempts::REVIEW_AFTERCOMPLETION
@@ -281,10 +342,12 @@ if (!$mainfile) {
                         . ': ' . format_float((float) $ma->rawscore, 2)
                         . ' / ' . format_float((float) $ma->maxscore, 2);
             }
-            echo html_writer::tag('details',
-                    html_writer::tag('summary', get_string('attempts', 'mod_exelearning'))
+            echo html_writer::tag(
+                'details',
+                html_writer::tag('summary', get_string('attempts', 'mod_exelearning'))
                     . html_writer::alist($list),
-                    ['class' => 'mb-3']);
+                ['class' => 'mb-3']
+            );
         }
     }
     // SCORM 1.2 shim: inyecta window.API en la ventana padre del iframe.
@@ -293,8 +356,10 @@ if (!$mainfile) {
     // `LMSInitialize`. Si no lo encuentra, el iDevice muestra "Esta página
     // no forma parte de un paquete SCORM". Implementación mínima viable:
     // bufferiza pares CMI y los manda a track.php en LMSCommit/LMSFinish.
-    $trackurl = (new moodle_url('/mod/exelearning/track.php',
-            ['id' => $cm->id, 'sesskey' => sesskey(), 'mode' => $mode]))->out(false);
+    $trackurl = (new moodle_url(
+        '/mod/exelearning/track.php',
+        ['id' => $cm->id, 'sesskey' => sesskey(), 'mode' => $mode]
+    ))->out(false);
     $shimjs = <<<JS
 (function () {
     var errCode = '0', cmi = {}, dirty = false, autoTimer = null;
@@ -346,20 +411,23 @@ if (!$mainfile) {
 })();
 JS;
     $attemptsession = random_string(20);
-    $shimjs = str_replace(['%TRACKURL%', '%CMID%', '%SESSION%'],
-            [addslashes($trackurl), (int) $cm->id, $attemptsession], $shimjs);
+    $shimjs = str_replace(
+        ['%TRACKURL%', '%CMID%', '%SESSION%'],
+        [addslashes($trackurl), (int) $cm->id, $attemptsession],
+        $shimjs
+    );
     echo html_writer::tag('script', $shimjs);
 
     // Iframe del paquete. Política de sandbox documentada en AN-008:
-    //   - allow-scripts        eXeLearning v4 usa jQuery + JS de iDevices.
-    //   - allow-same-origin    rutas relativas a pluginfile.php/.../content/<rev>/
-    //                          + futuro postMessage al endpoint xAPI.
-    //   - allow-popups         interactive-video, hidden-image, …
-    //   - allow-forms          quick-questions, form, scrambled-list, …
-    //   - allow-popups-to-escape-sandbox  los popups cargan sin restricciones.
+    // - allow-scripts        eXeLearning v4 usa jQuery + JS de iDevices.
+    // - allow-same-origin    rutas relativas a pluginfile.php/.../content/<rev>/
+    // + futuro postMessage al endpoint xAPI.
+    // - allow-popups         interactive-video, hidden-image, …
+    // - allow-forms          quick-questions, form, scrambled-list, …
+    // - allow-popups-to-escape-sandbox  los popups cargan sin restricciones.
     // SE BLOQUEAN explícitamente (no incluidas):
-    //   - allow-top-navigation (un paquete malicioso no debe cambiar la URL padre).
-    //   - allow-modals (no alert/confirm/prompt, son interrupciones de UX).
+    // - allow-top-navigation (un paquete malicioso no debe cambiar la URL padre).
+    // - allow-modals (no alert/confirm/prompt, son interrupciones de UX).
     echo html_writer::tag('iframe', '', [
         'src'    => $iframeurl->out(false),
         'name'   => 'exelearningobject',

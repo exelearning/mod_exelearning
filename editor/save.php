@@ -86,9 +86,14 @@ try {
     $mainfile = false;
     try {
         $contentslist = exelearning_package_legacy::expand_package($newpackage);
-        $mainfile = exelearning_package_legacy::get_mainfile($contentslist, $newpackage->get_contextid(), $newpackage->get_itemid());
+        $mainfile = exelearning_package_legacy::get_mainfile(
+            $contentslist,
+            $newpackage->get_contextid(),
+            $newpackage->get_itemid()
+        );
     } catch (Throwable $e) {
-        /* ELPX may not include a web entrypoint; ignore content extraction errors. */
+        // ELPX may not include a web entrypoint; ignore content extraction errors.
+        $mainfile = false;
     }
 
     if ($mainfile !== false) {

@@ -34,7 +34,6 @@ namespace mod_exelearning\local;
  * modified at runtime. Supports backup/rollback for safe replacement.
  */
 class embedded_editor_installer {
-
     /** @var string Repository that publishes the static editor releases. */
     const GITHUB_RELEASES_REPOSITORY = 'exelearning/exelearning';
 
@@ -246,10 +245,12 @@ class embedded_editor_installer {
      * @return string|null
      */
     private function extract_version_candidate_from_entry(string $entrybody): ?string {
-        foreach ([
+        foreach (
+            [
             'extract_version_candidate_from_entry_link',
             'extract_version_candidate_from_entry_title',
-        ] as $extractor) {
+            ] as $extractor
+        ) {
             $candidate = $this->{$extractor}($entrybody);
             if ($candidate !== null) {
                 return $candidate;
@@ -266,11 +267,13 @@ class embedded_editor_installer {
      * @return string|null
      */
     private function extract_version_candidate_from_entry_link(string $entrybody): ?string {
-        if (!preg_match(
-            '#<link[^>]+href="https://github\.com/exelearning/exelearning/releases/tag/([^"]+)"#i',
-            $entrybody,
-            $matches
-        )) {
+        if (
+            !preg_match(
+                '#<link[^>]+href="https://github\.com/exelearning/exelearning/releases/tag/([^"]+)"#i',
+                $entrybody,
+                $matches
+            )
+        ) {
             return null;
         }
 
@@ -351,8 +354,12 @@ class embedded_editor_installer {
 
         if (!is_file($tmpfile) || filesize($tmpfile) === 0) {
             $this->cleanup_temp_file($tmpfile);
-            throw new \moodle_exception('editordownloaderror', 'mod_exelearning', '',
-                get_string('editordownloademptyfile', 'mod_exelearning'));
+            throw new \moodle_exception(
+                'editordownloaderror',
+                'mod_exelearning',
+                '',
+                get_string('editordownloademptyfile', 'mod_exelearning')
+            );
         }
 
         return $tmpfile;
@@ -451,8 +458,12 @@ class embedded_editor_installer {
         if (!$zip->extractTo($tmpdir)) {
             $zip->close();
             $this->cleanup_temp_dir($tmpdir);
-            throw new \moodle_exception('editorextractfailed', 'mod_exelearning', '',
-                get_string('editorextractwriteerror', 'mod_exelearning'));
+            throw new \moodle_exception(
+                'editorextractfailed',
+                'mod_exelearning',
+                '',
+                get_string('editorextractwriteerror', 'mod_exelearning')
+            );
         }
 
         $zip->close();
@@ -532,8 +543,12 @@ class embedded_editor_installer {
         // Ensure parent directory exists and is writable.
         if (!is_dir($parentdir)) {
             if (!make_writable_directory($parentdir)) {
-                throw new \moodle_exception('editorinstallfailed', 'mod_exelearning', '',
-                    get_string('editormkdirerror', 'mod_exelearning', $parentdir));
+                throw new \moodle_exception(
+                    'editorinstallfailed',
+                    'mod_exelearning',
+                    '',
+                    get_string('editormkdirerror', 'mod_exelearning', $parentdir)
+                );
             }
         }
 
@@ -543,8 +558,12 @@ class embedded_editor_installer {
         if ($hadexisting) {
             $backupdir = $parentdir . '/embedded_editor-backup-' . time();
             if (!@rename($targetdir, $backupdir)) {
-                throw new \moodle_exception('editorinstallfailed', 'mod_exelearning', '',
-                    get_string('editorbackuperror', 'mod_exelearning'));
+                throw new \moodle_exception(
+                    'editorinstallfailed',
+                    'mod_exelearning',
+                    '',
+                    get_string('editorbackuperror', 'mod_exelearning')
+                );
             }
         }
 
@@ -567,8 +586,12 @@ class embedded_editor_installer {
                 }
                 @rename($backupdir, $targetdir);
             }
-            throw new \moodle_exception('editorinstallfailed', 'mod_exelearning', '',
-                get_string('editorcopyfailed', 'mod_exelearning'));
+            throw new \moodle_exception(
+                'editorinstallfailed',
+                'mod_exelearning',
+                '',
+                get_string('editorcopyfailed', 'mod_exelearning')
+            );
         }
 
         // Clean up backup on success.

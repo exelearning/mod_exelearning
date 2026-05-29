@@ -19,8 +19,6 @@ namespace mod_exelearning;
 use advanced_testcase;
 use mod_exelearning\local\attempts;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Unit tests for \mod_exelearning\local\attempts.
  *
@@ -31,7 +29,6 @@ defined('MOODLE_INTERNAL') || die();
  * @covers     \mod_exelearning\local\attempts
  */
 final class attempts_test extends advanced_testcase {
-
     /** @var \stdClass exelearning instance under test. */
     protected $instance;
 
@@ -114,16 +111,31 @@ final class attempts_test extends advanced_testcase {
         attempts::record_item($eid, $uid, 2, 0, 9, 10, 'completed', 's2');
         attempts::record_item($eid, $uid, 3, 0, 7, 10, 'completed', 's3');
 
-        $this->assertEqualsWithDelta(0.9,
-                attempts::aggregate_scaled($eid, $uid, 0, attempts::GRADE_HIGHEST), 0.0001);
-        $this->assertEqualsWithDelta((0.6 + 0.9 + 0.7) / 3,
-                attempts::aggregate_scaled($eid, $uid, 0, attempts::GRADE_AVERAGE), 0.0001);
-        $this->assertEqualsWithDelta(0.6,
-                attempts::aggregate_scaled($eid, $uid, 0, attempts::GRADE_FIRST), 0.0001);
-        $this->assertEqualsWithDelta(0.7,
-                attempts::aggregate_scaled($eid, $uid, 0, attempts::GRADE_LAST), 0.0001);
-        $this->assertEqualsWithDelta(0.6,
-                attempts::aggregate_scaled($eid, $uid, 0, attempts::GRADE_LOWEST), 0.0001);
+        $this->assertEqualsWithDelta(
+            0.9,
+            attempts::aggregate_scaled($eid, $uid, 0, attempts::GRADE_HIGHEST),
+            0.0001
+        );
+        $this->assertEqualsWithDelta(
+            (0.6 + 0.9 + 0.7) / 3,
+            attempts::aggregate_scaled($eid, $uid, 0, attempts::GRADE_AVERAGE),
+            0.0001
+        );
+        $this->assertEqualsWithDelta(
+            0.6,
+            attempts::aggregate_scaled($eid, $uid, 0, attempts::GRADE_FIRST),
+            0.0001
+        );
+        $this->assertEqualsWithDelta(
+            0.7,
+            attempts::aggregate_scaled($eid, $uid, 0, attempts::GRADE_LAST),
+            0.0001
+        );
+        $this->assertEqualsWithDelta(
+            0.6,
+            attempts::aggregate_scaled($eid, $uid, 0, attempts::GRADE_LOWEST),
+            0.0001
+        );
 
         // No attempts on an unused item returns null.
         $this->assertNull(attempts::aggregate_scaled($eid, $uid, 99, attempts::GRADE_HIGHEST));

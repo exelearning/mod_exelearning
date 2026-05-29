@@ -21,13 +21,11 @@
  * @copyright  2026 ATE (Área de Tecnología Educativa)
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Structure step to restore one exelearning activity.
  */
 class restore_exelearning_activity_structure_step extends restore_activity_structure_step {
-
     /**
      * Defines the structure to be restored.
      *
@@ -38,12 +36,16 @@ class restore_exelearning_activity_structure_step extends restore_activity_struc
         $userinfo = $this->get_setting_value('userinfo');
 
         $paths[] = new restore_path_element('exelearning', '/activity/exelearning');
-        $paths[] = new restore_path_element('exelearning_gradeitem',
-            '/activity/exelearning/gradeitems/gradeitem');
+        $paths[] = new restore_path_element(
+            'exelearning_gradeitem',
+            '/activity/exelearning/gradeitems/gradeitem'
+        );
 
         if ($userinfo) {
-            $paths[] = new restore_path_element('exelearning_attempt',
-                '/activity/exelearning/attempts/attempt');
+            $paths[] = new restore_path_element(
+                'exelearning_attempt',
+                '/activity/exelearning/attempts/attempt'
+            );
         }
 
         // Return the paths wrapped into standard activity structure.

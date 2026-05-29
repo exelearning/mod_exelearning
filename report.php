@@ -47,17 +47,22 @@ $PAGE->set_context($context);
 // attempt) y recalcula la nota del alumno desde el histórico restante.
 $deleteuser = optional_param('deleteuser', 0, PARAM_INT);
 $deleteattempt = optional_param('deleteattempt', 0, PARAM_INT);
-if ($deleteuser && $deleteattempt && confirm_sesskey()
-        && has_capability('mod/exelearning:deleteattempt', $context)) {
+if (
+    $deleteuser && $deleteattempt && confirm_sesskey()
+        && has_capability('mod/exelearning:deleteattempt', $context)
+) {
     $DB->delete_records('exelearning_attempt', [
         'exelearningid' => $exelearning->id,
         'userid'        => $deleteuser,
         'attempt'       => $deleteattempt,
     ]);
     exelearning_recalculate_user_grades($exelearning, $deleteuser);
-    redirect(new moodle_url('/mod/exelearning/report.php', ['id' => $cm->id]),
-            get_string('attemptdeleted', 'mod_exelearning'), null,
-            \core\output\notification::NOTIFY_SUCCESS);
+    redirect(
+        new moodle_url('/mod/exelearning/report.php', ['id' => $cm->id]),
+        get_string('attemptdeleted', 'mod_exelearning'),
+        null,
+        \core\output\notification::NOTIFY_SUCCESS
+    );
 }
 
 $candelete = has_capability('mod/exelearning:deleteattempt', $context);
@@ -67,18 +72,27 @@ echo $OUTPUT->heading(get_string('attemptsreport', 'mod_exelearning'));
 
 // Mapa itemnumber → nombre legible (overall + iDevices).
 $itemnames = [0 => get_string('report_overall', 'mod_exelearning')];
-$gradeitems = $DB->get_records('exelearning_grade_item',
-        ['exelearningid' => $exelearning->id], 'itemnumber ASC', 'itemnumber, name, idevicetype');
+$gradeitems = $DB->get_records(
+    'exelearning_grade_item',
+    ['exelearningid' => $exelearning->id],
+    'itemnumber ASC',
+    'itemnumber, name, idevicetype'
+);
 foreach ($gradeitems as $gi) {
     $itemnames[(int) $gi->itemnumber] = format_string($gi->name);
 }
 
-$attempts = $DB->get_records('exelearning_attempt',
-        ['exelearningid' => $exelearning->id], 'userid ASC, attempt ASC, itemnumber ASC');
+$attempts = $DB->get_records(
+    'exelearning_attempt',
+    ['exelearningid' => $exelearning->id],
+    'userid ASC, attempt ASC, itemnumber ASC'
+);
 
 if (empty($attempts)) {
-    echo $OUTPUT->notification(get_string('noattempts', 'mod_exelearning'),
-            \core\output\notification::NOTIFY_INFO);
+    echo $OUTPUT->notification(
+        get_string('noattempts', 'mod_exelearning'),
+        \core\output\notification::NOTIFY_INFO
+    );
     echo $OUTPUT->footer();
     die;
 }
@@ -128,9 +142,11 @@ foreach ($attempts as $a) {
                 'deleteattempt' => $a->attempt,
                 'sesskey'       => sesskey(),
             ]);
-            $row[] = html_writer::link($delurl,
-                    get_string('deleteattempt', 'mod_exelearning'),
-                    ['class' => 'btn btn-sm btn-outline-danger']);
+            $row[] = html_writer::link(
+                $delurl,
+                get_string('deleteattempt', 'mod_exelearning'),
+                ['class' => 'btn btn-sm btn-outline-danger']
+            );
         } else {
             $row[] = '';
         }

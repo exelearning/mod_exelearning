@@ -42,10 +42,7 @@ $ADMIN->add('modsettings', new admin_externalpage(
 ));
 
 if ($ADMIN->fulltree) {
-
-    // -------------------------------------------------------------------------
     // Embedded editor management (install / update / repair / uninstall).
-    // -------------------------------------------------------------------------
     $settings->add(new admin_setting_heading(
         'mod_exelearning/embeddededitorheading',
         get_string('embeddededitorsettings', 'mod_exelearning'),
@@ -58,9 +55,7 @@ if ($ADMIN->fulltree) {
         get_string('editormanagementhelp', 'mod_exelearning')
     ));
 
-    // -------------------------------------------------------------------------
     // Defined styles management (upload / enable / disable / lockdown).
-    // -------------------------------------------------------------------------
     $settings->add(new admin_setting_heading(
         'mod_exelearning/stylesheading',
         get_string('stylesmanager', 'mod_exelearning'),
@@ -71,8 +66,11 @@ if ($ADMIN->fulltree) {
     $settings->add(new \mod_exelearning\admin\admin_setting_stylesupload(
         'exelearning/styles_drops',
         get_string('stylesupload_label', 'mod_exelearning'),
-        get_string('stylesupload_hint', 'mod_exelearning',
-            display_size(\mod_exelearning\local\styles_service::get_max_zip_size())),
+        get_string(
+            'stylesupload_hint',
+            'mod_exelearning',
+            display_size(\mod_exelearning\local\styles_service::get_max_zip_size())
+        ),
         'styles_drops',
         0,
         [

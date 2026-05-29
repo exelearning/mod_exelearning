@@ -24,8 +24,14 @@
 
 namespace mod_exelearning\event;
 
+/**
+ * The mod_exelearning course module viewed event class.
+ *
+ * @package    mod_exelearning
+ * @copyright  2026 ATE (Área de Tecnología Educativa)
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class course_module_viewed extends \core\event\course_module_viewed {
-
     /**
      * Init method.
      */

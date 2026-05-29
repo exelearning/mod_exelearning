@@ -39,10 +39,7 @@ use mod_exelearning\local\embedded_editor_source_resolver;
  * the admin-installed embedded editor, and to query its current status.
  */
 class manage_embedded_editor extends external_api {
-
-    // -------------------------------------------------------------------------
-    // execute_action
-    // -------------------------------------------------------------------------
+    // The execute_action endpoint.
 
     /**
      * Parameter definition for execute_action.
@@ -151,9 +148,7 @@ class manage_embedded_editor extends external_api {
         ]);
     }
 
-    // -------------------------------------------------------------------------
-    // get_status
-    // -------------------------------------------------------------------------
+    // The get_status endpoint.
 
     /**
      * Parameter definition for get_status.
@@ -264,9 +259,9 @@ class manage_embedded_editor extends external_api {
             'active_source'           => new external_value(PARAM_TEXT, 'Active source: moodledata, bundled, or none'),
             'moodledata_available'    => new external_value(PARAM_BOOL, 'Whether the admin-installed editor is present and valid'),
             'moodledata_version'      => new external_value(PARAM_TEXT, 'Installed version in moodledata, empty if unknown'),
-            'moodledata_installed_at' => new external_value(PARAM_TEXT, 'Installation timestamp for moodledata editor, empty if unknown'),
+            'moodledata_installed_at' => new external_value(PARAM_TEXT, 'Install timestamp for moodledata editor, empty if none'),
             'bundled_available'       => new external_value(PARAM_BOOL, 'Whether the bundled editor is present and valid'),
-            'latest_version'          => new external_value(PARAM_TEXT, 'Latest version from GitHub, empty if not checked or on error'),
+            'latest_version'          => new external_value(PARAM_TEXT, 'Latest version from GitHub, empty if unchecked or error'),
             'latest_error'            => new external_value(PARAM_TEXT, 'Error message from GitHub check, empty on success'),
             'update_available'        => new external_value(PARAM_BOOL, 'Whether a newer version is available on GitHub'),
             'installing'              => new external_value(PARAM_BOOL, 'Whether an installation is currently in progress'),
