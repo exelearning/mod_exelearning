@@ -855,3 +855,22 @@ function exelearning_get_embedded_editor_index_source(): ?string {
 function exelearning_embedded_editor_enabled(): bool {
     return \mod_exelearning\local\embedded_editor_source_resolver::has_local_source();
 }
+
+/**
+ * Whether a local editor asset bundle is available to be served by static.php.
+ *
+ * @return bool True when an admin-installed or bundled editor directory exists.
+ */
+function exelearning_embedded_editor_uses_local_assets(): bool {
+    return \mod_exelearning\local\embedded_editor_source_resolver::has_local_source();
+}
+
+/**
+ * Absolute path to the active editor static directory (moodledata → bundled),
+ * used by editor/static.php to serve the editor's assets.
+ *
+ * @return string|null Directory path, or null when no editor is installed.
+ */
+function exelearning_get_embedded_editor_local_static_dir(): ?string {
+    return \mod_exelearning\local\embedded_editor_source_resolver::get_active_dir();
+}
