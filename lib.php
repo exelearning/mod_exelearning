@@ -680,6 +680,8 @@ function exelearning_inject_scorm_loader(int $contextid, int $revision): void {
  * Detecta iDevices calificables en el paquete almacenado y sincroniza grade items.
  *
  * @param int $exelearningid
+ * @param int|null $contextid
+ * @return void
  */
 function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null): void {
     global $CFG, $DB;

@@ -1,7 +1,8 @@
 id: PREG-003
 pregunta: "¿Qué hacer con los issues que Chrome reporta dentro del iframe del paquete eXeLearning (jQuery 1.x unload + iDevice button sin name)?"
-estado: abierta
+estado: resuelta
 fecha_apertura: 2026-05-28
+fecha_resolucion: 2026-05-29
 contexto: |
   Tras renderizar `view.php` con el iframe del paquete (EXP-002), Chrome DevTools
   reporta dos issues que no provienen de código de mod_exelearning:
@@ -24,7 +25,24 @@ evidencias_necesarias:
   - "Verificar versión exacta de jQuery dentro del paquete v4 (REPO-005/libs)."
   - "Localizar el iDevice JS que genera el botón sin name (`Games-SendScore`) en exelearning v4 (REPO-005/idevices/<type>/<type>.js)."
   - "Confirmar si la actualización a jQuery 3.x ya está planificada en upstream."
-resolucion: ""
+resolucion: |
+  RESUELTA (2026-05-29) — se trata como upstream, sin parche local.
+
+  Decisión (erseco): ambos issues provienen del CONTENIDO empaquetado por
+  eXeLearning v4 (jQuery 1.x con `$(window).unload(...)` deprecado, y el botón
+  `Games-SendScore` sin name/id), NO de código de mod_exelearning. Son avisos
+  cosméticos de Chrome DevTools que NO afectan a la funcionalidad (el bridge
+  SCORM, el guardado de notas y la finalización funcionan).
+
+  Acordado NO añadir un parche local (MutationObserver para inyectar name/id, ni
+  forzar jQuery 3.x), porque:
+    - Manipular el DOM del iframe del paquete es frágil y se rompería con cada
+      cambio del export de eXeLearning.
+    - El sandbox del iframe ya aísla el contenido (ver AN-008 / RIE-001).
+
+  Se documenta como LIMITACIÓN CONOCIDA atribuible a upstream. Si en el futuro se
+  quiere eliminar, el camino correcto es que eXeLearning actualice jQuery y añada
+  atributos a sus inputs (no mod_exelearning).
 relacionados:
   - REPO-005
   - FTE-008

@@ -1,7 +1,8 @@
 id: PREG-001
 pregunta: "¿La publicación de eXeLearning expone identificadores estables por iDevice calificable, y en qué formatos (Web, SCORM 1.2, SCORM 2004, cmi5)?"
-estado: abierta
+estado: resuelta
 fecha_apertura: 2026-05-28
+fecha_resolucion: 2026-05-29
 contexto: |
   El requisito de N grade items en gradebook depende de poder mapear cada iDevice
   calificable a un `objectid` estable. La estabilidad debe sobrevivir re-uploads del
@@ -13,7 +14,37 @@ hipotesis:
 evidencias_necesarias:
   - "EXP-001: descomprimir paquete real y listar IDs encontrados."
   - "Lectura del código de export de eXeLearning upstream (REPO-005) que genera el HTML / manifest."
-resolucion: ""
+resolucion: |
+  RESUELTA (2026-05-29) con evidencia empírica (fixtures reales) + documentación
+  autoritativa de upstream (`exelearning/exelearning:main/doc/elpx-format/ids.md`).
+
+  SÍ existe un identificador por iDevice (`<odeIdeviceId>` en content.xml), que
+  mod_exelearning usa como `objectid` para el mapeo a itemnumber. Formatos
+  observados en los fixtures:
+    - `idevice-1779989968114-sevb8qqdy` (timestamp + random; importador
+      `<prefix>-<Date.now().toString(36)>-<random>`).
+    - `idevice-mnycyotg-ux2jvi0c6` (base36).
+    - `20251009090601SQPBIF` (formato moderno `[0-9]{14}[A-Z0-9]{6}`,
+      `generateOdeId()`).
+
+  ESTABILIDAD (matiz crítico, cierra también el riesgo RIE-006):
+    - DENTRO de un mismo proyecto, entre ediciones, el id es ESTABLE.
+    - PERO al **importar** el .elpx (que es justo lo que hace el editor embebido
+      al abrir un paquete: lo importa a un Y.Doc, se edita y se re-exporta), el
+      `odeIdeviceId` se **reasigna** en `buildPageData()` "to avoid collisions
+      during repeated imports". → Cita ids.md: "iDevice IDs remain stable within
+      a project between edits, but are reassigned whenever the ELPX/ELP file is
+      imported".
+
+  CONSECUENCIA para mod_exelearning: una subida nueva del MISMO paquete (re-upload
+  por formulario) conserva los ids → re-sync idempotente (verificado). Pero
+  EDITAR+GUARDAR desde el editor embebido puede reasignar los ids → el re-sync los
+  ve como items nuevos → columna duplicada + la antigua queda soft-deleted (se
+  pierde continuidad de esa columna, aunque NO el historial de notas). Esto es el
+  comportamiento documentado de upstream, no un bug de nuestro plugin.
+
+  Sobre SCORM 2004 / cmi5 / objectives: no verificado en esta iteración (el bridge
+  actual es SCORM 1.2, ver DEC-0003). Queda fuera de alcance hasta el bridge xAPI.
 relacionados:
   - REPO-005
   - FTE-001
@@ -21,3 +52,4 @@ relacionados:
   - FTE-008
   - TAREA-003
   - DEC-0003
+  - DEC-0012

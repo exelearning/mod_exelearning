@@ -2,6 +2,13 @@ id: PREG-002
 pregunta: "¿Qué cambios aguas arriba en eXeLearning facilitarían el soporte multi-grade-items en Moodle?"
 estado: abierta
 fecha_apertura: 2026-05-28
+# Nota 2026-05-29 (informada por PREG-001, sin tocar código): el cambio upstream
+# de mayor valor es PRESERVAR `odeIdeviceId` al importar/re-exportar el mismo
+# proyecto. Hoy se reasigna en `buildPageData()` ("reassigned whenever the
+# ELPX/ELP file is imported", doc/elpx-format/ids.md), lo que provoca RIE-006
+# (columnas duplicadas al editar+guardar desde el editor embebido). Si upstream
+# mantuviera el id estable entre import/export, mod_exelearning no necesitaría
+# emparejamiento de respaldo. Sigue ABIERTA: requiere acuerdo con mantenedores.
 contexto: |
   Si la publicación actual no expone identificadores estables ni statements xAPI,
   conviene proponer cambios upstream para evitar parches frágiles en mod_exelearning.

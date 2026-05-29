@@ -24,6 +24,12 @@ const MAX_OPEN_ATTEMPTS = 3;
 const OPEN_RESPONSE_TIMEOUT_MS = 3000;
 const FIXED_EXPORT_FORMAT = 'elpx';
 
+/**
+ * Resolve the origin of a URL, falling back to a wildcard on failure.
+ *
+ * @param {string} url The URL to inspect.
+ * @returns {string} The resolved origin, or '*' if it cannot be parsed.
+ */
 const getOrigin = (url) => {
     try {
         return new URL(url, window.location.href).origin;
@@ -32,11 +38,24 @@ const getOrigin = (url) => {
     }
 };
 
+/**
+ * Generate a unique request identifier for bridge messages.
+ *
+ * @param {string} prefix A prefix describing the request type.
+ * @returns {string} A unique request identifier.
+ */
 const nextRequestId = (prefix) => {
     requestCounter += 1;
     return `${prefix}-${Date.now()}-${requestCounter}`;
 };
 
+/**
+ * Rewrite the revision segment of a package URL and add a cache buster.
+ *
+ * @param {string} url The original package URL.
+ * @param {number|string} revision The new revision number.
+ * @returns {string} The updated URL, or the original if it cannot be rewritten.
+ */
 const updatePackageUrlRevision = (url, revision) => {
     if (!url || !revision) {
         return url;
@@ -53,6 +72,12 @@ const updatePackageUrlRevision = (url, revision) => {
     return `${updated}${separator}v=${normalizedRevision}-${Date.now()}`;
 };
 
+/**
+ * Persist an updated package URL on the session and the open button dataset.
+ *
+ * @param {string} newUrl The new package URL to store.
+ * @returns {void}
+ */
 const persistUpdatedPackageUrl = (newUrl) => {
     if (!newUrl || !session) {
         return;
@@ -65,6 +90,13 @@ const persistUpdatedPackageUrl = (newUrl) => {
     }
 };
 
+/**
+ * Rewrite the revision segment of a content URL and add a cache buster.
+ *
+ * @param {string} url The original content URL.
+ * @param {number|string} revision The new revision number.
+ * @returns {string} The updated URL, or the original if it cannot be rewritten.
+ */
 const updateContentUrlRevision = (url, revision) => {
     if (!url || !revision) {
         return url;
@@ -81,6 +113,12 @@ const updateContentUrlRevision = (url, revision) => {
     return `${updated}${separator}v=${normalizedRevision}-${Date.now()}`;
 };
 
+/**
+ * Refresh the activity content iframe so it points at the new revision.
+ *
+ * @param {number|string} revision The new revision number.
+ * @returns {void}
+ */
 const refreshActivityIframe = (revision) => {
     const activityIframe = document.getElementById('exelearningobject');
     if (!activityIframe || !activityIframe.src) {
@@ -92,6 +130,13 @@ const refreshActivityIframe = (revision) => {
     }
 };
 
+/**
+ * Set the save button label from a language string, with a fallback.
+ *
+ * @param {string} key The language string key.
+ * @param {string} fallback The fallback text if the string cannot be loaded.
+ * @returns {Promise<void>}
+ */
 const setSaveLabel = async(key, fallback) => {
     if (!saveBtn) {
         return;
@@ -104,6 +149,11 @@ const setSaveLabel = async(key, fallback) => {
     }
 };
 
+/**
+ * Build and append the saving loading modal element.
+ *
+ * @returns {Promise<HTMLElement>} The created modal element.
+ */
 const createLoadingModal = async() => {
     const modal = document.createElement('div');
     modal.className = 'exeweb-loading-modal';
@@ -130,6 +180,11 @@ const createLoadingModal = async() => {
     return modal;
 };
 
+/**
+ * Show the saving loading modal, creating it if necessary.
+ *
+ * @returns {Promise<void>}
+ */
 const showLoadingModal = async() => {
     if (!loadingModal) {
         loadingModal = await createLoadingModal();
@@ -137,12 +192,22 @@ const showLoadingModal = async() => {
     loadingModal.classList.add('is-visible');
 };
 
+/**
+ * Hide the saving loading modal if it exists.
+ *
+ * @returns {void}
+ */
 const hideLoadingModal = () => {
     if (loadingModal) {
         loadingModal.classList.remove('is-visible');
     }
 };
 
+/**
+ * Remove the saving loading modal from the DOM.
+ *
+ * @returns {void}
+ */
 const removeLoadingModal = () => {
     if (loadingModal) {
         loadingModal.remove();
@@ -150,6 +215,11 @@ const removeLoadingModal = () => {
     }
 };
 
+/**
+ * Ask the user to confirm closing when there are unsaved changes.
+ *
+ * @returns {Promise<boolean>} True if the close should be cancelled.
+ */
 const checkUnsavedChanges = async() => {
     if (!hasUnsavedChanges) {
         return false;
@@ -163,6 +233,13 @@ const checkUnsavedChanges = async() => {
     return !window.confirm(message);
 };
 
+/**
+ * Post a message to the embedded editor iframe.
+ *
+ * @param {object} message The message payload to send.
+ * @param {Transferable[]} [transfer] Optional transferable objects.
+ * @returns {void}
+ */
 const postToEditor = (message, transfer) => {
     if (!iframe?.contentWindow) {
         return;
@@ -174,6 +251,11 @@ const postToEditor = (message, transfer) => {
     }
 };
 
+/**
+ * Clear the pending OPEN_FILE response timeout.
+ *
+ * @returns {void}
+ */
 const clearOpenResponseTimer = () => {
     if (openResponseTimer) {
         clearTimeout(openResponseTimer);
@@ -181,6 +263,11 @@ const clearOpenResponseTimer = () => {
     }
 };
 
+/**
+ * Schedule a retry of the initial package open, with backoff.
+ *
+ * @returns {void}
+ */
 const scheduleOpenRetry = () => {
     if (openAttemptCount >= MAX_OPEN_ATTEMPTS) {
         return;
@@ -191,6 +278,11 @@ const scheduleOpenRetry = () => {
     }, 300 * openAttemptCount);
 };
 
+/**
+ * Arm a timeout that retries the open request if no response arrives.
+ *
+ * @returns {void}
+ */
 const armOpenResponseTimer = () => {
     clearOpenResponseTimer();
     openResponseTimer = setTimeout(() => {
@@ -204,6 +296,12 @@ const armOpenResponseTimer = () => {
     }, OPEN_RESPONSE_TIMEOUT_MS);
 };
 
+/**
+ * Toggle the saving state, updating the button and loading modal.
+ *
+ * @param {boolean} saving Whether a save is in progress.
+ * @returns {Promise<void>}
+ */
 const setSavingState = async(saving) => {
     isSaving = saving;
     if (!saveBtn) {
@@ -219,6 +317,11 @@ const setSavingState = async(saving) => {
     }
 };
 
+/**
+ * Fetch the current package and send it to the editor to open.
+ *
+ * @returns {Promise<void>}
+ */
 const openInitialPackage = async() => {
     if (session?.skipOpenFileOnInit) {
         return;
@@ -256,6 +359,12 @@ const openInitialPackage = async() => {
     }
 };
 
+/**
+ * Upload an exported package to Moodle and refresh the activity view.
+ *
+ * @param {object} payload The export payload from the editor.
+ * @returns {Promise<void>}
+ */
 const uploadExportedFile = async(payload) => {
     const bytes = payload?.bytes;
     if (!bytes) {
@@ -299,6 +408,11 @@ const uploadExportedFile = async(payload) => {
     window.location.reload();
 };
 
+/**
+ * Request the editor to export the current document for saving.
+ *
+ * @returns {Promise<void>}
+ */
 const requestExport = async() => {
     if (isSaving || !iframe?.contentWindow) {
         return;
@@ -317,6 +431,12 @@ const requestExport = async() => {
     });
 };
 
+/**
+ * Handle protocol messages received from the embedded editor bridge.
+ *
+ * @param {MessageEvent} event The incoming message event.
+ * @returns {Promise<void>}
+ */
 const handleBridgeMessage = async(event) => {
     if (!iframe?.contentWindow || event.source !== iframe.contentWindow || !event.data) {
         return;
@@ -394,6 +514,12 @@ const handleBridgeMessage = async(event) => {
     }
 };
 
+/**
+ * Handle legacy bridge messages from older editor builds.
+ *
+ * @param {MessageEvent} event The incoming message event.
+ * @returns {Promise<void>}
+ */
 const handleLegacyBridgeMessage = async(event) => {
     const data = event.data;
     if (!data || data.source !== 'exeweb-editor') {
@@ -415,17 +541,35 @@ const handleLegacyBridgeMessage = async(event) => {
     }
 };
 
+/**
+ * Dispatch an incoming window message to both bridge handlers.
+ *
+ * @param {MessageEvent} event The incoming message event.
+ * @returns {Promise<void>}
+ */
 const handleMessage = async(event) => {
     await handleBridgeMessage(event);
     await handleLegacyBridgeMessage(event);
 };
 
+/**
+ * Close the editor overlay when the Escape key is pressed.
+ *
+ * @param {KeyboardEvent} event The keydown event.
+ * @returns {void}
+ */
 const handleKeydown = (event) => {
     if (event.key === 'Escape') {
         close(false);
     }
 };
 
+/**
+ * Close the editor overlay and tear down its state and listeners.
+ *
+ * @param {boolean} skipConfirm Skip the unsaved-changes confirmation when true.
+ * @returns {Promise<void>}
+ */
 export const close = async(skipConfirm) => {
     if (!overlay) {
         return;
@@ -467,6 +611,17 @@ export const close = async(skipConfirm) => {
     }
 };
 
+/**
+ * Open the embedded editor overlay for the given activity.
+ *
+ * @param {number|string} cmid The course module id.
+ * @param {string} editorUrl The URL of the embedded editor.
+ * @param {string} activityName The activity name shown in the header.
+ * @param {string} packageUrl The URL of the current package file.
+ * @param {string} saveUrl The endpoint used to save exported packages.
+ * @param {string} sesskey The Moodle session key.
+ * @returns {Promise<void>}
+ */
 export const open = async(cmid, editorUrl, activityName, packageUrl, saveUrl, sesskey) => {
     Log.debug('[editor_modal] Opening editor for cmid:', cmid);
 
@@ -541,6 +696,11 @@ export const open = async(cmid, editorUrl, activityName, packageUrl, saveUrl, se
     document.addEventListener('keydown', handleKeydown);
 };
 
+/**
+ * Initialise the delegated click handler that opens the editor.
+ *
+ * @returns {void}
+ */
 export const init = () => {
     document.addEventListener('click', (event) => {
         const button = event.target.closest('[data-action="mod_exelearning/editor-open"]');

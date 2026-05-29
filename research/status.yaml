@@ -25,23 +25,26 @@ decisiones_bloqueantes:
     fecha: 2026-05-28
   DEC-0003:
     titulo: "Estándar de tracking y multi-grade-items"
-    estado: Propuesta
+    estado: Aceptada
     ruta: decisiones/adr/DEC-0003-estandar-tracking-y-multi-grade-items.md
     fecha: 2026-05-28
+    fecha_aceptacion: 2026-05-29
     notas: >-
-      Hipótesis: xAPI/cmi5 como canal de tracking + grade_update con itemnumber
-      variable (patrón mod_workshop). Pendiente cerrar con matriz cuantificada y
-      EXP-001..EXP-003. EXP-001 (2026-05-28) revela un Plan B realista:
-      el export SCORM 1.2 de eXeLearning v4 ya emite 1 SCO por página → habilita
-      multi-grade-items a nivel de página sin cambios upstream (ver AN-005).
+      Aceptada (2026-05-29) con el estado real: multi-grade-items implementado
+      (parseo content.xml + N grade_update por itemnumber) y tracking vigente vía
+      bridge SCORM 1.2 (shim window.API → track.php). xAPI nativo (core_xapi) es
+      trabajo futuro en su propio ADR.
   DEC-0004:
     titulo: "Build, empaquetado y CI con matriz Moodle/PHP/DB"
-    estado: Propuesta
+    estado: Aceptada
     ruta: decisiones/adr/DEC-0004-build-empaquetado-ci-tests.md
     fecha: 2026-05-28
+    fecha_aceptacion: 2026-05-29
     notas: >-
-      Heredar Makefile + 3 workflows de mod_exescorm/mod_exeweb y añadir ci.yml
-      con moodle-plugin-ci matriz Moodle 4.1/4.3/4.5/main × PHP 8.1-8.4 × pgsql/mariadb.
+      Aceptada (2026-05-29): ci.yml con moodle-plugin-ci v4, matriz 18 combos
+      (Moodle 4.5/5.0/5.1 × PHP 8.1-8.4 × pgsql/mariadb). Trampa: no declarar
+      dist/static en thirdpartylibs.xml (gitignored → grunt ignorefiles aborta
+      install). phpcs/phpdoc/grunt en verde.
   DEC-0005:
     titulo: "Editor embebido eXeLearning heredado de mod_exeweb"
     estado: Superseded
@@ -63,20 +66,55 @@ decisiones_bloqueantes:
     notas: "Verificado end-to-end: track.php?mode=preview no toca gradebook; switch-to-student cae a grading silenciosamente."
   DEC-0007:
     titulo: "Gestión de intentos: tabla propia + modelo h5pactivity"
-    estado: Propuesta
+    estado: Aceptada
     ruta: decisiones/adr/DEC-0007-gestion-intentos.md
     fecha: 2026-05-28
-    notas: "Híbrido h5pactivity + multi-itemnumber. Schema completo en el ADR. Implementación queda para TAREA-023+."
+    fecha_aceptacion: 2026-05-29
+    notas: >-
+      Implementado y verificado: tabla plana exelearning_attempt, agregación
+      grademethod (highest/average/first/last/lowest) por sessiontoken, report.php,
+      privacy provider, backup/restore. Fase 2 también: maxattempt, reviewmode y
+      borrar intento (cap mod/exelearning:deleteattempt) con recálculo.
   DEC-0008:
     titulo: "Agregación de grade items y retroalimentación"
-    estado: Propuesta
+    estado: Aceptada
     ruta: decisiones/adr/DEC-0008-grade-aggregation-y-feedback.md
     fecha: 2026-05-28
+    fecha_aceptacion: 2026-05-29
     notas: >-
-      3 modos (overall/peritem/both) para evitar doble conteo del overall +
-      items individuales. Recomendación: `both` con grade_category propia +
-      overall excluido del total del curso. Implementación queda para TAREA-027.
-      Feedback `lesson_status=passed` eliminado YA (1 línea en track.php).
+      Implementado: selector grademodel overall/peritem/both (default both, que
+      excluye el overall del total del curso vía weightoverride+aggregationcoef2).
+      Borrar un iDevice quita su columna del libro (grade_update deleted).
+      Feedback lesson_status eliminado.
+  DEC-0010:
+    titulo: "Finalización estilo SCORM (aprobar para completar)"
+    estado: Aceptada
+    ruta: decisiones/adr/DEC-0010-finalizacion-estilo-scorm.md
+    fecha: 2026-05-28
+    notas: >-
+      gradepass + condición core completionpassgrade. track.php refuerza
+      completion->update_state tras grabar nota. Demo con 3 actividades
+      (exelearning+scorm+h5p) con pass-to-complete.
+  DEC-0011:
+    titulo: "Presentación de intentos en la portada"
+    estado: Aceptada
+    ruta: decisiones/adr/DEC-0011-presentacion-intentos-portada.md
+    fecha: 2026-05-28
+    fecha_aceptacion: 2026-05-29
+    notas: >-
+      No clonar la tabla SCORM (portada con contenido inline, como H5P). Resumen
+      de participación al profesor estilo Tarea (participation_summary, respeta
+      grupos) + línea método/nota al alumno. Detalle en report.php.
+  DEC-0012:
+    titulo: "Re-escaneo del libro tras guardar en el editor embebido"
+    estado: Aceptada
+    ruta: decisiones/adr/DEC-0012-resync-libro-tras-guardar-editor.md
+    fecha: 2026-05-29
+    notas: >-
+      editor/save.php re-extrae el paquete + re-sincroniza grade items tras subir
+      revisión. RIE-006: el objectid del iDevice se REASIGNA al importar el .elpx
+      (doc upstream ids.md) → editar+guardar puede duplicar columna. Documentado;
+      sin parche local por decisión (erseco).
 
 tareas:
   TAREA-001:

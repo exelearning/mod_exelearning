@@ -1,7 +1,7 @@
 ---
 id: DEC-0004
 titulo: "Build, empaquetado y CI: Makefile heredado + moodle-plugin-ci con matriz Moodle/PHP/DB"
-estado: Propuesta
+estado: Aceptada
 fecha: 2026-05-28
 agentes:
   - erseco
@@ -152,3 +152,22 @@ Antes de aceptar:
 - TAREA-006: redactar `ci.yml` concreto con matriz.
 - Esta decisión es **transversal**: no bloquea DEC-0003 pero se ejecuta en
   paralelo desde el primer commit del plugin.
+
+## Actualización (2026-05-29): Aceptada — CI implementada y verde
+
+`.github/workflows/ci.yml` implementado con moodle-plugin-ci v4 y matriz de 18
+combinaciones: Moodle 4.5 LTS (MOODLE_405_STABLE) × PHP 8.1/8.2/8.3, Moodle 5.0
+y 5.1 × PHP 8.2/8.3/8.4, cada una con pgsql y mariadb. Pasos: phplint, phpmd,
+phpcs (moodle-cs, `--max-warnings 0`), phpdoc, validate, savepoints, mustache,
+grunt, phpunit; behat opcional/continue-on-error.
+
+Trampas resueltas para que pase verde (ver diario 2026-05-29):
+- `thirdpartylibs.xml` NO debe declarar `dist/static` (gitignored): `grunt
+  ignorefiles` hace `stat` de cada `<location>` y aborta el `install` con ENOENT,
+  tumbando toda la matriz en cascada. Se quitó esa entrada.
+- phpcs estándar moodle: el árbol cumple `--max-warnings 0` (docblocks, orden
+  alfabético de strings en `lang/en` — sniff `moodle.Files.LangFilesOrdering` —,
+  sin `MOODLE_INTERNAL` en ficheros de clase/test, líneas ≤132).
+- phpdoc: cada función documenta TODOS sus `@param`.
+- grunt/eslint: AMD de `amd/src` con JSDoc en todas las funciones y sin
+  variables sin usar; `amd/build/` regenerado.

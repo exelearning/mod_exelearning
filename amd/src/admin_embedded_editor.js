@@ -336,10 +336,9 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
      *
      * @param {jQuery} container The widget container.
      * @param {boolean} checklatest Whether latest version should be queried.
-     * @param {Object} runtimeConfig Runtime config.
      * @returns {Promise<Object>}
      */
-    var refreshStatus = function(container, checklatest, runtimeConfig) {
+    var refreshStatus = function(container, checklatest) {
         return callGetStatus(!!checklatest).then(function(statusData) {
             updateStatus(container, statusData);
             return statusData;
@@ -395,7 +394,7 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
                 if (!statusData.installing) {
                     setProgressState(container, 'success');
                     hideProgress(container);
-                    refreshStatus(container, true, runtimeConfig).catch(function() {
+                    refreshStatus(container, true).catch(function() {
                         updateStatus(container, statusData);
                     });
                     return;
@@ -473,7 +472,7 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
             showResultMessage(container, message, 'success');
             Notification.addNotification({message: message, type: 'success'});
 
-            refreshStatus(container, true, runtimeConfig).catch(function() {
+            refreshStatus(container, true).catch(function() {
                 // Keep current state.
             });
 
@@ -548,7 +547,7 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
         elements.spinnerEl.show();
         elements.textEl.hide();
 
-        refreshStatus(container, true, runtimeConfig).catch(function() {
+        refreshStatus(container, true).catch(function() {
             elements.spinnerEl.hide();
             elements.textEl.show();
         });

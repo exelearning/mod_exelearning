@@ -1,7 +1,7 @@
 ---
 id: DEC-0003
 titulo: "Estándar de tracking y registro de múltiples grade items"
-estado: Propuesta
+estado: Aceptada
 fecha: 2026-05-28
 agentes:
   - claude-code
@@ -107,3 +107,21 @@ Antes de cerrar como `Aceptada`:
 - TAREA-003 (EXP-001), TAREA-004 (EXP-002), TAREA-005 (cierre).
 - Tras `Aceptada`, abrir DEC-0004 (esquema de tablas) y DEC-0005 (formato de entrada en
   v1: publicado-only vs proyecto+publicado).
+
+## Actualización (2026-05-29): Aceptada con el estado real (Plan B vigente)
+
+Se marca **Aceptada** documentando lo que de facto está implementado y verificado:
+
+- **Multi-grade-items**: implementado vía parseo server-side de `content.xml`
+  (`classes/local/package.php`) + registro N `grade_items` con `itemnumber`
+  (`exelearning_sync_grade_items`). El `objectid` es el `<odeIdeviceId>`; su
+  (in)estabilidad entre exports está caracterizada en PREG-001 y RIE-006.
+- **Tracking vigente = bridge SCORM 1.2** (NO xAPI todavía): shim `window.API`
+  en `view.php` → `track.php` → `grade_update`, con parseo de `cmi.suspend_data`
+  por iDevice. Es el "Plan B" de este ADR, hoy el camino productivo.
+- **xAPI nativo (`core_xapi`)** queda como evolución futura (no implementado).
+  Cuando se aborde, revisar PREG-001/002 (objectives SCORM 2004 / statements).
+
+Por tanto: la DECISIÓN de modelo (multi-itemnumber + tracking estandarizado) está
+aceptada y en producción con el bridge SCORM 1.2; la PARTE xAPI sigue siendo
+trabajo futuro y se documentará en su propio ADR cuando se implemente.

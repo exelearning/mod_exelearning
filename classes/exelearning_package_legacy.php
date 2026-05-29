@@ -198,6 +198,7 @@ class exelearning_package_legacy {
      *
      * @param array $contentlist
      * @param integer $contextid
+     * @param integer $itemid
      * @return \stored_file|boolean
      */
     public static function get_mainfile(array $contentlist, int $contextid, int $itemid = 0) {
