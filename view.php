@@ -103,12 +103,17 @@ if ($haspackage) {
             'index.html'
         );
     }
-    $hasgradable = $DB->record_exists_select(
-        'exelearning_grade_item',
-        'exelearningid = ? AND deleted = 0 AND itemnumber > 0',
-        [$exelearning->id]
-    );
-    if (!$hasgradable) {
+    // Self-heal grade-item detection, but only when this package revision has
+    // not been scanned yet (gradesyncrev marker). This used to fire whenever the
+    // activity had no gradable grade item, which for a content-only package
+    // (0 gradable iDevices) is PERMANENTLY true and re-extracted + re-parsed the
+    // entire ELPX on every single view — a self-inflicted DoS on the most common
+    // package type. exelearning_sync_grade_items() stamps max(revision, 1) once
+    // it has scanned, so each revision is scanned at most once;
+    // exelearning_update_instance() bumps revision to re-arm a scan when the
+    // content changes.
+    $synctarget = max((int) $exelearning->revision, 1);
+    if ((int) $exelearning->gradesyncrev < $synctarget) {
         exelearning_sync_grade_items($exelearning->id, $context->id);
     }
 }
@@ -361,15 +366,33 @@ if (!$mainfile) {
     var session = '%SESSION%';
     function send(sync) {
         if (!dirty) { return true; }
+        var snapshot = JSON.stringify(cmi);
+        var payload = JSON.stringify({ id: %CMID%, session: session, cmi: cmi });
         try {
             var xhr = new XMLHttpRequest();
             // Synchronous in LMSFinish (student closes the tab); async otherwise.
             xhr.open('POST', '%TRACKURL%', sync !== true);
             xhr.setRequestHeader('Content-Type', 'application/json');
-            xhr.send(JSON.stringify({ id: %CMID%, session: session, cmi: cmi }));
-            dirty = false;
-            // In async mode we cannot check the status; assume OK.
-            return sync === true ? (xhr.status >= 200 && xhr.status < 300) : true;
+            if (sync === true) {
+                xhr.send(payload);
+                // Synchronous: the status is known now. Keep dirty on failure so
+                // the buffered score is retried instead of being silently lost.
+                if (xhr.status >= 200 && xhr.status < 300) { dirty = false; return true; }
+                return false;
+            }
+            // Async: clear dirty ONLY after the server confirms a 2xx response,
+            // and only if no newer value was buffered meanwhile. On failure dirty
+            // stays set so the next autocommit / beforeunload re-sends it (a failed
+            // autocommit must never silently drop a grade write to the gradebook).
+            xhr.onload = function () {
+                if (xhr.status >= 200 && xhr.status < 300
+                        && JSON.stringify(cmi) === snapshot) {
+                    dirty = false;
+                }
+            };
+            xhr.onerror = function () { errCode = '101'; };
+            xhr.send(payload);
+            return true;
         } catch (e) { errCode = '101'; return false; }
     }
     // Autocommit: tras 500 ms sin nuevas SetValue, persistir.

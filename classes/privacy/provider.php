@@ -51,13 +51,42 @@ class provider implements
             'attempt'      => 'privacy:metadata:exelearning_attempt:attempt',
             'itemnumber'   => 'privacy:metadata:exelearning_attempt:itemnumber',
             'rawscore'     => 'privacy:metadata:exelearning_attempt:rawscore',
+            'maxscore'     => 'privacy:metadata:exelearning_attempt:maxscore',
             'scaledscore'  => 'privacy:metadata:exelearning_attempt:scaledscore',
             'status'       => 'privacy:metadata:exelearning_attempt:status',
             'timecreated'  => 'privacy:metadata:exelearning_attempt:timecreated',
             'timemodified' => 'privacy:metadata:exelearning_attempt:timemodified',
         ], 'privacy:metadata:exelearning_attempt');
 
+        // The plugin also pushes each user's scores into the Moodle gradebook
+        // via grade_update() (track.php / lib.php), so declare that data flow.
+        $collection->add_subsystem_link('core_grades', [], 'privacy:metadata:core_grades');
+
         return $collection;
+    }
+
+    /**
+     * Recalculate (and clear) gradebook grades for users after their attempt
+     * rows are deleted, so an erased user does not keep a stale gradebook grade
+     * with no backing attempt history.
+     *
+     * @param int $exelearningid
+     * @param int[] $userids
+     */
+    protected static function clear_grades_for_users(int $exelearningid, array $userids): void {
+        global $CFG, $DB;
+
+        if (empty($userids)) {
+            return;
+        }
+        $instance = $DB->get_record('exelearning', ['id' => $exelearningid]);
+        if (!$instance) {
+            return;
+        }
+        require_once($CFG->dirroot . '/mod/exelearning/lib.php');
+        foreach ($userids as $userid) {
+            exelearning_recalculate_user_grades($instance, (int) $userid);
+        }
     }
 
     /**
@@ -175,7 +204,14 @@ class provider implements
         if (!$cm) {
             return;
         }
+        $userids = $DB->get_fieldset_select(
+            'exelearning_attempt',
+            'DISTINCT userid',
+            'exelearningid = ?',
+            [$cm->instance]
+        );
         $DB->delete_records('exelearning_attempt', ['exelearningid' => $cm->instance]);
+        self::clear_grades_for_users((int) $cm->instance, $userids);
     }
 
     /**
@@ -199,6 +235,7 @@ class provider implements
                 'exelearning_attempt',
                 ['exelearningid' => $cm->instance, 'userid' => $user->id]
             );
+            self::clear_grades_for_users((int) $cm->instance, [(int) $user->id]);
         }
     }
 
@@ -229,5 +266,6 @@ class provider implements
             "exelearningid = :exelearningid AND userid $insql",
             $params
         );
+        self::clear_grades_for_users((int) $cm->instance, $userids);
     }
 }

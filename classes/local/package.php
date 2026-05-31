@@ -95,97 +95,53 @@ class package {
         // (XMLReader is avoided to avoid requiring libxml + ext-zip in backports.)
         $items = [];
 
-        // Map odePageId → pageName (best-effort: from the odeNavStructures tree).
+        // Map odePageId -> pageName. Real eXeLearning v4 packages emit the page
+        // name immediately after its page id inside <odeNavStructure>; pages
+        // without an explicit name simply stay unmapped (best-effort labelling).
         $pagenames = [];
         if (
             preg_match_all(
-                '~<odeNavStructure>(.*?)</odeNavStructure>~s',
+                '~<odePageId>([^<]+)</odePageId>\s*<pageName>([^<]*)</pageName>~',
                 $xml,
-                $structs
+                $pn,
+                PREG_SET_ORDER
             )
         ) {
-            foreach ($structs[1] as $seg) {
-                if (
-                    preg_match('~<odePageId>([^<]+)</odePageId>~', $seg, $mp)
-                        && preg_match('~<pageName>([^<]*)</pageName>~', $seg, $mn)
-                ) {
-                    $pagenames[$mp[1]] = trim($mn[1]);
-                }
+            foreach ($pn as $p) {
+                $pagenames[$p[1]] = trim($p[2]);
             }
         }
 
+        // Walk the manifest in document order. eXeLearning v4 serialises a flat
+        // <odeNavStructure> stream (page ids, page names and iDevice records
+        // interleaved), not the nested <odePage>/<odeIdevice> hierarchy an older
+        // format used (which never appears in real v4 packages, verified across
+        // all shipped fixtures). So we scan the whole document and attribute each
+        // gradable iDevice to the most recent page id seen before it. Detection
+        // is identical to the previous flat fallback (an <odeIdeviceId> directly
+        // followed by its <odeIdeviceTypeName>); the page id/name are recovered
+        // on top, so two same-type iDevices on different pages stay distinct.
         $order = 0;
-        if (preg_match_all('~<odePage>(.*?)</odePage>~s', $xml, $pages)) {
-            foreach ($pages[1] as $pagexml) {
-                $pageid = '';
-                if (preg_match('~<odePageId>([^<]+)</odePageId>~', $pagexml, $mp)) {
-                    $pageid = $mp[1];
+        $currentpage = '';
+        $token = '~<odePageId>([^<]+)</odePageId>'
+            . '|<odeIdeviceId>([^<]+)</odeIdeviceId>\s*<odeIdeviceTypeName>([^<]+)</odeIdeviceTypeName>~';
+        if (preg_match_all($token, $xml, $tokens, PREG_SET_ORDER)) {
+            foreach ($tokens as $t) {
+                $pageid   = $t[1] ?? '';
+                $deviceid = $t[2] ?? '';
+                $devtype  = $t[3] ?? '';
+                if ($pageid !== '' && $deviceid === '') {
+                    $currentpage = $pageid;
+                    continue;
                 }
-                if (
-                    preg_match_all(
-                        '~<odeIdevice>(.*?)</odeIdevice>~s',
-                        $pagexml,
-                        $devs
-                    )
-                ) {
-                    foreach ($devs[1] as $devxml) {
-                        $id = $type = null;
-                        if (
-                            preg_match(
-                                '~<odeIdeviceId>([^<]+)</odeIdeviceId>~',
-                                $devxml,
-                                $mid
-                            )
-                        ) {
-                            $id = $mid[1];
-                        }
-                        if (
-                            preg_match(
-                                '~<odeIdeviceTypeName>([^<]+)</odeIdeviceTypeName>~',
-                                $devxml,
-                                $mt
-                            )
-                        ) {
-                            $type = $mt[1];
-                        }
-                        if (
-                            $id !== null && $type !== null
-                                && in_array($type, self::GRADABLE_IDEVICE_TYPES, true)
-                        ) {
-                            $items[] = (object) [
-                                'objectid'    => $id,
-                                'idevicetype' => $type,
-                                'pageid'      => $pageid,
-                                'pagename'    => $pagenames[$pageid] ?? '',
-                                'orderhint'   => $order++,
-                            ];
-                        }
-                    }
-                }
-            }
-        }
-
-        // Fallback: some exports (packages generated without the nested odePage
-        // hierarchy) list iDevices flat. Capture those missed by the first pass.
-        if ($items === []) {
-            if (
-                preg_match_all(
-                    '~<odeIdeviceId>([^<]+)</odeIdeviceId>\s*<odeIdeviceTypeName>([^<]+)</odeIdeviceTypeName>~',
-                    $xml,
-                    $flat,
-                    PREG_SET_ORDER
-                )
-            ) {
-                foreach ($flat as $m) {
-                    if (in_array($m[2], self::GRADABLE_IDEVICE_TYPES, true)) {
-                        $items[] = (object) [
-                            'objectid'    => $m[1],
-                            'idevicetype' => $m[2],
-                            'pageid'      => '',
-                            'pagename'    => '',
-                            'orderhint'   => $order++,
-                        ];
-                    }
+                if ($deviceid !== '' && in_array($devtype, self::GRADABLE_IDEVICE_TYPES, true)) {
+                    $items[] = (object) [
+                        'objectid'    => $deviceid,
+                        'idevicetype' => $devtype,
+                        'pageid'      => $currentpage,
+                        'pagename'    => $pagenames[$currentpage] ?? '',
+                        'orderhint'   => $order++,
+                    ];
                 }
             }
         }
