@@ -68,6 +68,14 @@ porqué (norma de codificación del repo).
 - **Bypass del blocklist SSRF.** Retirar `ignoresecurity` reactiva el
   `curl_security_helper` de Moodle en la petición **y** en los hasta 5 redirects
   seguidos hacia el CDN de releases.
+- **Excepción Playground.** En el runtime Moodle Playground (php-wasm) el tráfico
+  saliente pasa por un shim de red JS que no puede verificar la cadena TLS, así
+  que ahí la verificación estricta fallaría. Se añade `is_playground()` —gate por
+  la constante `MOODLE_PLAYGROUND` que define el `config.php` del runtime
+  (verificado en `ateeducacion/moodle-playground`,
+  `src/runtime/config-template.js`)— y `curl_security_options()`: **estricto en
+  servidor real, relajado sólo bajo Playground**. No rompe la instalación del
+  editor en Playground sin debilitar producción.
 - **Zip-slip.** `extract_to_temp()` llamaba a `ZipArchive::extractTo()` sin
   validar entradas (alcanzable por la descarga de GitHub **y** por una subida
   cruda de admin en `manage_embedded_editor_upload.php`). **Solución:** validar

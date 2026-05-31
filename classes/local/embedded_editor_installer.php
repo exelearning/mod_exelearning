@@ -161,6 +161,43 @@ class embedded_editor_installer {
     }
 
     /**
+     * Whether we are running inside the Moodle Playground (php-wasm) runtime.
+     *
+     * Playground routes outbound HTTPS through a JS networking shim that cannot
+     * present a verifiable TLS chain, so curl peer/host verification and the
+     * SSRF blocklist must be relaxed there or the request fails; on a real
+     * server they stay strict. The runtime defines the MOODLE_PLAYGROUND
+     * constant in its generated config.php (ateeducacion/moodle-playground,
+     * src/runtime/config-template.js), so we gate strictly on that.
+     *
+     * @return bool True when running under the Moodle Playground runtime.
+     */
+    private function is_playground(): bool {
+        return defined('MOODLE_PLAYGROUND') && MOODLE_PLAYGROUND;
+    }
+
+    /**
+     * Build the curl TLS/security options for an outbound editor request.
+     *
+     * Strict on a normal server (verify the certificate chain, keep the SSRF
+     * blocklist active by not passing 'ignoresecurity'); relaxed only under the
+     * Playground php-wasm runtime, whose networking shim cannot verify TLS.
+     *
+     * @return array{construct: array, ssl: array} Constructor args + setopt SSL keys.
+     */
+    private function curl_security_options(): array {
+        if ($this->is_playground()) {
+            // Playground: the wasm networking layer cannot verify TLS, so relax
+            // verification and the SSRF blocklist (matches the runtime's shim).
+            return ['construct' => ['ignoresecurity' => true], 'ssl' => []];
+        }
+        return [
+            'construct' => [],
+            'ssl' => ['CURLOPT_SSL_VERIFYPEER' => 1, 'CURLOPT_SSL_VERIFYHOST' => 2],
+        ];
+    }
+
+    /**
      * Extract the latest release version from a GitHub releases Atom feed body.
      *
      * Uses the first <entry> because the feed is ordered newest-first. The
@@ -200,19 +237,18 @@ class embedded_editor_installer {
         global $CFG;
         require_once($CFG->libdir . '/filelib.php');
 
-        // Verify the TLS certificate chain and keep Moodle's curl SSRF blocklist
-        // active: this is a server-side fetch of a remote URL, so do NOT pass
-        // 'ignoresecurity' => true (which would disable both).
-        $curl = new \curl();
+        // Verify the TLS chain and keep Moodle's SSRF blocklist active on a real
+        // server; relaxed only under the Playground php-wasm runtime (see
+        // curl_security_options()).
+        $security = $this->curl_security_options();
+        $curl = new \curl($security['construct']);
         $curl->setopt([
             'CURLOPT_TIMEOUT' => 30,
-            'CURLOPT_SSL_VERIFYPEER' => 1,
-            'CURLOPT_SSL_VERIFYHOST' => 2,
             'CURLOPT_HTTPHEADER' => [
                 'Accept: application/atom+xml, application/xml;q=0.9, text/xml;q=0.8',
                 'User-Agent: Moodle mod_exelearning',
             ],
-        ]);
+        ] + $security['ssl']);
 
         $response = $curl->get($this->get_releases_feed_url());
         if ($curl->get_errno()) {
@@ -343,18 +379,17 @@ class embedded_editor_installer {
         $tempdir = make_temp_directory('mod_exelearning');
         $tmpfile = $tempdir . '/editor-download-' . random_string(12) . '.zip';
 
-        // Verify the TLS chain and keep the SSRF blocklist active (do NOT pass
-        // 'ignoresecurity' => true) across the followed redirects to the GitHub
-        // release CDN: the downloaded ZIP becomes the live editor served to
-        // authors, so a network attacker must not be able to substitute it.
-        $curl = new \curl();
+        // Verify the TLS chain and keep the SSRF blocklist active across the
+        // followed redirects to the GitHub release CDN on a real server (the
+        // downloaded ZIP becomes the live editor served to authors); relaxed
+        // only under the Playground php-wasm runtime (see curl_security_options()).
+        $security = $this->curl_security_options();
+        $curl = new \curl($security['construct']);
         $curl->setopt([
             'CURLOPT_TIMEOUT' => self::INSTALL_LOCK_TIMEOUT,
             'CURLOPT_FOLLOWLOCATION' => true,
             'CURLOPT_MAXREDIRS' => 5,
-            'CURLOPT_SSL_VERIFYPEER' => 1,
-            'CURLOPT_SSL_VERIFYHOST' => 2,
-        ]);
+        ] + $security['ssl']);
 
         $result = $curl->download_one($url, null, ['filepath' => $tmpfile]);
 
