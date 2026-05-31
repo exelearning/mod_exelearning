@@ -1,6 +1,6 @@
 ---
 id: DEC-0016
-titulo: "Auditoría de seguridad y corrección multi-agente: 21 hallazgos (19 corregidos, 2 diferidos)"
+titulo: "Auditoría de seguridad y corrección multi-agente: 21 hallazgos (18 corregidos, 3 diferidos)"
 estado: Aceptada
 fecha: 2026-06-01
 agentes:
@@ -49,9 +49,10 @@ PR de implementación: `ateeducacion/mod_exelearning#4`, rama
 3. **Crítico de completitud** + dedupe + síntesis priorizada por severidad.
 
 Resultado: **21 hallazgos confirmados** (0 críticos, ~9 altos, ~9 medios, ~3
-bajos según síntesis). Se **corrigen 19**; se **difieren 2** con justificación.
+bajos según síntesis). Se **corrigen 18**; se **difieren 3** con justificación
+(uno de ellos, #10, sólo pendiente de regenerar el build AMD con `grunt amd`).
 
-## Hallazgos corregidos (19)
+## Hallazgos corregidos (18)
 
 Cada corrección lleva su comentario en inglés en el código fuente citando el
 porqué (norma de codificación del repo).
@@ -71,11 +72,6 @@ porqué (norma de codificación del repo).
   validar entradas (alcanzable por la descarga de GitHub **y** por una subida
   cruda de admin en `manage_embedded_editor_upload.php`). **Solución:** validar
   cada entrada con `styles_service::is_unsafe_zip_entry()` antes de extraer.
-- **Inyección cross-origin por postMessage.** `amd/src/editor_modal.js`:
-  `handleLegacyBridgeMessage()` aceptaba mensajes sin comprobar `source`/`origin`
-  (podía sobrescribir `session.packageUrl` —luego `fetch` con credenciales— o
-  forzar un guardado). **Solución:** mismo guard que el handler moderno
-  (`event.source === iframe.contentWindow` + `editorOrigin`).
 
 ### Calificación / integridad de datos
 
@@ -121,7 +117,21 @@ porqué (norma de codificación del repo).
   curso ahora purga intentos y notas (antes quedaban intactos, a diferencia de
   SCORM/H5P).
 
-## Hallazgos diferidos (2)
+## Hallazgos diferidos (3)
+
+### #10 (listo, pendiente de build) — Guard de origen en el postMessage legacy
+
+`amd/src/editor_modal.js::handleLegacyBridgeMessage()` aceptaba mensajes sin
+comprobar `source`/`origin` (podía sobrescribir `session.packageUrl` —luego
+`fetch` con credenciales— o forzar un guardado). La corrección es un guard de una
+línea idéntico al del handler moderno (`event.source === iframe.contentWindow` +
+`editorOrigin`). **Por qué se difiere:** tocar `amd/src/*.js` obliga a regenerar
+`amd/build/` con `grunt amd` (norma del repo), y este entorno no tiene
+`grunt`/`node_modules` ni árbol Moodle; `moodle-plugin-ci grunt` falla ante
+cualquier divergencia build↔fuente. Se aplica en un follow-up reconstruido con
+`grunt amd`.
+
+
 
 ### RIE-007 (nuevo) — `suspend_data` N tratado como itemnumber (mis-ruteo de notas)
 

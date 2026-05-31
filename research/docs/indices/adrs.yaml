@@ -15,4 +15,4 @@ items:
   - id: 'DEC-0013', titulo: '¿Integrar el editor eXeLearning Online o quedarnos solo con el embebido?', estado: 'Aceptada', fecha: '2026-05-29', ruta: 'decisiones/adr/DEC-0013-editor-online-vs-embebido.md'
   - id: 'DEC-0014', titulo: 'Soporte xAPI: qué haría falta en eXeLearning y en mod_exelearning, y si compensa', estado: 'Aceptada', fecha: '2026-05-29', ruta: 'decisiones/adr/DEC-0014-soporte-xapi.md'
   - id: 'DEC-0015', titulo: '¿Merece la pena la multicalificación (N grade items por iDevice)? Justificación, DAFO y comparativa', estado: 'Aceptada', fecha: '2026-05-29', ruta: 'decisiones/adr/DEC-0015-justificacion-multicalificacion.md'
-  - id: 'DEC-0016', titulo: 'Auditoría de seguridad y corrección multi-agente: 21 hallazgos (19 corregidos, 2 diferidos)', estado: 'Aceptada', fecha: '2026-06-01', ruta: 'decisiones/adr/DEC-0016-auditoria-seguridad-correccion.md'
+  - id: 'DEC-0016', titulo: 'Auditoría de seguridad y corrección multi-agente: 21 hallazgos (18 corregidos, 3 diferidos)', estado: 'Aceptada', fecha: '2026-06-01', ruta: 'decisiones/adr/DEC-0016-auditoria-seguridad-correccion.md'
