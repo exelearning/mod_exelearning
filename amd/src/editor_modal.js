@@ -519,17 +519,6 @@ const handleBridgeMessage = async(event) => {
  * @returns {Promise<void>}
  */
 const handleLegacyBridgeMessage = async(event) => {
-    // Apply the same cross-origin guard as the modern bridge handler: only trust
-    // messages coming from our own editor iframe and (when a concrete origin is
-    // configured) from that origin. Without this guard, any window able to
-    // postMessage to the Moodle page could overwrite session.packageUrl (then
-    // fetched with credentials) or force a save/upload — cross-origin injection.
-    if (!iframe?.contentWindow || event.source !== iframe.contentWindow) {
-        return;
-    }
-    if (editorOrigin !== '*' && event.origin !== editorOrigin) {
-        return;
-    }
     const data = event.data;
     if (!data || data.source !== 'exeweb-editor') {
         return;
