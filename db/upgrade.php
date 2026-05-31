@@ -300,5 +300,27 @@ function xmldb_exelearning_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026052901, 'exelearning');
     }
 
+    // Stage 9 (2026060100): gradesyncrev marker. Records the highest package
+    // revision already scanned for gradable iDevices so the view.php self-heal
+    // stops re-extracting + re-parsing the whole ELPX on EVERY view for
+    // content-only packages (which permanently have 0 gradable iDevices).
+    if ($oldversion < 2026060100) {
+        $instance = new xmldb_table('exelearning');
+        $field = new xmldb_field(
+            'gradesyncrev',
+            XMLDB_TYPE_INTEGER,
+            '10',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            '0',
+            'usermodified'
+        );
+        if (!$dbman->field_exists($instance, $field)) {
+            $dbman->add_field($instance, $field);
+        }
+        upgrade_mod_savepoint(true, 2026060100, 'exelearning');
+    }
+
     return true;
 }

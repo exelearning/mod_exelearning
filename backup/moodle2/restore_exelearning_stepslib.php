@@ -67,6 +67,10 @@ class restore_exelearning_activity_structure_step extends restore_activity_struc
         $data->timecreated = $this->apply_date_offset($data->timecreated);
         $data->timemodified = $this->apply_date_offset($data->timemodified);
 
+        // Remap the last-modifying user (annotated in the backup) so usermodified
+        // does not point at a stale/non-existent user id after a cross-site restore.
+        $data->usermodified = $this->get_mappingid('user', $data->usermodified) ?: 0;
+
         // Insert the exelearning record.
         $newitemid = $DB->insert_record('exelearning', $data);
 

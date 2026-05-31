@@ -161,6 +161,43 @@ class embedded_editor_installer {
     }
 
     /**
+     * Whether we are running inside the Moodle Playground (php-wasm) runtime.
+     *
+     * Playground routes outbound HTTPS through a JS networking shim that cannot
+     * present a verifiable TLS chain, so curl peer/host verification and the
+     * SSRF blocklist must be relaxed there or the request fails; on a real
+     * server they stay strict. The runtime defines the MOODLE_PLAYGROUND
+     * constant in its generated config.php (ateeducacion/moodle-playground,
+     * src/runtime/config-template.js), so we gate strictly on that.
+     *
+     * @return bool True when running under the Moodle Playground runtime.
+     */
+    private function is_playground(): bool {
+        return defined('MOODLE_PLAYGROUND') && MOODLE_PLAYGROUND;
+    }
+
+    /**
+     * Build the curl TLS/security options for an outbound editor request.
+     *
+     * Strict on a normal server (verify the certificate chain, keep the SSRF
+     * blocklist active by not passing 'ignoresecurity'); relaxed only under the
+     * Playground php-wasm runtime, whose networking shim cannot verify TLS.
+     *
+     * @return array{construct: array, ssl: array} Constructor args + setopt SSL keys.
+     */
+    private function curl_security_options(): array {
+        if ($this->is_playground()) {
+            // Playground: the wasm networking layer cannot verify TLS, so relax
+            // verification and the SSRF blocklist (matches the runtime's shim).
+            return ['construct' => ['ignoresecurity' => true], 'ssl' => []];
+        }
+        return [
+            'construct' => [],
+            'ssl' => ['CURLOPT_SSL_VERIFYPEER' => 1, 'CURLOPT_SSL_VERIFYHOST' => 2],
+        ];
+    }
+
+    /**
      * Extract the latest release version from a GitHub releases Atom feed body.
      *
      * Uses the first <entry> because the feed is ordered newest-first. The
@@ -200,14 +237,18 @@ class embedded_editor_installer {
         global $CFG;
         require_once($CFG->libdir . '/filelib.php');
 
-        $curl = new \curl(['ignoresecurity' => true]);
+        // Verify the TLS chain and keep Moodle's SSRF blocklist active on a real
+        // server; relaxed only under the Playground php-wasm runtime (see
+        // curl_security_options()).
+        $security = $this->curl_security_options();
+        $curl = new \curl($security['construct']);
         $curl->setopt([
             'CURLOPT_TIMEOUT' => 30,
             'CURLOPT_HTTPHEADER' => [
                 'Accept: application/atom+xml, application/xml;q=0.9, text/xml;q=0.8',
                 'User-Agent: Moodle mod_exelearning',
             ],
-        ]);
+        ] + $security['ssl']);
 
         $response = $curl->get($this->get_releases_feed_url());
         if ($curl->get_errno()) {
@@ -338,12 +379,17 @@ class embedded_editor_installer {
         $tempdir = make_temp_directory('mod_exelearning');
         $tmpfile = $tempdir . '/editor-download-' . random_string(12) . '.zip';
 
-        $curl = new \curl(['ignoresecurity' => true]);
+        // Verify the TLS chain and keep the SSRF blocklist active across the
+        // followed redirects to the GitHub release CDN on a real server (the
+        // downloaded ZIP becomes the live editor served to authors); relaxed
+        // only under the Playground php-wasm runtime (see curl_security_options()).
+        $security = $this->curl_security_options();
+        $curl = new \curl($security['construct']);
         $curl->setopt([
             'CURLOPT_TIMEOUT' => self::INSTALL_LOCK_TIMEOUT,
             'CURLOPT_FOLLOWLOCATION' => true,
             'CURLOPT_MAXREDIRS' => 5,
-        ]);
+        ] + $security['ssl']);
 
         $result = $curl->download_one($url, null, ['filepath' => $tmpfile]);
 
@@ -453,6 +499,21 @@ class embedded_editor_installer {
         $result = $zip->open($zippath);
         if ($result !== true) {
             throw new \moodle_exception('editorextractfailed', 'mod_exelearning', '', $result);
+        }
+
+        // Reject zip-slip / unsafe entries BEFORE extracting. ZipArchive::extractTo
+        // relies on libzip to neutralise '../' traversal, which is not a guaranteed
+        // security boundary across builds, and this ZIP can be attacker-influenced
+        // (a raw admin upload via manage_embedded_editor_upload.php, or a tampered
+        // release asset). Reuse the shared per-entry safety check.
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $stat = $zip->statIndex($i);
+            $name = ($stat === false) ? '' : (string) $stat['name'];
+            if ($stat === false || styles_service::is_unsafe_zip_entry($name)) {
+                $zip->close();
+                $this->cleanup_temp_dir($tmpdir);
+                throw new \moodle_exception('editorunsafezip', 'mod_exelearning', '', $name);
+            }
         }
 
         if (!$zip->extractTo($tmpdir)) {

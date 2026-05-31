@@ -213,6 +213,103 @@ function exelearning_delete_instance($id) {
 }
 
 /**
+ * Adds the course-reset form elements for mod_exelearning.
+ *
+ * Without these callbacks "Reset course" leaves every previous student's
+ * attempt rows and gradebook grades intact (unlike mod_scorm/mod_h5pactivity),
+ * so a recycled course inherits stale per-user data.
+ *
+ * @param MoodleQuickForm $mform The course-reset form being built.
+ */
+function exelearning_reset_course_form_definition($mform) {
+    $mform->addElement('header', 'exelearningheader', get_string('modulenameplural', 'mod_exelearning'));
+    $mform->addElement('advcheckbox', 'reset_exelearning', get_string('resetattempts', 'mod_exelearning'));
+}
+
+/**
+ * Default values for the course-reset form (option checked by default).
+ *
+ * @param stdClass $course The course being reset.
+ * @return array<string,int>
+ */
+function exelearning_reset_course_form_defaults($course) {
+    return ['reset_exelearning' => 1];
+}
+
+/**
+ * Removes all user attempt data and clears the gradebook for every
+ * mod_exelearning instance in a course when the teacher resets it.
+ *
+ * @param stdClass $data The reset form data (courseid + reset_exelearning flag).
+ * @return array<int,array<string,mixed>> Status entries for the reset report.
+ */
+function exelearning_reset_userdata($data) {
+    global $DB;
+
+    $status = [];
+    if (empty($data->reset_exelearning)) {
+        return $status;
+    }
+
+    $instanceids = $DB->get_fieldset_select(
+        'exelearning',
+        'id',
+        'course = ?',
+        [$data->courseid]
+    );
+    foreach ($instanceids as $instanceid) {
+        $DB->delete_records('exelearning_attempt', ['exelearningid' => $instanceid]);
+    }
+
+    // Clear the gradebook so attempt deletion and grades stay consistent.
+    exelearning_reset_gradebook($data->courseid);
+
+    $status[] = [
+        'component' => get_string('modulenameplural', 'mod_exelearning'),
+        'item'      => get_string('resetattempts', 'mod_exelearning'),
+        'error'     => false,
+    ];
+
+    return $status;
+}
+
+/**
+ * Resets the gradebook grades of every mod_exelearning instance in a course.
+ *
+ * Called from exelearning_reset_userdata() and by the core gradebook-reset
+ * workflow. Each registered grade item (overall + per iDevice) is reset via
+ * grade_update(..., ['reset' => true]).
+ *
+ * @param int $courseid The course being reset.
+ * @param string $type Optional grade reset type (unused; core API parity).
+ */
+function exelearning_reset_gradebook($courseid, $type = '') {
+    global $CFG, $DB;
+    require_once($CFG->libdir . '/gradelib.php');
+
+    $instances = $DB->get_records('exelearning', ['course' => $courseid], '', 'id');
+    foreach ($instances as $instance) {
+        $maxnum = (int) $DB->get_field_sql(
+            "SELECT COALESCE(MAX(itemnumber),0) FROM {exelearning_grade_item}
+                 WHERE exelearningid = ?",
+            [$instance->id]
+        );
+        for ($n = 0; $n <= $maxnum; $n++) {
+            grade_update(
+                'mod/exelearning',
+                $courseid,
+                'mod',
+                'exelearning',
+                $instance->id,
+                $n,
+                null,
+                ['reset' => true]
+            );
+        }
+    }
+}
+
+/**
  * Stub for the canonical grade item (itemnumber=0). In multi-item mode the rest
  * are created directly in exelearning_sync_grade_items().
  *
@@ -755,6 +852,21 @@ function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null
 
     // Detection.
     $detected = (new \mod_exelearning\local\package($elpx))->detect_gradable_idevices();
+
+    // Record that this revision has been scanned for gradable iDevices, even when
+    // none were found. Without this marker the view.php self-heal (which is keyed
+    // on "has no gradable grade item") re-extracts and re-parses the whole ELPX
+    // on EVERY view of a content-only package, since that condition stays
+    // permanently true. Stored as max(revision, 1) so a package with revision=0
+    // (e.g. a programmatic Playground upload) is still marked as scanned and not
+    // re-extracted on every load.
+    $DB->set_field(
+        'exelearning',
+        'gradesyncrev',
+        max((int) $instance->revision, 1),
+        ['id' => $exelearningid]
+    );
+
     if ($detected === []) {
         return;
     }
@@ -773,6 +885,7 @@ function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null
     );
 
     $seen = [];
+    $capwarned = false;
     foreach ($detected as $d) {
         $name = exelearning_grade_item_name($instance, $d);
         $now = time();
@@ -787,6 +900,24 @@ function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null
             $DB->update_record('exelearning_grade_item', $row);
             $itemnumber = (int) $row->itemnumber;
         } else {
+            // Moodle 5.x can only label grade items whose itemnumber is declared
+            // in the component mapping (gradeitems::MAX_ITEMNUMBER). Registering
+            // beyond that creates columns Moodle cannot name, breaking the
+            // completion-via-grade dropdown and Course overview labelling, so we
+            // stop registering further iDevices once the cap is reached.
+            if ($nextnum >= \mod_exelearning\grades\gradeitems::MAX_ITEMNUMBER) {
+                if (!$capwarned) {
+                    debugging(
+                        'mod_exelearning: package has more than '
+                            . \mod_exelearning\grades\gradeitems::MAX_ITEMNUMBER
+                            . ' gradable iDevices; the extra items are not registered '
+                            . 'as gradebook columns.',
+                        DEBUG_DEVELOPER
+                    );
+                    $capwarned = true;
+                }
+                continue;
+            }
             $nextnum++;
             $itemnumber = $nextnum;
             $DB->insert_record('exelearning_grade_item', (object) [

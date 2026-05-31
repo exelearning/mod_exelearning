@@ -84,6 +84,12 @@ $score = (float) $rawscore;
 if ($maxscore !== null && (float) $maxscore > 0) {
     $score = ($score / (float) $maxscore) * (float) ($exelearning->grademax ?? 100);
 }
+// Clamp to the configured grade range so an out-of-range CMI value (a score
+// above max, or a negative one) cannot be persisted as the attempt rawscore.
+$score = max(
+    (float) ($exelearning->grademin ?? 0),
+    min((float) ($exelearning->grademax ?? 100), $score)
+);
 
 // Preview mode: do NOT update the gradebook; only acknowledge (DEC-0006).
 if ($ispreview) {
@@ -112,10 +118,23 @@ if (is_string($suspend) && $suspend !== '') {
         ) {
             $peritem[(int) $m[1]] = [
                 'title'    => $m[2],
-                'scorepct' => (float) $m[3], // 0..100
+                // Clamp to 0..100: an out-of-range percentage (e.g. "150%") must
+                // not be persisted as a rawscore above maxscore.
+                'scorepct' => max(0.0, min(100.0, (float) $m[3])),
                 'weighted' => (float) $m[4],
             ];
         }
+    }
+    if ($peritem === []) {
+        // Non-empty suspend_data that yields no parsed items usually signals a
+        // format the regex above does not accept (locale decimal commas, an
+        // embedded quote in a title, or a producer change). Surface it for
+        // developers instead of silently recording no per-iDevice grades.
+        debugging(
+            'mod_exelearning: cmi.suspend_data was non-empty but no per-iDevice '
+                . 'results could be parsed from it.',
+            DEBUG_DEVELOPER
+        );
     }
 }
 
