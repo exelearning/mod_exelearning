@@ -1,0 +1,23 @@
+id: TAREA-009
+titulo: "RIE-011: endurecer maxattempt frente a concurrencia"
+estado: Pending
+fecha: 2026-06-01
+agente: pendiente
+prioridad: baja
+objetivo: >-
+  Evitar que dos cargas concurrentes de una actividad creen dos primeros intentos
+  y superen `maxattempt` por una carrera entre conteo y persistencia.
+pasos:
+  - "Caracterizar la carrera con una prueba reproducible."
+  - "Evaluar lock transaccional Moodle frente a constraint/índice de esquema."
+  - "Implementar la opción con menor impacto en upgrades y backup/restore."
+  - "Añadir test de concurrencia o, si no es viable, test unitario del guard."
+relacionados:
+  - RIE-011
+  - DEC-0007
+  - DEC-0018
+criterios_aceptacion:
+  - "Dos page-loads concurrentes no crean más intentos que `maxattempt`."
+  - "El comportamiento de revisión de intentos existentes no cambia."
+  - "La solución queda documentada en código con referencia a DEC-0018/RIE-011."
+notas: "Riesgo bajo; priorizar después de RIE-010."

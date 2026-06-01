@@ -12,7 +12,7 @@ repos_implicados:
   - REPO-005
 commit_ref:
   repo: exelearning (iteexe_online)
-  sha: "[PENDIENTE: registrar HEAD del clon canónico /Users/ernesto/Downloads/git/exelearning]"
+  sha: b7030fd2a12a910bd25a813118432a90d33bd469
 entorno:
   so: "macOS Darwin 25.4.0"
   versiones:

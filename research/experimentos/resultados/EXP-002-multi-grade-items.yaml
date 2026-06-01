@@ -14,7 +14,7 @@ repos_implicados:
   - REPO-005
 commit_ref:
   repo: mod_exelearning
-  sha: "[PENDIENTE: anotar HEAD tras commit del plugin scaffold]"
+  sha: 877f3bfa8dc69e59df14fb11b471214500e55218
 entorno:
   so: "macOS Darwin 25.4.0"
   versiones:
@@ -69,7 +69,7 @@ evidencias:
   - research/experimentos/resultados/EXP-002-screenshots/view-iframe-sidebar.png
   - research/experimentos/resultados/EXP-002-screenshots/view-iframe-fixed.png    # tras quitar `allowfullscreen` duplicado
   - research/experimentos/resultados/EXP-002-screenshots/gradebook-3-cols.png
-  - research/experimentos/resultados/EXP-002-screenshots/modules-page.png   # plugin instalado
+  - research/experimentos/resultados/EXP-002-screenshots/gradebook-with-score.png
   - research/fixtures/elpx/actividad-evaluable.elpx
   - research/fixtures/scorm-export/actividad-evaluable_scorm12.zip
 issues_chrome_devtools:
@@ -102,6 +102,6 @@ relacionados:
   - PREG-001
   - TAREA-004
 proximos_pasos:
-  - "Implementar el bridge JS xAPI (shim postMessage en amd/src/xapi_bridge.js + classes/xapi/handler.php) para que los alumnos reciban nota cuando responden los iDevices del iframe."
-  - "Cerrar DEC-0003 formalmente (Propuesta → Aceptada) con la matriz cuantificada."
-  - "Implementar exelearning_get_coursemodule_info y respetar 'teacherOnly'/'visibility' por iDevice."
+  - "Ejecutar TAREA-008: aplicar guard de origen al puente legacy postMessage y regenerar amd/build con grunt amd."
+  - "Ejecutar TAREA-009: endurecer maxattempt frente a cargas concurrentes."
+  - "Ejecutar TAREA-010: evaluar pinning de checksum/firma del ZIP del editor si hay digests verificables."

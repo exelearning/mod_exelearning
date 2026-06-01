@@ -1,13 +1,16 @@
 # Matriz comparativa de estándares de tracking candidatos para mod_exelearning.
-# Estado: SIN VEREDICTO. Las puntuaciones cualitativas son provisionales y se
-# convertirán en cuantitativas como parte de TAREA-005 antes de cerrar DEC-0003.
+# Estado: CERRADA. DEC-0003 acepta SCORM 1.2 como tracking vigente suficiente,
+# servido por shim propio sobre el ELPX nativo; xAPI queda como hoja de ruta en
+# DEC-0014.
 
 titulo: "Estándar de tracking + multi-grade-items"
 fecha: 2026-05-28
 decision_relacionada: DEC-0003
-estado: provisional
+estado: cerrada
 
-# Escala cualitativa hasta cierre: -- | - | 0 | + | ++
+# Escala cuantitativa 0-5:
+# 0 = nulo/incompatible, 1 = muy bajo, 2 = bajo, 3 = aceptable,
+# 4 = bueno, 5 = excelente. Total = puntuacion * peso.
 criterios:
   multi_grade_items:
     peso: 5
@@ -33,49 +36,78 @@ criterios:
 
 opciones:
   scorm_1_2:
-    multi_grade_items: "--"      # Único cmi.core.score.raw; multi-item es hack.
-    preservacion_sidebar_nativa: "+"  # TOC reconstruido en LMS o servir el index.html.
-    granularidad_score: "-"
-    soporte_moodle_nativo: "++"  # mod_scorm, mod_exescorm.
-    adopcion_en_exelearning_actual: "++"  # Exportación SCORM 1.2 estándar.
-    complejidad_implementacion: "+"
-    futuro_vs_legacy: "--"
-    notas: "Bajo riesgo, pero choca de frente con el requisito multi-grade-items."
+    elegible_como_tracking_vigente: true
+    multi_grade_items: 3
+    preservacion_sidebar_nativa: 5
+    granularidad_score: 3
+    soporte_moodle_nativo: 5
+    adopcion_en_exelearning_actual: 5
+    complejidad_implementacion: 4
+    futuro_vs_legacy: 1
+    total_ponderado: 92
+    notas: >-
+      Elegido como camino vigente: eXeLearning ya emite SCORM 1.2 y el plugin
+      conserva la sidebar sirviendo el ELPX nativo; la multicalificación se
+      resuelve en Moodle con content.xml + multi-itemnumber, no con el CMI puro.
   scorm_2004:
-    multi_grade_items: "0"       # cmi.objectives.{n} permite varios, pero requiere convención eXeLearning.
-    preservacion_sidebar_nativa: "+"
-    granularidad_score: "+"
-    soporte_moodle_nativo: "+"   # Soporte histórico en mod_scorm.
-    adopcion_en_exelearning_actual: "+"  # Exportable, menos común que 1.2.
-    complejidad_implementacion: "0"
-    futuro_vs_legacy: "-"
-    notas: "Camino intermedio si los objectives se mapean a itemnumbers."
+    elegible_como_tracking_vigente: true
+    multi_grade_items: 3
+    preservacion_sidebar_nativa: 4
+    granularidad_score: 4
+    soporte_moodle_nativo: 4
+    adopcion_en_exelearning_actual: 3
+    complejidad_implementacion: 3
+    futuro_vs_legacy: 2
+    total_ponderado: 84
+    notas: >-
+      Camino intermedio por objectives, pero exige convención adicional y no
+      aporta ventaja suficiente frente al puente SCORM 1.2 ya verificado.
   xapi:
-    multi_grade_items: "++"      # object.id por item; trivial multi-item.
-    preservacion_sidebar_nativa: "++"  # Ortogonal: la sidebar la pinta el paquete.
-    granularidad_score: "++"
-    soporte_moodle_nativo: "++"  # core_xapi nativo + mod_h5pactivity como modelo.
-    adopcion_en_exelearning_actual: "[PENDIENTE: EXP-001]"
-    complejidad_implementacion: "0"
-    futuro_vs_legacy: "++"
-    notas: "Mejor encaje teórico. Riesgo: requiere que eXeLearning emita statements (o shim JS)."
+    elegible_como_tracking_vigente: false
+    bloqueo: "eXeLearning no emite xAPI hoy; requiere soporte upstream o puente futuro (DEC-0014)."
+    multi_grade_items: 5
+    preservacion_sidebar_nativa: 5
+    granularidad_score: 5
+    soporte_moodle_nativo: 5
+    adopcion_en_exelearning_actual: 0
+    complejidad_implementacion: 2
+    futuro_vs_legacy: 5
+    total_ponderado: 106
+    notas: >-
+      Mejor encaje teórico y futura hoja de ruta (DEC-0014), pero no es el
+      tracking vigente porque eXeLearning no emite xAPI hoy.
   cmi5:
-    multi_grade_items: "++"      # 1 AU = 1 itemnumber.
-    preservacion_sidebar_nativa: "+"  # Course structure define TOC paralelo al de eXeLearning.
-    granularidad_score: "+"
-    soporte_moodle_nativo: "+"   # Vía core_xapi + parsing de cmi5.xml.
-    adopcion_en_exelearning_actual: "[PENDIENTE]"
-    complejidad_implementacion: "-"  # Parsing cmi5.xml + launch model añadido.
-    futuro_vs_legacy: "++"
-    notas: "Híbrido SCORM/xAPI. Cobertura nula confirmada en herramientas de autoría."
+    elegible_como_tracking_vigente: false
+    bloqueo: "eXeLearning no emite cmi5 hoy y el plugin necesitaría un launch model nuevo."
+    multi_grade_items: 5
+    preservacion_sidebar_nativa: 3
+    granularidad_score: 4
+    soporte_moodle_nativo: 3
+    adopcion_en_exelearning_actual: 0
+    complejidad_implementacion: 1
+    futuro_vs_legacy: 5
+    total_ponderado: 81
+    notas: >-
+      Buen modelo conceptual, pero sin adopción actual en eXeLearning y con coste
+      extra de launch model + parsing cmi5.xml.
   lti_1_3_ags:
-    multi_grade_items: "++"      # Line items nativos.
-    preservacion_sidebar_nativa: "--"  # Modelo tool-provider: contenido externo, no en Moodle.
-    granularidad_score: "++"
-    soporte_moodle_nativo: "++"
-    adopcion_en_exelearning_actual: "--"  # eXeLearning no es tool LTI hoy.
-    complejidad_implementacion: "--"
-    futuro_vs_legacy: "++"
-    notas: "Descartado para el caso 'subir paquete a Moodle'; reservado para 'lanzar eXeLearning Online externo'."
+    elegible_como_tracking_vigente: false
+    bloqueo: "Modelo de herramienta externa; no satisface el caso subir paquete .elpx a Moodle."
+    multi_grade_items: 5
+    preservacion_sidebar_nativa: 0
+    granularidad_score: 5
+    soporte_moodle_nativo: 5
+    adopcion_en_exelearning_actual: 0
+    complejidad_implementacion: 0
+    futuro_vs_legacy: 5
+    total_ponderado: 75
+    notas: >-
+      Descartado para el caso de uso principal: subir y servir un paquete dentro
+      de Moodle con sidebar nativa. Sólo tendría sentido para un servicio externo.
 
-veredicto: "PENDIENTE — se cierra en DEC-0003 tras EXP-001 (PREG-001) y EXP-002 (PREG-006-grade-multi)."
+veredicto: >-
+  DEC-0003 acepta SCORM 1.2 como tracking vigente suficiente entre las opciones
+  elegibles hoy porque maximiza adopción real, preserva la sidebar nativa y
+  mantiene complejidad asumible. xAPI puntúa mejor como arquitectura futura, pero
+  no es elegible como tracking vigente mientras eXeLearning no emita statements;
+  queda condicionado a soporte upstream y se documenta en DEC-0014.

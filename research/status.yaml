@@ -73,7 +73,7 @@ decisiones_bloqueantes:
       iría por opción D (enlace a Online sin integrar datos), no por HMAC.
   DEC-0014:
     titulo: "Soporte xAPI: requisitos en eXeLearning y plugin"
-    estado: Propuesta
+    estado: Aceptada
     ruta: decisiones/adr/DEC-0014-soporte-xapi.md
     fecha: 2026-05-29
     relacionados: [DEC-0003, DEC-0007]
@@ -82,7 +82,40 @@ decisiones_bloqueantes:
       upstream). Para soportarlo haría falta: upstream emita statements por
       iDevice (desbloqueo), + plugin con xapi_bridge.js + handler core_xapi
       (modelo mod_h5pactivity). Recomienda A (SCORM 1.2 vigente) + C (hoja de
-      ruta xAPI condicionada a upstream). PENDIENTE decisión.
+      ruta xAPI condicionada a upstream). Aceptada el 2026-05-29.
+  DEC-0015:
+    titulo: "Justificación de la multicalificación"
+    estado: Aceptada
+    ruta: decisiones/adr/DEC-0015-justificacion-multicalificacion.md
+    fecha: 2026-05-29
+    notas: >-
+      Veredicto: la multicalificación merece la pena con matices. La deuda real
+      queda acotada al shim SCORM 1.2, content.xml, estabilidad de objectid y
+      MAX=100; xAPI permanece como hoja de ruta (DEC-0014).
+  DEC-0016:
+    titulo: "Auditoría de seguridad y corrección multi-agente"
+    estado: Aceptada
+    ruta: decisiones/adr/DEC-0016-auditoria-seguridad-correccion.md
+    fecha: 2026-06-01
+    notas: >-
+      Auditoría de 21 hallazgos confirmados: 18 corregidos y 3 diferidos. Quedan
+      como seguimiento RIE-008, RIE-010 y RIE-011; RIE-007 fue resuelto después.
+  DEC-0017:
+    titulo: "Ruteo de calificaciones por objectid estable"
+    estado: Aceptada
+    ruta: decisiones/adr/DEC-0017-mapeo-objectid-calificacion.md
+    fecha: 2026-06-01
+    notas: >-
+      Resuelve RIE-007 para per-iDevice: el shim captura objectid estable desde
+      el iframe y track.php rutea objectid → itemnumber, con fallback legacy.
+  DEC-0018:
+    titulo: "Recálculo del overall desde itemscores y hardening menor"
+    estado: Aceptada
+    ruta: decisiones/adr/DEC-0018-recalculo-overall-y-hardening.md
+    fecha: 2026-06-01
+    notas: >-
+      Cierra el residuo de RIE-007 recalculando overall desde itemscores; añade
+      soporte de coma decimal, límites de entrada y validación de rangos de nota.
   DEC-0006:
     titulo: "Modos preview (test) y grading (calificar)"
     estado: Aceptada
@@ -152,70 +185,85 @@ tareas:
   TAREA-002:
     fecha: 2026-05-28
     titulo: "Consultas Context7 para FTE-001..FTE-008"
-    estado: Pending
-    agente: pendiente
+    estado: Done
+    agente: claude-code
     relacionados: [FTE-001, FTE-002, FTE-003, FTE-004, FTE-005, FTE-006, FTE-007, FTE-008]
-    notas: "Los FTE quedaron con `[PENDIENTE: context7]` en campos verificables."
+    notas: "FTE-001..FTE-008 tienen library_id, query, versión devuelta y fecha de consulta."
   TAREA-003:
     fecha: 2026-05-28
     titulo: "EXP-001 paquete eXeLearning publicado: estructura del sidebar"
-    estado: Pending
-    agente: pendiente
+    estado: Done
+    agente: claude-code
     relacionados: [AN-001, FTE-008, PREG-001]
   TAREA-004:
     fecha: 2026-05-28
     titulo: "EXP-002 POC multi-grade-items siguiendo mod_workshop"
-    estado: Pending
-    agente: pendiente
+    estado: Done
+    agente: claude-code
     relacionados: [AN-002, FTE-006]
   TAREA-005:
     fecha: 2026-05-28
     titulo: "Cerrar DEC-0003 con matriz cuantificada"
-    estado: Pending
-    agente: pendiente
+    estado: Done
+    agente: claude-code
     relacionados:
       - DEC-0003
       - analisis/matrices/matriz-estandar-tracking.yaml
       - TAREA-002
       - TAREA-003
       - TAREA-004
+    notas: "Matriz cuantificada el 2026-06-01; DEC-0003 ya estaba aceptada desde 2026-05-29."
   TAREA-006:
     fecha: 2026-05-28
     titulo: "Redactar ci.yml con matriz moodle-plugin-ci"
-    estado: Pending
-    agente: pendiente
+    estado: Done
+    agente: claude-code
     relacionados:
       - DEC-0004
       - AN-006
       - REPO-001
       - REPO-002
-  TAREA-002b:
-    fecha: 2026-05-28
-    titulo: "Context7 sobre Moodle Grade API + core_xapi + xAPI spec — completado"
+  TAREA-007:
+    fecha: 2026-05-29
+    titulo: "ADR de justificación de la multicalificación + informe PDF ejecutivo"
     estado: Done
     agente: claude-code
     relacionados:
-      - FTE-003
-      - FTE-006
-      - FTE-007
-    notas: "Sólo se cubren 3 de 8 FTEs; SCORM 1.2/2004/cmi5/LTI AGS pendientes."
-  TAREA-003b:
-    fecha: 2026-05-28
-    titulo: "EXP-001 parcial — inspección de fixtures ELPX/SCORM v4 desde disco"
-    estado: Done
-    agente: claude-code
+      - DEC-0015
+      - DEC-0003
+      - DEC-0007
+      - DEC-0008
+      - DEC-0014
+    notas: "Cerrada con DEC-0015."
+  TAREA-008:
+    fecha: 2026-06-01
+    titulo: "RIE-010: aplicar guard de origen al puente legacy postMessage"
+    estado: Pending
+    agente: pendiente
     relacionados:
-      - EXP-001
-      - PREG-001
-      - PREG-002
-      - AN-005
-      - "fixtures/elpx/really-simple-test-project.elpx"
-      - "fixtures/scorm-export/really-simple_scorm12/imsmanifest.xml"
-    notas: >-
-      Resolución parcial de PREG-001: el manifest SCORM 1.2 de eXeLearning v4 ya
-      contiene un SCO por página + content.xml con odePageId/odeIdeviceId estables.
-      Falta inspeccionar SCORM 2004 y un paquete con iDevices calificables.
-
+      - RIE-010
+      - DEC-0016
+      - DEC-0018
+    notas: "Requiere tocar amd/src/editor_modal.js y regenerar amd/build con grunt amd."
+  TAREA-009:
+    fecha: 2026-06-01
+    titulo: "RIE-011: endurecer maxattempt frente a concurrencia"
+    estado: Pending
+    agente: pendiente
+    relacionados:
+      - RIE-011
+      - DEC-0007
+      - DEC-0018
+    notas: "Evaluar lock transaccional o constraint para evitar doble primer intento concurrente."
+  TAREA-010:
+    fecha: 2026-06-01
+    titulo: "RIE-008: evaluar pinning de checksum/firma del ZIP del editor"
+    estado: Pending
+    agente: pendiente
+    relacionados:
+      - RIE-008
+      - DEC-0016
+    notas: "Condicionado a que el release del editor publique digests o firmas verificables."
 riesgos:
   RIE-001:
     titulo: "XSS cross-component desde paquete eXeLearning malicioso"

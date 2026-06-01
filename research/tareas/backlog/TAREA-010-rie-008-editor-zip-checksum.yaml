@@ -1,0 +1,23 @@
+id: TAREA-010
+titulo: "RIE-008: evaluar pinning de checksum/firma del ZIP del editor"
+estado: Pending
+fecha: 2026-06-01
+agente: pendiente
+prioridad: baja
+objetivo: >-
+  Determinar si los releases del editor embebido publican digests o firmas
+  verificables y, si existe una fuente de confianza, añadir verificación de
+  integridad antes de extraer el ZIP.
+pasos:
+  - "Revisar el canal de releases usado por el instalador del editor."
+  - "Comprobar si hay checksum/firma publicada por release y cómo se autentica."
+  - "Si hay fuente confiable, validar digest antes de `extract_to_temp()`."
+  - "Documentar explícitamente la decisión si no hay digest fiable que pinear."
+relacionados:
+  - RIE-008
+  - DEC-0016
+criterios_aceptacion:
+  - "El instalador verifica digest/firma o deja documentado por qué no puede hacerlo."
+  - "TLS estricto y blocklist SSRF de DEC-0016 se mantienen intactos."
+  - "La ruta Moodle Playground conserva su excepción justificada si sigue siendo necesaria."
+notas: "Defensa en profundidad; no sustituye las mitigaciones TLS/SSRF ya aplicadas."
