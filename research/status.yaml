@@ -238,13 +238,13 @@ tareas:
   TAREA-008:
     fecha: 2026-06-01
     titulo: "RIE-010: aplicar guard de origen al puente legacy postMessage"
-    estado: Pending
-    agente: pendiente
+    estado: Done
+    agente: codex
     relacionados:
       - RIE-010
       - DEC-0016
       - DEC-0018
-    notas: "Requiere tocar amd/src/editor_modal.js y regenerar amd/build con grunt amd."
+    notas: "Implementado: helper común de source/origin en amd/src/editor_modal.js para bridge moderno y legacy; amd/build regenerado con grunt amd en Moodle 5.2beta."
   TAREA-009:
     fecha: 2026-06-01
     titulo: "RIE-011: endurecer maxattempt frente a concurrencia"
@@ -331,12 +331,11 @@ riesgos:
     titulo: "Puente legacy postMessage sin guard de origen (handleLegacyBridgeMessage)"
     severidad: media
     probabilidad: baja
-    estado: identificado
+    estado: mitigado
     mitigacion: >-
-      amd/src/editor_modal.js::handleLegacyBridgeMessage NO valida event.source/origin
-      (el handler moderno sí). Fix = guard de una línea idéntico al moderno, pero tocar
-      amd/src obliga a regenerar amd/build con grunt amd (no disponible local; sí en CI).
-      Diferido en DEC-0018; requiere un turno con grunt para regenerar el .min.js.
+      Mitigado en TAREA-008: `handleLegacyBridgeMessage()` comparte el guard de
+      `event.source`/`event.origin` con el bridge moderno; `amd/build` fue
+      regenerado con `grunt amd`.
     relacionados:
       - DEC-0016
       - DEC-0018

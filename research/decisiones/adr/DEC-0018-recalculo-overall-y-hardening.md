@@ -140,3 +140,23 @@ lugar de `cmi.core.score.raw`. Sin mapa de objectids se mantiene el camino CMI
   de origen al puente legacy (DEC-0016 #10).
 - RIE-011: endurecer `maxattempt` con un mecanismo a nivel de esquema (constraint/lock).
 - RIE-008 (DEC-0016): pinning de checksum/firma del ZIP del editor — independiente.
+
+## Revisión 2026-06-01 — RIE-010 mitigado
+
+TAREA-008 cierra el diferido de esta ADR para el puente legacy `postMessage`:
+`amd/src/editor_modal.js` centraliza la validación de `event.source` y
+`event.origin` en `isEditorBridgeMessage()` y ambos handlers (`handleBridgeMessage`
+y `handleLegacyBridgeMessage`) la aplican antes de leer el payload.
+
+Evidencia local:
+
+- Moodle Developer Resources 5.2 consultado con Context7
+  (`/websites/moodledev_io_5_2`, consulta: "How should a Moodle plugin build AMD
+  JavaScript modules locally with grunt amd..."): los módulos AMD de un plugin se
+  compilan de `amd/src` a `amd/build`, y los ficheros generados deben versionarse.
+- Build ejecutado en Moodle 5.2beta local (`../moodle`, commit `bf96e85aa`) con
+  Node 22.22.3 y `grunt amd --root=public/mod/exelearning`. Se usó una copia
+  temporal real del plugin bajo `public/mod/exelearning` porque un symlink hace
+  que Moodle resuelva el path real fuera del árbol y ESLint pierda el override AMD.
+- Verificación sintáctica posterior: `node --check` sobre `amd/src/editor_modal.js`
+  y `amd/build/editor_modal.min.js`.

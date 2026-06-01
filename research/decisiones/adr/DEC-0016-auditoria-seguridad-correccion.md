@@ -195,3 +195,15 @@ con `node --check`) porque no hay `grunt`/`node_modules` en este entorno; el pas
   publique digests.
 - Regenerar `amd/build/` con `grunt amd` para que el fix #10 (postMessage) quede
   en el bundle canónico y la CI de grunt pase.
+
+## Revisión 2026-06-01 — seguimiento #10 cerrado
+
+TAREA-008 / RIE-010 queda mitigada en un follow-up dedicado: el guard de
+`event.source`/`event.origin` se centralizó en `amd/src/editor_modal.js` y se
+aplica tanto al bridge moderno como al legacy antes de procesar `event.data`.
+`amd/build/editor_modal.min.js` y su sourcemap fueron regenerados con Moodle
+5.2beta local y `grunt amd --root=public/mod/exelearning`.
+
+El pendiente de esta ADR sobre regenerar `amd/build/` ya no aplica para #10; la
+barrera futura pasa a ser la CI de `grunt`, que debe seguir detectando cualquier
+divergencia entre fuente y build.

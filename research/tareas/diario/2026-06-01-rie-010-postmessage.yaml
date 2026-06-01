@@ -1,0 +1,27 @@
+fecha: 2026-06-01
+sesion: rie-010-postmessage-legacy
+agente: codex
+resumen: >-
+  TAREA-008 / RIE-010 cerrada: el puente legacy postMessage del editor embebido
+  valida la ventana origen y el origin esperado igual que el bridge moderno.
+
+acciones:
+  - "Añadido `isEditorBridgeMessage(event)` en `amd/src/editor_modal.js` para centralizar la validación `event.source === iframe.contentWindow` y `event.origin === editorOrigin` cuando el origin no es comodín."
+  - "`handleBridgeMessage()` y `handleLegacyBridgeMessage()` usan el helper antes de procesar `event.data`."
+  - "`amd/build/editor_modal.min.js` y su sourcemap regenerados con Moodle `grunt amd`."
+  - "TAREA-008 pasa a Done; RIE-010 pasa a mitigado; TODO actualizado."
+
+evidencia:
+  - "Context7 `/websites/moodledev_io_5_2`: Moodle Developer Resources 5.2 indica que los AMD de plugin se compilan de `amd/src` a `amd/build` con `npx grunt amd` y los build files deben versionarse."
+  - "Build local: Moodle 5.2beta `../moodle` commit `bf96e85aa`, Node 22.22.3 (`/opt/homebrew/opt/node@22/bin`), comando `grunt amd --root=public/mod/exelearning`."
+  - "El intento inicial con symlink falló porque Moodle resolvió el path real fuera del árbol y ESLint no aplicó el parser AMD; se repitió con una copia temporal real del plugin dentro de `public/mod/exelearning`."
+
+pendientes:
+  - "Mantener verificación CI de `grunt` como barrera de divergencia `amd/src` vs `amd/build`."
+  - "Sin pendiente local: la copia temporal del plugin en `../moodle/public/mod/exelearning` fue eliminada después del build."
+
+relacionados:
+  - TAREA-008
+  - RIE-010
+  - DEC-0016
+  - DEC-0018

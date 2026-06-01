@@ -1,9 +1,9 @@
 id: TAREA-008
 titulo: "RIE-010: aplicar guard de origen al puente legacy postMessage"
-estado: Pending
+estado: Done
 fecha: 2026-06-01
-agente: pendiente
-prioridad: media
+agente: codex
+prioridad: alta
 objetivo: >-
   Corregir `amd/src/editor_modal.js::handleLegacyBridgeMessage()` para validar
   `event.source` y `event.origin` igual que el handler moderno, y regenerar
@@ -21,4 +21,9 @@ criterios_aceptacion:
   - "El handler legacy rechaza mensajes cuyo source/origin no coincide con el iframe esperado."
   - "`amd/src` y `amd/build` quedan sincronizados por `grunt amd`."
   - "La CI de grunt no detecta divergencias."
-notas: "Diferido porque el entorno local previo no tenía grunt/node_modules ni árbol Moodle."
+notas: >-
+  Implementado en `amd/src/editor_modal.js` con helper común de validación
+  `event.source`/`event.origin` para bridge moderno y legacy. `amd/build/`
+  regenerado con Moodle 5.2beta (`../moodle`, Node 22.22.3,
+  `grunt amd --root=public/mod/exelearning`) usando una copia temporal real del
+  plugin dentro del árbol Moodle para evitar problemas de symlink con ESLint.

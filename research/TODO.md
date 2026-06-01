@@ -5,8 +5,6 @@ siendo `status.yaml` + `tareas/backlog/`.
 
 ## Prioridad Alta
 
-- [ ] TAREA-008 / RIE-010: aplicar el guard de origen al puente legacy
-      `postMessage` y regenerar `amd/build/` con `grunt amd`.
 - [ ] TAREA-011: verificación e2e por navegador de completado tras aprobar,
       `grademodel` peritem/overall, límite de intentos y revisión del alumno.
 - [ ] TAREA-012 / RIE-001: investigar aislamiento fuerte del paquete `.elpx`
@@ -28,5 +26,7 @@ siendo `status.yaml` + `tareas/backlog/`.
 - [x] TAREA-005: DEC-0003 aceptada y matriz cuantificada.
 - [x] TAREA-006: CI matriz Moodle/PHP/DB documentada e implementada.
 - [x] TAREA-007: DEC-0015 justifica la multicalificación.
+- [x] TAREA-008 / RIE-010: aplicado guard de origen al puente legacy
+      `postMessage`; `amd/build/` regenerado con `grunt amd` en Moodle 5.2beta.
 - [x] TAREA-010: el ZIP del editor descargado desde GitHub se verifica contra
       el digest SHA-256 publicado por GitHub Releases API.
