@@ -239,9 +239,12 @@ riesgos:
       iDevice leyendo el contentDocument del iframe en el momento del scoring y
       track.php rutea por objectid → itemnumber (clase \mod_exelearning\local\track),
       con fallback legacy por N para single-page. Cero cambios en código vendorado.
+      Residuo del overall multipágina (cmi.core.score.raw corrupto) CERRADO en
+      DEC-0018: el overall (itemnumber=0) se recomputa desde itemscores por objectid.
     relacionados:
       - DEC-0016
       - DEC-0017
+      - DEC-0018
       - DEC-0008
   RIE-008:
     titulo: "Sin verificación de integridad (checksum/firma) del ZIP del editor descargado"
@@ -253,3 +256,28 @@ riesgos:
       el pinning de digest queda pendiente de que el release publique checksums.
     relacionados:
       - DEC-0016
+  RIE-010:
+    titulo: "Puente legacy postMessage sin guard de origen (handleLegacyBridgeMessage)"
+    severidad: media
+    probabilidad: baja
+    estado: identificado
+    mitigacion: >-
+      amd/src/editor_modal.js::handleLegacyBridgeMessage NO valida event.source/origin
+      (el handler moderno sí). Fix = guard de una línea idéntico al moderno, pero tocar
+      amd/src obliga a regenerar amd/build con grunt amd (no disponible local; sí en CI).
+      Diferido en DEC-0018; requiere un turno con grunt para regenerar el .min.js.
+    relacionados:
+      - DEC-0016
+      - DEC-0018
+  RIE-011:
+    titulo: "TOCTOU en el límite de intentos (maxattempt)"
+    severidad: baja
+    probabilidad: baja
+    estado: identificado
+    mitigacion: >-
+      Entre el conteo de intentos y el primer record_item de una sesión nueva, dos
+      page-loads concurrentes podrían exceder maxattempt por un intento. Cierre robusto
+      requiere lock/constraint a nivel de esquema. Diferido en DEC-0018.
+    relacionados:
+      - DEC-0007
+      - DEC-0018

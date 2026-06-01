@@ -69,7 +69,7 @@ $cmi = $payload['cmi'];
 // Page-load session token (DEC-0007): groups the auto-commits from a single
 // view.php page load into one attempt.
 $sessiontoken = isset($payload['session'])
-        ? clean_param((string) $payload['session'], PARAM_ALPHANUMEXT) : '';
+        ? substr(clean_param((string) $payload['session'], PARAM_ALPHANUMEXT), 0, 255) : '';
 $rawscore = $cmi['cmi.core.score.raw'] ?? $cmi['cmi.score.raw'] ?? null;
 $maxscore = $cmi['cmi.core.score.max'] ?? $cmi['cmi.score.max'] ?? null;
 $status   = $cmi['cmi.core.lesson_status'] ?? $cmi['cmi.completion_status'] ?? null;
@@ -111,6 +111,16 @@ if ($ispreview) {
 // for a single-page package whose iDevices are all gradable (see RIE-007).
 $itemscores = (isset($payload['itemscores']) && is_array($payload['itemscores']))
         ? $payload['itemscores'] : [];
+// Defensive cap: a well-formed package emits one entry per gradable iDevice, so a
+// map far larger than any real package is a malformed/abusive payload. Drop it
+// rather than iterate it (the legacy suspend_data path still applies if present).
+if (count($itemscores) > 1000) {
+    debugging(
+        'mod_exelearning: itemscores map exceeded the sane size cap and was ignored.',
+        DEBUG_DEVELOPER
+    );
+    $itemscores = [];
+}
 $suspend = $cmi['cmi.suspend_data'] ?? '';
 $peritem = is_string($suspend)
         ? \mod_exelearning\local\track::parse_suspend_data($suspend) : [];
@@ -189,6 +199,33 @@ if ($itemscores !== []) {
 }
 
 // 2) Attempt + aggregated overall grade (itemnumber=0).
+//
+// DEC-0018 (RIE-007 residual): when the shim supplied the objectid map, derive the
+// overall from the per-iDevice scores instead of trusting cmi.core.score.raw. The
+// producer's getFinalScore() is corrupt under a multi-page suspend_data collision,
+// but the per-item objectid scores are not. For a single-page package the weighted
+// mean equals the producer's overall, so the verified single-page path is unchanged.
+// Without an objectid map we keep using the CMI score (legacy / single-page).
+if ($itemscores !== []) {
+    $overallpct = \mod_exelearning\local\track::recompute_overall_pct($itemscores);
+    if ($overallpct !== null) {
+        $recomputed = max(
+            (float) ($exelearning->grademin ?? 0),
+            min($grademax, ($overallpct / 100.0) * $grademax)
+        );
+        // Surface a producer<->plugin divergence (i.e. a likely collision) for
+        // developers without changing what we persist.
+        if (abs($recomputed - $score) > 0.01) {
+            debugging(
+                'mod_exelearning: overall recomputed from itemscores ('
+                    . $recomputed . ') diverges from cmi.core.score.raw (' . $score
+                    . '); using the recomputed value (DEC-0018).',
+                DEBUG_DEVELOPER
+            );
+        }
+        $score = $recomputed;
+    }
+}
 $overallstatus = in_array($status, ['passed', 'failed', 'completed', 'incomplete'], true)
         ? $status : 'completed';
 \mod_exelearning\local\attempts::record_item(

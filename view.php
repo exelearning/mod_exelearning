@@ -377,7 +377,10 @@ if (!$mainfile) {
     function parseSuspend(s) {
         var out = {};
         if (!s) { return out; }
-        var re = /^(\d+)\.\s"([^"]*)";\s[^:]+:\s([\d.]+)%;\s[^:]+:\s([\d.]+)%\.?$/;
+        // The score/weight numbers accept a comma decimal separator (es_ES/fr_FR/de_DE
+        // "60,5%"); normalised to a dot before parseFloat. Mirrors the PHP parser in
+        // \mod_exelearning\local\track::parse_suspend_data.
+        var re = /^(\d+)\.\s"([^"]*)";\s[^:]+:\s([\d.,]+)%;\s[^:]+:\s([\d.,]+)%\.?$/;
         var parts = String(s).split(/\.\t/);
         for (var i = 0; i < parts.length; i++) {
             var line = parts[i].replace(/^\s+|\s+$/g, '');
@@ -386,8 +389,8 @@ if (!$mainfile) {
             if (m) {
                 out[parseInt(m[1], 10)] = {
                     title: m[2],
-                    scorepct: Math.max(0, Math.min(100, parseFloat(m[3]))),
-                    weighted: parseFloat(m[4])
+                    scorepct: Math.max(0, Math.min(100, parseFloat(m[3].replace(',', '.')))),
+                    weighted: parseFloat(m[4].replace(',', '.'))
                 };
             }
         }

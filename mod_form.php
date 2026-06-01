@@ -228,4 +228,32 @@ class mod_exelearning_mod_form extends moodleform_mod {
             }
         }
     }
+
+    /**
+     * Validate the grade range fields before the instance is saved.
+     *
+     * Guards the assumptions track.php relies on: grademin must not exceed grademax
+     * (otherwise the score clamp inverts), and a non-zero gradepass must fall inside
+     * the grade range (otherwise "require passing grade" completion is unreachable).
+     *
+     * @param array $data  The submitted form data.
+     * @param array $files The submitted files.
+     * @return array Map of field name => error string (empty when valid).
+     */
+    public function validation($data, $files) {
+        $errors = parent::validation($data, $files);
+
+        $grademax = (float) ($data['grademax'] ?? 100);
+        $grademin = (float) ($data['grademin'] ?? 0);
+        $gradepass = (float) ($data['gradepass'] ?? 0);
+
+        if ($grademin > $grademax) {
+            $errors['grademin'] = get_string('err_grademinmax', 'mod_exelearning');
+        }
+        if ($gradepass != 0 && ($gradepass < $grademin || $gradepass > $grademax)) {
+            $errors['gradepass'] = get_string('err_gradepassrange', 'mod_exelearning');
+        }
+
+        return $errors;
+    }
 }
