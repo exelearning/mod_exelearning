@@ -1,8 +1,8 @@
 id: TAREA-010
 titulo: "RIE-008: evaluar pinning de checksum/firma del ZIP del editor"
-estado: Pending
+estado: Done
 fecha: 2026-06-01
-agente: pendiente
+agente: codex
 prioridad: baja
 objetivo: >-
   Determinar si los releases del editor embebido publican digests o firmas

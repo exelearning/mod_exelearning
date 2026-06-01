@@ -1,0 +1,36 @@
+fecha: 2026-06-01
+sesion: integridad-editor-ci-52-y-backlog
+agente: codex
+resumen: >-
+  Limpieza documental y hardening de implementación: README/AGENTS alineados con
+  el estado real, CI ampliada a Moodle 5.2, verificación sha256 del editor
+  descargado desde GitHub Releases API y backlog priorizado.
+
+acciones:
+  - "README corregido: grademodel real peritem/overall, sin modo both; xAPI queda como roadmap."
+  - "AGENTS.md actualizado: elimina TAREA-021/005 obsoletas y lista TAREA-008/011/012/009."
+  - "CI ampliada a MOODLE_502_STABLE con PHP 8.3/8.4 y PostgreSQL 16."
+  - "version.php declara supported [405, 502]."
+  - "TAREA-010/RIE-008 mitigada: el instalador verifica el digest sha256 asset.digest publicado por GitHub Releases API antes de extraer el ZIP estático."
+  - "Añadidas TAREA-011 (e2e crítico) y TAREA-012 (aislamiento fuerte del paquete .elpx)."
+
+evidencia:
+  - "GitHub Releases API para exelearning/exelearning v4.0.0 publica digest sha256 para exelearning-static-v4.0.0.zip."
+  - "moodle-plugin-ci 4.5.10 recomienda PostgreSQL 16 para Moodle 5.2; Moodle 5.2 exige PHP 8.3+ y PostgreSQL 16."
+
+pendientes:
+  - "TAREA-008: postMessage legacy + grunt amd."
+  - "TAREA-011: e2e por navegador."
+  - "TAREA-012: aislamiento fuerte del paquete."
+  - "TAREA-009: concurrencia maxattempt."
+
+relacionados:
+  - TAREA-008
+  - TAREA-009
+  - TAREA-010
+  - TAREA-011
+  - TAREA-012
+  - RIE-001
+  - RIE-008
+  - RIE-010
+  - RIE-011

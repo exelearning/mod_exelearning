@@ -1,0 +1,25 @@
+id: TAREA-011
+titulo: "Verificación e2e por navegador de flujos críticos"
+estado: Pending
+fecha: 2026-06-01
+agente: pendiente
+prioridad: alta
+objetivo: >-
+  Verificar en navegador real los flujos que combinan Moodle, iframe, SCORM shim,
+  gradebook y completion: completado tras aprobar, modelos de calificación,
+  límite de intentos y revisión del alumno.
+pasos:
+  - "Preparar demo reproducible con scripts/setup_demo.php o Moodle Playground."
+  - "Comprobar que aprobar dispara completionpassgrade/completado."
+  - "Comprobar grademodel peritem y overall en el libro de calificaciones."
+  - "Comprobar maxattempt desde varias sesiones/cargas."
+  - "Comprobar reviewmode para el alumno."
+relacionados:
+  - DEC-0007
+  - DEC-0008
+  - DEC-0010
+  - DEC-0011
+criterios_aceptacion:
+  - "Checklist e2e documentado con capturas o logs de navegador."
+  - "Cualquier discrepancia queda como bug reproducible o ADR de seguimiento."
+notas: "Complementa PHPUnit/Behat; objetivo pre-release."

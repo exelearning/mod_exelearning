@@ -40,6 +40,9 @@ class embedded_editor_installer {
     /** @var string GitHub Atom feed for published releases. */
     const GITHUB_RELEASES_FEED_URL = 'https://github.com/exelearning/exelearning/releases.atom';
 
+    /** @var string GitHub REST API endpoint for release metadata. */
+    const GITHUB_RELEASES_API_URL = 'https://api.github.com/repos/exelearning/exelearning/releases/tags/v';
+
     /** @var string Filename prefix for the static editor ZIP asset. */
     const ASSET_PREFIX = 'exelearning-static-v';
 
@@ -131,8 +134,20 @@ class embedded_editor_installer {
             $version = $this->discover_latest_version();
         }
 
+        $assetname = $this->get_asset_filename($version);
+        $expectedsha256 = $this->fetch_release_asset_sha256($version, $assetname);
+        if ($expectedsha256 === null) {
+            throw new \moodle_exception('editordigestmissing', 'mod_exelearning', '', $assetname);
+        }
+
         $asseturl = $this->get_asset_url($version);
         $tmpfile = $this->download_to_temp($asseturl);
+        try {
+            $this->verify_file_sha256($tmpfile, $expectedsha256);
+        } catch (\moodle_exception $e) {
+            $this->cleanup_temp_file($tmpfile);
+            throw $e;
+        }
 
         return $this->install_from_zip_path($tmpfile, $version, true);
     }
@@ -363,9 +378,102 @@ class embedded_editor_installer {
      * @return string Full download URL.
      */
     public function get_asset_url(string $version): string {
-        $filename = self::ASSET_PREFIX . $version . '.zip';
+        $filename = $this->get_asset_filename($version);
 
         return 'https://github.com/exelearning/exelearning/releases/download/v' . $version . '/' . $filename;
+    }
+
+    /**
+     * Build the static editor ZIP asset filename.
+     *
+     * @param string $version Version string without leading 'v'.
+     * @return string Asset filename.
+     */
+    public function get_asset_filename(string $version): string {
+        return self::ASSET_PREFIX . $version . '.zip';
+    }
+
+    /**
+     * Fetch the GitHub-published SHA-256 digest for a release asset.
+     *
+     * GitHub's Releases REST API exposes an asset `digest` field (for example
+     * `sha256:...`). Verify against it before extracting the downloaded editor ZIP
+     * so the admin-installed editor is bound to GitHub release metadata, not just
+     * transport TLS (TAREA-010 / RIE-008; DEC-0016).
+     *
+     * @param string $version Version string without leading 'v'.
+     * @param string $assetname Expected asset filename.
+     * @return string|null Lowercase SHA-256 hex digest, or null if unavailable.
+     * @throws \moodle_exception If GitHub cannot be queried.
+     */
+    public function fetch_release_asset_sha256(string $version, string $assetname): ?string {
+        global $CFG;
+        require_once($CFG->libdir . '/filelib.php');
+
+        $security = $this->curl_security_options();
+        $curl = new \curl($security['construct']);
+        $curl->setopt([
+            'CURLOPT_TIMEOUT' => 30,
+            'CURLOPT_HTTPHEADER' => [
+                'Accept: application/vnd.github+json',
+                'User-Agent: Moodle mod_exelearning',
+                'X-GitHub-Api-Version: 2022-11-28',
+            ],
+        ] + $security['ssl']);
+
+        $response = $curl->get(self::GITHUB_RELEASES_API_URL . rawurlencode($version));
+        if ($curl->get_errno()) {
+            throw new \moodle_exception('editorgithubconnecterror', 'mod_exelearning', '', $curl->error);
+        }
+
+        $info = $curl->get_info();
+        if (!isset($info['http_code']) || (int) $info['http_code'] !== 200) {
+            $code = isset($info['http_code']) ? (int) $info['http_code'] : 0;
+            throw new \moodle_exception('editorgithubapierror', 'mod_exelearning', '', $code);
+        }
+
+        return $this->extract_asset_sha256_from_release_api($response, $assetname);
+    }
+
+    /**
+     * Extract a SHA-256 digest for one asset from GitHub release JSON.
+     *
+     * @param string $json GitHub Releases API JSON body.
+     * @param string $assetname Expected asset filename.
+     * @return string|null Lowercase SHA-256 hex digest, or null if absent/invalid.
+     */
+    public function extract_asset_sha256_from_release_api(string $json, string $assetname): ?string {
+        $release = json_decode($json, true);
+        if (!is_array($release) || empty($release['assets']) || !is_array($release['assets'])) {
+            return null;
+        }
+
+        foreach ($release['assets'] as $asset) {
+            if (!is_array($asset) || ($asset['name'] ?? '') !== $assetname) {
+                continue;
+            }
+            $digest = strtolower((string) ($asset['digest'] ?? ''));
+            if (preg_match('/^sha256:([a-f0-9]{64})$/', $digest, $matches)) {
+                return $matches[1];
+            }
+            return null;
+        }
+
+        return null;
+    }
+
+    /**
+     * Verify that a downloaded file matches the expected SHA-256 digest.
+     *
+     * @param string $filepath Downloaded file path.
+     * @param string $expectedsha256 Lowercase SHA-256 hex digest.
+     * @throws \moodle_exception If the file cannot be read or the digest differs.
+     */
+    public function verify_file_sha256(string $filepath, string $expectedsha256): void {
+        $actual = hash_file('sha256', $filepath);
+        if ($actual === false || !hash_equals(strtolower($expectedsha256), strtolower($actual))) {
+            throw new \moodle_exception('editordigestmismatch', 'mod_exelearning');
+        }
     }
 
     /**

@@ -140,10 +140,10 @@ decisiones_bloqueantes:
     fecha: 2026-05-28
     fecha_aceptacion: 2026-05-29
     notas: >-
-      Implementado: selector grademodel overall/peritem/both (default both, que
-      excluye el overall del total del curso vía weightoverride+aggregationcoef2).
-      Borrar un iDevice quita su columna del libro (grade_update deleted).
-      Feedback lesson_status eliminado.
+      Implementado: selector grademodel overall/peritem (default peritem). El
+      modo both fue eliminado en la revisión de 2026-05-29 para evitar
+      doble-contabilidad. Borrar un iDevice quita su columna del libro
+      (grade_update deleted). Feedback lesson_status eliminado.
   DEC-0010:
     titulo: "Finalización estilo SCORM (aprobar para completar)"
     estado: Aceptada
@@ -258,12 +258,33 @@ tareas:
   TAREA-010:
     fecha: 2026-06-01
     titulo: "RIE-008: evaluar pinning de checksum/firma del ZIP del editor"
-    estado: Pending
-    agente: pendiente
+    estado: Done
+    agente: codex
     relacionados:
       - RIE-008
       - DEC-0016
-    notas: "Condicionado a que el release del editor publique digests o firmas verificables."
+    notas: "Implementado: la descarga GitHub del ZIP estático verifica el digest sha256 publicado por GitHub Releases API antes de extraer."
+  TAREA-011:
+    fecha: 2026-06-01
+    titulo: "Verificación e2e por navegador de flujos críticos"
+    estado: Pending
+    agente: pendiente
+    relacionados:
+      - DEC-0007
+      - DEC-0008
+      - DEC-0010
+      - DEC-0011
+    notas: "Cubrir completado tras aprobar, grademodel peritem/overall en el libro, límite de intentos y revisión del alumno."
+  TAREA-012:
+    fecha: 2026-06-01
+    titulo: "RIE-001: investigar aislamiento fuerte del paquete .elpx"
+    estado: Pending
+    agente: pendiente
+    relacionados:
+      - RIE-001
+      - AN-008
+      - DEC-0003
+    notas: "Evaluar subdominio/origen separado, CSP o Permissions-Policy sin romper sidebar nativa ni tracking."
 riesgos:
   RIE-001:
     titulo: "XSS cross-component desde paquete eXeLearning malicioso"
@@ -298,12 +319,14 @@ riesgos:
     titulo: "Sin verificación de integridad (checksum/firma) del ZIP del editor descargado"
     severidad: media
     probabilidad: baja
-    estado: identificado
+    estado: mitigado
     mitigacion: >-
-      TLS estricto + blocklist SSRF (DEC-0016) cierran la sustitución en tránsito;
-      el pinning de digest queda pendiente de que el release publique checksums.
+      Mitigado en TAREA-010: el instalador consulta GitHub Releases API, extrae
+      el campo asset.digest sha256 del ZIP estático y verifica hash_file('sha256')
+      antes de extraer. TLS estricto + blocklist SSRF (DEC-0016) permanecen.
     relacionados:
       - DEC-0016
+      - TAREA-010
   RIE-010:
     titulo: "Puente legacy postMessage sin guard de origen (handleLegacyBridgeMessage)"
     severidad: media
