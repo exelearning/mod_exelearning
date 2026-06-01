@@ -430,16 +430,32 @@ const requestExport = async() => {
 };
 
 /**
+ * Check that a postMessage event really comes from the embedded editor frame.
+ *
+ * The legacy eXeWeb bridge is kept for older static editor builds, but it must
+ * enforce the same source/origin boundary as the modern bridge (RIE-010).
+ *
+ * @param {MessageEvent} event The incoming message event.
+ * @returns {boolean} Whether the event belongs to the active editor iframe.
+ */
+const isEditorBridgeMessage = (event) => {
+    if (!iframe?.contentWindow || event.source !== iframe.contentWindow || !event.data) {
+        return false;
+    }
+    if (editorOrigin !== '*' && event.origin !== editorOrigin) {
+        return false;
+    }
+    return true;
+};
+
+/**
  * Handle protocol messages received from the embedded editor bridge.
  *
  * @param {MessageEvent} event The incoming message event.
  * @returns {Promise<void>}
  */
 const handleBridgeMessage = async(event) => {
-    if (!iframe?.contentWindow || event.source !== iframe.contentWindow || !event.data) {
-        return;
-    }
-    if (editorOrigin !== '*' && event.origin !== editorOrigin) {
+    if (!isEditorBridgeMessage(event)) {
         return;
     }
 
@@ -519,6 +535,10 @@ const handleBridgeMessage = async(event) => {
  * @returns {Promise<void>}
  */
 const handleLegacyBridgeMessage = async(event) => {
+    if (!isEditorBridgeMessage(event)) {
+        return;
+    }
+
     const data = event.data;
     if (!data || data.source !== 'exeweb-editor') {
         return;
