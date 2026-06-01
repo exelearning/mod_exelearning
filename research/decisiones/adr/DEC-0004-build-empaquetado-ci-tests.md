@@ -171,3 +171,19 @@ Trampas resueltas para que pase verde (ver diario 2026-05-29):
 - phpdoc: cada función documenta TODOS sus `@param`.
 - grunt/eslint: AMD de `amd/src` con JSDoc en todas las funciones y sin
   variables sin usar; `amd/build/` regenerado.
+
+## Actualización (2026-06-01): Behat bloqueante y matriz Moodle 5.2
+
+La CI vigente ya no deja Behat como opcional. El PR #8 elimina el
+`continue-on-error` del paso `moodle-plugin-ci behat --profile chrome`, añade
+`$CFG->behat_increasetimeout = 3` tras `moodle-plugin-ci install` y deja Behat
+como verificación bloqueante de cada combinación.
+
+La matriz vigente pasa de 18 a 22 jobs: mantiene Moodle 4.5/5.0/5.1 y añade
+Moodle 5.2 (`MOODLE_502_STABLE`) con PHP 8.3/8.4, pgsql y mariadb. PostgreSQL
+16 queda como servicio de CI para cubrir Moodle 5.2.
+
+Evidencia: GitHub Actions PR #8, run `26771584651`, 22/22 jobs `test (...)`
+en verde, todos con `PHPUnit tests` y `Behat features` pasados. Esta revisión
+supersede la frase anterior "behat opcional/continue-on-error" dentro de esta
+misma decisión.

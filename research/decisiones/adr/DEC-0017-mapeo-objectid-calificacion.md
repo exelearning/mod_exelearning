@@ -197,3 +197,7 @@ podemos hacerlo mejor en el plugin sin tocarlo.
   objectids distintos; `tests/behat/mod_exelearning.feature` mantiene la
   presentación del informe. La verificación de navegador real queda en la pista
   e2e manual/Playwright indicada arriba.
+- Esta revisión supersede la viñeta de validación previa que decía que Behat
+  ejercitaba el puente "con `@javascript`": esa cobertura de navegador se retiró
+  de Behat CI por inestabilidad del driver JS y se conserva como e2e real fuera
+  de la matriz `moodle-plugin-ci`.
