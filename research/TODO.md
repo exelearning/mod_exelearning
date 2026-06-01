@@ -10,13 +10,15 @@ siendo `status.yaml` + `tareas/backlog/`.
 
 ## Prioridad Media
 
-- [ ] TAREA-009 / RIE-011: endurecer `maxattempt` frente a doble carga
-      concurrente con lock/constraint/transacción.
 - [ ] Auditorías de cumplimiento pendientes: licencias, privacidad y
       accesibilidad.
 
 ## Cerrado
 
+- [x] TAREA-009 / RIE-011: TOCTOU de `maxattempt` ACEPTADO por paridad con core
+      (ni mod_scorm ni mod_h5pactivity lo protegen; el UNIQUE ya está presente).
+      Lock `\core\lock` confinado a `!sessionknown` queda como mitigación futura
+      opcional. Ver DEC-0018 (revisión 2026-06-01). Riesgo baja/baja.
 - [x] Fase 0: estructura, plantillas, schemas, índices, dashboard y diario.
 - [x] TAREA-002: Context7 completado en FTE-001..FTE-008.
 - [x] TAREA-003: EXP-001 completado.

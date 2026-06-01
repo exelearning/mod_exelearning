@@ -249,13 +249,20 @@ tareas:
   TAREA-009:
     fecha: 2026-06-01
     titulo: "RIE-011: endurecer maxattempt frente a concurrencia"
-    estado: Pending
-    agente: pendiente
+    estado: Done
+    agente: claude-code
     relacionados:
       - RIE-011
       - DEC-0007
       - DEC-0018
-    notas: "Evaluar lock transaccional o constraint para evitar doble primer intento concurrente."
+    notas: >-
+      Cerrada ACEPTANDO el riesgo (DEC-0018, revisión 2026-06-01). Comparado con core:
+      ni mod_scorm (scorm_attempt sin UNIQUE; maxattempt solo en UI) ni mod_h5pactivity
+      (count+1 confiando solo en su UNIQUE; sin maxattempt) protegen este TOCTOU.
+      mod_exelearning ya tiene el UNIQUE (exelearningid,userid,attempt,itemnumber) +
+      check de maxattempt en track.php, igualando/superando a core. Riesgo baja/baja.
+      El lock \core\lock confinado a la rama !sessionknown queda como mitigación futura
+      opcional (coste despreciable con locks nativos maria/pgsql) si surge uso intensivo.
   TAREA-010:
     fecha: 2026-06-01
     titulo: "RIE-008: evaluar pinning de checksum/firma del ZIP del editor"
@@ -344,11 +351,18 @@ riesgos:
     titulo: "TOCTOU en el límite de intentos (maxattempt)"
     severidad: baja
     probabilidad: baja
-    estado: identificado
+    estado: aceptado
     mitigacion: >-
       Entre el conteo de intentos y el primer record_item de una sesión nueva, dos
-      page-loads concurrentes podrían exceder maxattempt por un intento. Cierre robusto
-      requiere lock/constraint a nivel de esquema. Diferido en DEC-0018.
+      page-loads concurrentes podrían exceder maxattempt por un intento. ACEPTADO por
+      paridad con core (TAREA-009 / DEC-0018, revisión 2026-06-01): ni mod_scorm
+      (scorm_attempt sin UNIQUE, maxattempt solo en UI) ni mod_h5pactivity (count+1 con
+      solo UNIQUE, sin maxattempt) protegen este caso; mod_exelearning ya tiene el
+      UNIQUE (exelearningid,userid,attempt,itemnumber) y validación de maxattempt. El
+      UNIQUE no cubre exceder con números de intento distintos en dos sesiones nuevas
+      concurrentes; el cierre robusto sería un lock \core\lock confinado a !sessionknown,
+      dejado como mitigación futura opcional. Riesgo baja/baja.
     relacionados:
       - DEC-0007
       - DEC-0018
+      - TAREA-009

@@ -160,3 +160,43 @@ Evidencia local:
   que Moodle resuelva el path real fuera del árbol y ESLint pierda el override AMD.
 - Verificación sintáctica posterior: `node --check` sobre `amd/src/editor_modal.js`
   y `amd/build/editor_modal.min.js`.
+
+## Revisión 2026-06-01 — RIE-011 aceptado (paridad con core)
+
+TAREA-009 cierra el diferido del TOCTOU de `maxattempt` **aceptando el riesgo**, tras
+comparar la gestión de intentos del core de Moodle (`mod/scorm`, `mod/h5pactivity`).
+Hallazgo: **ninguno de los dos protege este TOCTOU**, y `mod_exelearning` ya está al
+nivel de `h5pactivity` y por encima de `scorm`.
+
+- **`mod_scorm`**: tabla `scorm_attempt` **SIN UNIQUE** (`mod/scorm/db/install.xml`),
+  número de intento por `MAX(attempt)` leído en memoria
+  (`mod/scorm/locallib.php`, `scorm_get_last_attempt()`) e inserción sin lock ni
+  transacción (`mod/scorm/locallib.php`, `scorm_get_attempt()` con `create=true`).
+  El límite `maxattempt` se valida **solo en la UI** del player
+  (`mod/scorm/lib.php`, `scorm_check_mode()`; `mod/scorm/player.php`). Es decir,
+  más débil que `mod_exelearning`: puede duplicar el mismo número y exceder el límite.
+- **`mod_h5pactivity`**: `attempt = count_records + 1` sin lock ni transacción
+  (`mod/h5pactivity/classes/local/attempt.php`, `new_attempt()`), confiando
+  **únicamente** en el UNIQUE `(h5pactivityid, userid, attempt)` como red; si dos
+  cargas calculan el mismo número, la segunda `INSERT` lanza `dml_write_exception`.
+  No tiene concepto de `maxattempt`.
+- **`mod_exelearning`**: ya tiene el UNIQUE `(exelearningid, userid, attempt,
+  itemnumber)` (`db/install.xml`) **más** la validación de `maxattempt` en
+  `track.php` (líneas 156-175). Iguala o supera el estándar del ecosistema.
+
+El UNIQUE evita duplicar el mismo `(attempt, itemnumber)`, pero **no** el caso de
+exceder con números de intento distintos en dos sesiones nuevas concurrentes del
+mismo alumno. Cerrar ese hueco requiere serializar check+create. La opción correcta
+sería un lock `\core\lock\lock_config::get_lock_factory('mod_exelearning_maxattempt')`
+por recurso `"user:{userid}:exe:{id}"`, **confinado a la rama `!sessionknown`** de
+`track.php` (recount + recheck + primer `record_item` dentro del lock; HTTP 409 si no
+se obtiene). Su coste sería **despreciable** —se adquiere ~1 vez por intento, no por
+autocommit, y en MariaDB/PostgreSQL (matriz CI, DEC-0004) el factory `auto` usa locks
+nativos `GET_LOCK`/advisory in-memory, no el fallback lento `db_record`/`file` que
+motiva la advertencia de rendimiento de la Lock API.
+
+**Decisión (erseco + claude-code):** **NO se implementa el lock**. Riesgo
+**baja/baja** (requiere el mismo alumno con dos cargas en paralelo, en el límite
+exacto de intentos; daño máximo = un intento de más), paridad con core ya alcanzada.
+Queda como **mitigación futura opcional** si surge un caso de uso intensivo (p. ej.
+exámenes masivos reintentando justo en el límite). RIE-011 pasa a estado `aceptado`.
