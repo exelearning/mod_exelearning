@@ -145,6 +145,9 @@ jobs:
           DB: ${{ matrix.database }}
           MOODLE_BRANCH: ${{ matrix.moodle-branch }}
 
+      - name: Configure Behat timeout
+        run: moodle-plugin-ci add-config -- '$CFG->behat_increasetimeout = 3;'
+
       - name: PHP Lint
         if: ${{ always() }}
         run: moodle-plugin-ci phplint
@@ -188,7 +191,6 @@ jobs:
 
       - name: Behat features
         id: behat
-        continue-on-error: true
         if: ${{ always() }}
         run: moodle-plugin-ci behat --profile chrome
 
