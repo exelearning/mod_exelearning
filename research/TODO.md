@@ -5,16 +5,25 @@ siendo `status.yaml` + `tareas/backlog/`.
 
 ## Prioridad Alta
 
-- [ ] TAREA-012 / RIE-001: investigar aislamiento fuerte del paquete `.elpx`
-      (subdominio/origen separado, CSP o Permissions-Policy).
+(sin pendientes)
 
 ## Prioridad Media
 
 - [ ] Auditorías de cumplimiento pendientes: licencias, privacidad y
       accesibilidad.
+- [ ] TAREA-013 / RIE-001 (M8): investigar sandboxing de JS en cliente para mitigar
+      (ShadowRealm, SES/Compartments, Web Worker + DOM proxy, QuickJS-WASM, librerías
+      tipo `sandboxjs`) manteniendo el servido same-origin. Evaluar viabilidad con el
+      motor eXeLearning (DOM + jQuery + pipwerks). Ver DEC-0019 (M8).
 
 ## Cerrado
 
+- [x] TAREA-012 / RIE-001: investigación de aislamiento del `.elpx` COMPLETADA
+      (DEC-0019, 2026-06-02). Core no aísla (mod_scorm sin sandbox; core_h5p curado);
+      mod_exelearning ya es el mejor aislado de los tres; no hay origen separado en core
+      (requiere infra). Roadmap de hardening documentado (NO implementado por decisión):
+      Tier 1 (M2 Permissions-Policy + M3 CSP estricto-con-toggle + M1) → Tier 2 (M6
+      postMessage bridge → M7 origen opaco/subdominio). Implementación = trabajo futuro.
 - [x] TAREA-009 / RIE-011: TOCTOU de `maxattempt` ACEPTADO por paridad con core
       (ni mod_scorm ni mod_h5pactivity lo protegen; el UNIQUE ya está presente).
       Lock `\core\lock` confinado a `!sessionknown` queda como mitigación futura

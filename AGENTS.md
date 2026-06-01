@@ -37,9 +37,16 @@ Reglas operativas de investigación: [`research/AGENTS.md`](./research/AGENTS.md
 - README estilo `mod_exeweb`, dependabot, composer.json.
 
 ### Pendiente (orden sugerido)
-1. **TAREA-012 / RIE-001**: investigar aislamiento fuerte del paquete `.elpx`
-   (subdominio/origen separado, CSP o Permissions-Policy) sin romper la sidebar.
-2. **TAREA-009 / RIE-011**: endurecer `maxattempt` frente a doble carga concurrente.
+1. **Auditorías de cumplimiento**: licencias, privacidad y accesibilidad.
+2. **TAREA-013 / RIE-001 (M8)**: investigar sandboxing de JS en cliente (ShadowRealm, SES/
+   Compartments, Web Worker + DOM proxy, QuickJS-WASM, librerías tipo `sandboxjs`) como
+   mitigación que mantiene el servido same-origin. Ver DEC-0019 (M8).
+3. _(Futuro, documentado, sin priorizar)_ **RIE-001** hardening del `.elpx`: roadmap en
+   DEC-0019 — Tier 1 (Permissions-Policy + CSP estricto-con-toggle + quitar
+   `allow-popups-to-escape-sandbox`) → Tier 2 (bridge `postMessage` → origen opaco/subdominio).
+
+Cerradas: **TAREA-012 / RIE-001** investigación (DEC-0019); **TAREA-009 / RIE-011**
+`maxattempt` aceptado por paridad con core (DEC-0018, commit `f6e8ec8`).
 
 ### Hecho en sesión 2026-05-28 (tarde-noche, claude-opus-4-8)
 - DEC-0008 `grademodel` (selector peritem [default] / overall; modo both eliminado en rev. 2026-05-29).

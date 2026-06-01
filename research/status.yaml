@@ -286,13 +286,41 @@ tareas:
   TAREA-012:
     fecha: 2026-06-01
     titulo: "RIE-001: investigar aislamiento fuerte del paquete .elpx"
-    estado: Pending
-    agente: pendiente
+    estado: Done
+    agente: claude-code
     relacionados:
       - RIE-001
       - AN-008
       - DEC-0003
-    notas: "Evaluar subdominio/origen separado, CSP o Permissions-Policy sin romper sidebar nativa ni tracking."
+      - DEC-0019
+    notas: >-
+      Investigación completada el 2026-06-02 (DEC-0019). Comparado con core: mod_scorm
+      embebe HTML no confiable SIN sandbox (más débil); core_h5p tampoco usa sandbox pero
+      su contenido son librerías curadas por el admin (otro modelo de amenaza). mod_exelearning
+      ya es el mejor aislado de los tres (sandbox parcial). Hechos verificados: core NO ofrece
+      origen separado ($CFG->wwwroot único; url.php hardcodea), el bridge SCORM es 100%
+      same-origin (3 dependencias: contentDocument objectid DEC-0017, window.parent.API,
+      teacher-mode hider) y CSP/Permissions-Policy SÍ se pueden emitir desde exelearning_pluginfile.
+      Decisión (erseco): documentar pros/contras + roadmap, NO implementar ahora. Roadmap en
+      DEC-0019: Tier 1 (M2 Permissions-Policy + M3 CSP estricto-con-toggle + M1) → Tier 2
+      (M6 postMessage bridge → M7 origen opaco/subdominio).
+  TAREA-013:
+    fecha: 2026-06-02
+    titulo: "RIE-001/M8: investigar sandboxing de JS en cliente para mitigar"
+    estado: Pending
+    agente: pendiente
+    relacionados:
+      - RIE-001
+      - DEC-0019
+      - AN-008
+    notas: >-
+      Investigar técnicas de sandboxing de JS en el cliente como alternativa/complemento al
+      aislamiento por origen (M7), manteniendo el servido same-origin: ShadowRealm (TC39),
+      SES/hardened-JS + Compartments (Agoric), Web Worker + proxy de DOM (modelo WorkerDOM de
+      AMP), intérprete JS en WASM (QuickJS estilo plugins de Figma) y librerías tipo sandboxjs
+      (Proxy sobre globalThis). Evaluar viabilidad real con el motor eXeLearning v4 (asume DOM
+      real + jQuery + pipwerks → un realm/worker sin DOM probablemente no lo ejecuta sin un shim
+      costoso) y coste/beneficio frente a M6+M7. Documentado como M8 en DEC-0019.
 riesgos:
   RIE-001:
     titulo: "XSS cross-component desde paquete eXeLearning malicioso"
@@ -300,12 +328,21 @@ riesgos:
     probabilidad: baja
     estado: identificado
     mitigacion: >-
-      v1: sandbox del iframe sin allow-top-navigation / allow-modals (AN-008).
-      v2 (subdominio dedicado) o Permissions-Policy quedan como propuesta futura.
+      v1 VIGENTE: sandbox del iframe sin allow-top-navigation / allow-modals (AN-008).
+      Investigación TAREA-012 completada en DEC-0019 (2026-06-02): core NO aísla (mod_scorm
+      sin sandbox; core_h5p curado), mod_exelearning ya es el mejor aislado de los tres, y
+      no hay origen separado en core (requiere infra). Roadmap documentado de hardening
+      (NO implementado por decisión): Tier 1 = M2 Permissions-Policy (limpio) + M3 CSP de red
+      estricto-por-defecto-con-toggle-admin + M1 quitar allow-popups-to-escape-sandbox (rompe
+      print de la rúbrica); Tier 2 = M6 reescribir el bridge a postMessage → M7 origen opaco
+      o subdominio (eTLD+1 separado). El bridge same-origin es estructural, así que M7 depende
+      de M6. v2 (subdominio) sigue requiriendo infra fuera de core.
     relacionados:
       - AN-008
       - DEC-0003
       - DEC-0004
+      - DEC-0019
+      - TAREA-012
   RIE-007:
     titulo: "suspend_data N (índice local de página) tratado como itemnumber → mis-ruteo y colisión de notas"
     severidad: alta
