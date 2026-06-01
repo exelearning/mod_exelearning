@@ -79,8 +79,8 @@ final class lib_test extends advanced_testcase {
         sort($itemnumbers);
         $this->assertSame([1, 2], $itemnumbers);
 
-        // Default model is PERITEM: the overall (itemnumber=0) is absent and the
-        // per-iDevice columns 1 and 2 exist as gradebook items.
+        // Default model is PERITEM: the overall (itemnumber=0) is hidden for
+        // completionpassgrade, while per-iDevice columns 1 and 2 are visible.
         $overall = grade_item::fetch([
             'itemtype'     => 'mod',
             'itemmodule'   => 'exelearning',
@@ -88,7 +88,8 @@ final class lib_test extends advanced_testcase {
             'itemnumber'   => 0,
             'courseid'     => $instance->course,
         ]);
-        $this->assertFalse($overall, 'overall (itemnumber=0) must not exist in the default PERITEM model');
+        $this->assertInstanceOf(grade_item::class, $overall);
+        $this->assertTrue((bool) $overall->hidden);
 
         foreach ([1, 2] as $itemnumber) {
             $gi = grade_item::fetch([
@@ -175,7 +176,7 @@ final class lib_test extends advanced_testcase {
     }
 
     /**
-     * grademodel PERITEM: itemnumber=0 absent, per-iDevice columns present.
+     * grademodel PERITEM: itemnumber=0 hidden, per-iDevice columns present.
      */
     public function test_grademodel_peritem(): void {
         $instance = $this->create_activity(['grademodel' => EXELEARNING_GRADEMODEL_PERITEM]);
@@ -187,7 +188,8 @@ final class lib_test extends advanced_testcase {
             'itemnumber'   => 0,
             'courseid'     => $instance->course,
         ]);
-        $this->assertFalse($overall, 'overall (itemnumber=0) must not exist in PERITEM model');
+        $this->assertInstanceOf(grade_item::class, $overall);
+        $this->assertTrue((bool) $overall->hidden);
 
         foreach ([1, 2] as $itemnumber) {
             $gi = grade_item::fetch([

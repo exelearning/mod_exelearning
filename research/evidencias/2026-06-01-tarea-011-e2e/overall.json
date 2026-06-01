@@ -1,0 +1,39 @@
+{
+    "label": "overall",
+    "cmid": 2,
+    "exeid": 1,
+    "grademodel": 0,
+    "maxattempt": 1,
+    "reviewmode": 2,
+    "grade_items": [
+        {
+            "itemnumber": 0,
+            "itemname": "Actividad evaluable (demo)",
+            "hidden": 0,
+            "finalgrade": 80
+        }
+    ],
+    "attempts": [
+        {
+            "id": "103",
+            "attempt": "1",
+            "itemnumber": "0",
+            "rawscore": "80.00000",
+            "maxscore": "100.00000",
+            "scaledscore": "0.80000",
+            "status": "passed",
+            "sessiontoken": "sDs6MzUXZWtlu4pHJHvb"
+        },
+        {
+            "id": "102",
+            "attempt": "1",
+            "itemnumber": "1",
+            "rawscore": "80.00000",
+            "maxscore": "100.00000",
+            "scaledscore": "0.80000",
+            "status": "completed",
+            "sessiontoken": "sDs6MzUXZWtlu4pHJHvb"
+        }
+    ],
+    "completionstate": 2
+}

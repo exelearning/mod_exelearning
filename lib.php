@@ -315,9 +315,10 @@ function exelearning_reset_gradebook($courseid, $type = '') {
  *
  * @param stdClass $exelearning
  * @param mixed $grades
+ * @param array $itemdetails Extra grade item fields passed to grade_update().
  * @return int
  */
-function exelearning_grade_item_update($exelearning, $grades = null) {
+function exelearning_grade_item_update($exelearning, $grades = null, array $itemdetails = []) {
     global $CFG;
     require_once($CFG->libdir . '/gradelib.php');
 
@@ -329,6 +330,8 @@ function exelearning_grade_item_update($exelearning, $grades = null) {
         'gradepass' => $exelearning->gradepass ?? 0,
         'display'   => (int) ($exelearning->gradedisplaytype ?? GRADE_DISPLAY_TYPE_DEFAULT),
     ];
+    $item += $itemdetails;
+
     return grade_update(
         'mod/exelearning',
         $exelearning->course,
@@ -832,22 +835,17 @@ function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null
 
     $grademodel = (int) ($instance->grademodel ?? EXELEARNING_GRADEMODEL_PERITEM);
 
-    // Canonical grade item (itemnumber=0) according to the grading model (DEC-0008).
+    // Canonical grade item (itemnumber=0) according to the grading model
+    // (DEC-0008). PERITEM keeps it hidden so Moodle's core
+    // completionpassgrade rule still has a pass/fail grade to evaluate
+    // (DEC-0010, validated by TAREA-011) without adding a visible overall
+    // column to the gradebook.
     if ($grademodel === EXELEARNING_GRADEMODEL_OVERALL) {
         // Overall only: the gradebook shows a single aggregated column (SCORM-style).
         exelearning_grade_item_update($instance);
     } else {
-        // Per iDevice (default): the overall must not exist in the gradebook.
-        grade_update(
-            'mod/exelearning',
-            $instance->course,
-            'mod',
-            'exelearning',
-            $instance->id,
-            0,
-            null,
-            ['deleted' => true]
-        );
+        // Per iDevice (default): keep the overall hidden for completion only.
+        exelearning_grade_item_update($instance, null, ['hidden' => 1]);
     }
 
     // Detection.
@@ -1028,7 +1026,9 @@ function exelearning_recalculate_user_grades(stdClass $instance, int $userid): v
 
     foreach ($items as $itemnumber => $name) {
         if ($itemnumber === 0 && $grademodel !== EXELEARNING_GRADEMODEL_OVERALL) {
-            continue;
+            $base['hidden'] = 1;
+        } else {
+            unset($base['hidden']);
         }
         if ($itemnumber > 0 && $grademodel === EXELEARNING_GRADEMODEL_OVERALL) {
             continue;

@@ -1,5 +1,5 @@
 id: TAREA-006
-titulo: "Redactar ci.yml con matriz moodle-plugin-ci (Moodle 4.5/5.0/5.1 × PHP 8.1-8.4 × pgsql/mariadb)"
+titulo: "Redactar ci.yml con matriz moodle-plugin-ci (Moodle 4.5/5.0/5.1/5.2 × PHP 8.1-8.4 × pgsql/mariadb)"
 estado: Done
 fecha: 2026-05-28
 agente: claude-code
@@ -22,4 +22,4 @@ criterios_aceptacion:
   - "Job 'test' aparece en la pestaña Actions y pasa contra al menos 2 combinaciones."
   - "README muestra badge dinámico del build."
   - "Cada combinación corre lint + phpunit; behat opcional documentado."
-notas: "Done (2026-05-29): .github/workflows/ci.yml con moodle-plugin-ci, matriz REAL de 18 jobs = Moodle 4.5 (PHP 8.1-8.3) + 5.0/5.1 (PHP 8.2-8.4) × pgsql/mariadb (no 4.1/4.3/main: ver DEC-0004; 5.2 como follow-up). Corre lint/phpmd/phpcs/phpdoc/validate/savepoints/mustache/grunt/phpunit/behat. Verde 18/18. PostgreSQL >=15 obligatorio en Moodle 5.1. + codeql + dependabot."
+notas: "Done (2026-05-29; actualizado 2026-06-01): .github/workflows/ci.yml con moodle-plugin-ci, matriz vigente de 22 jobs = Moodle 4.5 (PHP 8.1-8.3), 5.0/5.1 (PHP 8.2-8.4) y 5.2 (PHP 8.3-8.4) × pgsql/mariadb según soporte de cada rama. Corre lint/phpmd/phpcs/phpdoc/validate/savepoints/mustache/grunt/phpunit/behat. PostgreSQL >=15 obligatorio en Moodle 5.1; PostgreSQL 16 en Moodle 5.2. + codeql + dependabot."

@@ -168,8 +168,9 @@ capabilities.
 
 When a teacher uploads a `.elpx`, the plugin extracts the package and detects
 gradable iDevices from `content.xml`. The default gradebook model is **per-iDevice
-only**: one column per detected gradable iDevice (`itemnumber=1..N`), with no
-overall column. The teacher can switch the activity to **overall only** when a
+only**: one visible column per detected gradable iDevice (`itemnumber=1..N`).
+A hidden overall item is maintained only so Moodle can evaluate pass-grade
+completion. The teacher can switch the activity to **overall only** when a
 single aggregated grade is preferred (SCORM-style). The former "both" mode was
 removed in [DEC-0008](./research/decisiones/adr/DEC-0008-grade-aggregation-y-feedback.md)
 to avoid double-counting and gradebook complexity.

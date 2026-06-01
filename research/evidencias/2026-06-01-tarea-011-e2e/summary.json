@@ -1,0 +1,151 @@
+{
+  "generatedAt": "2026-06-01T20:17:01.984Z",
+  "browser": "Google Chrome via Playwright chromium channel=chrome",
+  "moodle": "Docker erseco/alpine-moodle:v5.0.7",
+  "checks": [
+    {
+      "label": "peritem",
+      "grademodel": 1,
+      "firstCommit": {
+        "committed": "true",
+        "line": "1. \"idevice-1779989968114-sevb8qqdy\"; Score: 80%; Weight: 100%",
+        "objectid": "idevice-1779989968114-sevb8qqdy",
+        "title": "idevice-1779989968114-sevb8qqdy",
+        "ideviceType": "trueorfalse",
+        "nodeCount": 2,
+        "frameSrc": "http://localhost/pluginfile.php/16/mod_exelearning/content/1/index.html"
+      },
+      "secondCommit": {
+        "committed": "false",
+        "line": "1. \"idevice-1779989968114-sevb8qqdy\"; Score: 90%; Weight: 100%",
+        "objectid": "idevice-1779989968114-sevb8qqdy",
+        "title": "idevice-1779989968114-sevb8qqdy",
+        "ideviceType": "trueorfalse",
+        "nodeCount": 2,
+        "frameSrc": "http://localhost/pluginfile.php/16/mod_exelearning/content/1/index.html"
+      },
+      "studentTextChecks": {
+        "attemptsOfMax": true,
+        "reviewSummary": true,
+        "maxReached": true
+      },
+      "snapshot": {
+        "label": "peritem",
+        "cmid": 2,
+        "exeid": 1,
+        "grademodel": 1,
+        "maxattempt": 1,
+        "reviewmode": 2,
+        "grade_items": [
+          {
+            "itemnumber": 0,
+            "itemname": "Actividad evaluable (demo)",
+            "hidden": 1,
+            "finalgrade": 80
+          },
+          {
+            "itemnumber": 1,
+            "itemname": "Actividad evaluable (demo) · trueorfalse",
+            "hidden": 0,
+            "finalgrade": 80
+          },
+          {
+            "itemnumber": 2,
+            "itemname": "Actividad evaluable (demo) · guess",
+            "hidden": 0,
+            "finalgrade": 0
+          }
+        ],
+        "attempts": [
+          {
+            "id": "101",
+            "attempt": "1",
+            "itemnumber": "0",
+            "rawscore": "80.00000",
+            "maxscore": "100.00000",
+            "scaledscore": "0.80000",
+            "status": "passed",
+            "sessiontoken": "UzfRkhB7MD2ZD6b3XgT3"
+          },
+          {
+            "id": "100",
+            "attempt": "1",
+            "itemnumber": "1",
+            "rawscore": "80.00000",
+            "maxscore": "100.00000",
+            "scaledscore": "0.80000",
+            "status": "completed",
+            "sessiontoken": "UzfRkhB7MD2ZD6b3XgT3"
+          }
+        ],
+        "completionstate": 2
+      }
+    },
+    {
+      "label": "overall",
+      "grademodel": 0,
+      "firstCommit": {
+        "committed": "true",
+        "line": "1. \"idevice-1779989968114-sevb8qqdy\"; Score: 80%; Weight: 100%",
+        "objectid": "idevice-1779989968114-sevb8qqdy",
+        "title": "idevice-1779989968114-sevb8qqdy",
+        "ideviceType": "trueorfalse",
+        "nodeCount": 2,
+        "frameSrc": "http://localhost/pluginfile.php/16/mod_exelearning/content/1/index.html"
+      },
+      "secondCommit": {
+        "committed": "false",
+        "line": "1. \"idevice-1779989968114-sevb8qqdy\"; Score: 90%; Weight: 100%",
+        "objectid": "idevice-1779989968114-sevb8qqdy",
+        "title": "idevice-1779989968114-sevb8qqdy",
+        "ideviceType": "trueorfalse",
+        "nodeCount": 2,
+        "frameSrc": "http://localhost/pluginfile.php/16/mod_exelearning/content/1/index.html"
+      },
+      "studentTextChecks": {
+        "attemptsOfMax": true,
+        "reviewSummary": true,
+        "maxReached": true
+      },
+      "snapshot": {
+        "label": "overall",
+        "cmid": 2,
+        "exeid": 1,
+        "grademodel": 0,
+        "maxattempt": 1,
+        "reviewmode": 2,
+        "grade_items": [
+          {
+            "itemnumber": 0,
+            "itemname": "Actividad evaluable (demo)",
+            "hidden": 0,
+            "finalgrade": 80
+          }
+        ],
+        "attempts": [
+          {
+            "id": "103",
+            "attempt": "1",
+            "itemnumber": "0",
+            "rawscore": "80.00000",
+            "maxscore": "100.00000",
+            "scaledscore": "0.80000",
+            "status": "passed",
+            "sessiontoken": "sDs6MzUXZWtlu4pHJHvb"
+          },
+          {
+            "id": "102",
+            "attempt": "1",
+            "itemnumber": "1",
+            "rawscore": "80.00000",
+            "maxscore": "100.00000",
+            "scaledscore": "0.80000",
+            "status": "completed",
+            "sessiontoken": "sDs6MzUXZWtlu4pHJHvb"
+          }
+        ],
+        "completionstate": 2
+      }
+    }
+  ]
+}

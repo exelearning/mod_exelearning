@@ -91,29 +91,34 @@ final class grademodel_test extends advanced_testcase {
 
     /**
      * PERITEM model (the default): per-iDevice columns exist and the overall
-     * column (itemnumber=0) is absent from the gradebook.
+     * itemnumber=0 is hidden, retained only for Moodle completionpassgrade.
      */
-    public function test_peritem_creates_per_idevice_columns_no_overall(): void {
+    public function test_peritem_creates_per_idevice_columns_hidden_overall(): void {
         $instance = $this->create_activity(['grademodel' => EXELEARNING_GRADEMODEL_PERITEM]);
 
         // Per-iDevice columns are present and feed the course total directly.
         $this->assertInstanceOf(grade_item::class, $this->fetch_item($instance, 1));
         $this->assertInstanceOf(grade_item::class, $this->fetch_item($instance, 2));
 
-        // No overall column under the per-iDevice model.
-        $this->assertFalse($this->fetch_item($instance, 0));
+        // The overall is hidden under the per-iDevice model: it supports
+        // completionpassgrade without appearing as a normal gradebook column.
+        $overall = $this->fetch_item($instance, 0);
+        $this->assertInstanceOf(grade_item::class, $overall);
+        $this->assertTrue((bool) $overall->hidden);
     }
 
     /**
      * The generator default (no grademodel given) is PERITEM: per-iDevice
-     * columns present, overall absent.
+     * columns present, hidden completion-only overall present.
      */
     public function test_default_model_is_peritem(): void {
         $instance = $this->create_activity();
 
         $this->assertSame(EXELEARNING_GRADEMODEL_PERITEM, (int) $instance->grademodel);
         $this->assertInstanceOf(grade_item::class, $this->fetch_item($instance, 1));
-        $this->assertFalse($this->fetch_item($instance, 0));
+        $overall = $this->fetch_item($instance, 0);
+        $this->assertInstanceOf(grade_item::class, $overall);
+        $this->assertTrue((bool) $overall->hidden);
     }
 
     /**
@@ -123,22 +128,26 @@ final class grademodel_test extends advanced_testcase {
     public function test_switch_peritem_to_overall_swaps_columns(): void {
         $instance = $this->create_activity(['grademodel' => EXELEARNING_GRADEMODEL_PERITEM]);
 
-        // Per-iDevice columns are present under PERITEM; overall is absent.
+        // Per-iDevice columns are present under PERITEM; overall is hidden.
         $this->assertInstanceOf(grade_item::class, $this->fetch_item($instance, 1));
         $this->assertInstanceOf(grade_item::class, $this->fetch_item($instance, 2));
-        $this->assertFalse($this->fetch_item($instance, 0));
+        $overall = $this->fetch_item($instance, 0);
+        $this->assertInstanceOf(grade_item::class, $overall);
+        $this->assertTrue((bool) $overall->hidden);
 
         $data = $this->update_payload($instance, ['grademodel' => EXELEARNING_GRADEMODEL_OVERALL]);
         $this->assertTrue(exelearning_update_instance($data));
 
-        // The overall appears; the per-iDevice gradebook columns are gone.
-        $this->assertInstanceOf(grade_item::class, $this->fetch_item($instance, 0));
+        // The overall is visible; the per-iDevice gradebook columns are gone.
+        $overall = $this->fetch_item($instance, 0);
+        $this->assertInstanceOf(grade_item::class, $overall);
+        $this->assertFalse((bool) $overall->hidden);
         $this->assertFalse($this->fetch_item($instance, 1));
         $this->assertFalse($this->fetch_item($instance, 2));
     }
 
     /**
-     * Switching OVERALL → PERITEM on update removes the overall column and
+     * Switching OVERALL → PERITEM on update hides the overall column and
      * exposes the per-iDevice columns.
      */
     public function test_switch_overall_to_peritem_swaps_columns(): void {
@@ -149,8 +158,10 @@ final class grademodel_test extends advanced_testcase {
         $data = $this->update_payload($instance, ['grademodel' => EXELEARNING_GRADEMODEL_PERITEM]);
         $this->assertTrue(exelearning_update_instance($data));
 
-        // The overall (itemnumber=0) column is removed; per-iDevice ones appear.
-        $this->assertFalse($this->fetch_item($instance, 0));
+        // The overall (itemnumber=0) column is hidden; per-iDevice ones appear.
+        $overall = $this->fetch_item($instance, 0);
+        $this->assertInstanceOf(grade_item::class, $overall);
+        $this->assertTrue((bool) $overall->hidden);
         $this->assertInstanceOf(grade_item::class, $this->fetch_item($instance, 1));
         $this->assertInstanceOf(grade_item::class, $this->fetch_item($instance, 2));
     }

@@ -41,8 +41,9 @@ decisiones_bloqueantes:
     fecha: 2026-05-28
     fecha_aceptacion: 2026-05-29
     notas: >-
-      Aceptada (2026-05-29): ci.yml con moodle-plugin-ci v4, matriz 18 combos
-      (Moodle 4.5/5.0/5.1 × PHP 8.1-8.4 × pgsql/mariadb). Trampa: no declarar
+      Aceptada (2026-05-29): ci.yml con moodle-plugin-ci v4, matriz vigente con
+      Moodle 4.5/5.0/5.1/5.2 × PHP 8.1-8.4 × mariadb/pgsql según soporte
+      de cada rama; `version.php` declara [405, 502]. Trampa: no declarar
       dist/static en thirdpartylibs.xml (gitignored → grunt ignorefiles aborta
       install). phpcs/phpdoc/grunt en verde.
   DEC-0005:
@@ -267,14 +268,14 @@ tareas:
   TAREA-011:
     fecha: 2026-06-01
     titulo: "Verificación e2e por navegador de flujos críticos"
-    estado: Pending
-    agente: pendiente
+    estado: Done
+    agente: codex
     relacionados:
       - DEC-0007
       - DEC-0008
       - DEC-0010
       - DEC-0011
-    notas: "Cubrir completado tras aprobar, grademodel peritem/overall en el libro, límite de intentos y revisión del alumno."
+    notas: "E2E real con Docker + Google Chrome: completado tras aprobar, grademodel peritem/overall, libro, maxattempt, reviewmode y puente iframe/SCORM. Evidencia en research/evidencias/2026-06-01-tarea-011-e2e/."
   TAREA-012:
     fecha: 2026-06-01
     titulo: "RIE-001: investigar aislamiento fuerte del paquete .elpx"

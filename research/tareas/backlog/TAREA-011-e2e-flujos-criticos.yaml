@@ -1,8 +1,8 @@
 id: TAREA-011
 titulo: "Verificación e2e por navegador de flujos críticos"
-estado: Pending
+estado: Done
 fecha: 2026-06-01
-agente: pendiente
+agente: codex
 prioridad: alta
 objetivo: >-
   Verificar en navegador real los flujos que combinan Moodle, iframe, SCORM shim,
@@ -22,4 +22,10 @@ relacionados:
 criterios_aceptacion:
   - "Checklist e2e documentado con capturas o logs de navegador."
   - "Cualquier discrepancia queda como bug reproducible o ADR de seguimiento."
-notas: "Complementa PHPUnit/Behat; objetivo pre-release."
+notas: >-
+  Cerrada con e2e real en Docker (`erseco/alpine-moodle:v5.0.7`) + Google
+  Chrome vía Playwright temporal. Evidencia JSON en
+  `research/evidencias/2026-06-01-tarea-011-e2e/`. El e2e detectó y se corrigió:
+  (1) `PERITEM` necesitaba publicar un overall oculto para que
+  `completionpassgrade` completara tras aprobar; (2) el rechazo de `maxattempt`
+  debía responder HTTP 409 para que el bridge SCORM devolviera `LMSCommit=false`.

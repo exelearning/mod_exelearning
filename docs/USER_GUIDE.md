@@ -69,8 +69,8 @@ creates the gradebook columns for every gradable iDevice it detects.
   - *Lowest attempt*
 - **Gradebook columns** — how the activity reports to the gradebook (see
   section 4 for guidance on choosing):
-  - *Per iDevice only* — one column per gradable iDevice, no overall column.
-    **This is the default.**
+  - *Per iDevice only* — one visible column per gradable iDevice. A hidden
+    overall item is kept only for pass-grade completion. **This is the default.**
   - *Overall only* — a single aggregated column, like SCORM.
 - **Attempts allowed** — the maximum number of attempts per student. Set to `0`
   for unlimited (the default). One attempt corresponds to one page-load session
