@@ -43,8 +43,8 @@ class track {
      * see DEC-0017. The score/weight labels are localised, hence the `[^:]+` parts.
      *
      * @param string $suspend Raw cmi.suspend_data value.
-     * @return array<int, array{title: string, scorepct: float, weighted: float}>
-     *         Map of page-local N to its parsed result. Empty when nothing parses.
+     * @return array Map of page-local N (int) to ['title' => string, 'scorepct' => float,
+     *         'weighted' => float]. Empty when nothing parses.
      */
     public static function parse_suspend_data(string $suspend): array {
         $peritem = [];
@@ -208,7 +208,7 @@ class track {
      * Resolves the per-instance grading context used by both routing paths.
      *
      * @param \stdClass $exe The exelearning instance record.
-     * @return array{grademax: float, grademethod: int, grademodel: int, itemdetailsbase: array}
+     * @return array Keys: grademax (float), grademethod (int), grademodel (int), itemdetailsbase (array).
      */
     private static function grade_context(\stdClass $exe): array {
         return [

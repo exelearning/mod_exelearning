@@ -171,7 +171,7 @@ final class track_test extends advanced_testcase {
         $this->assertSame('idevice-tf-0001', $this->objectid_for($instance, 1));
         $this->assertSame('idevice-guess-0002', $this->objectid_for($instance, 2));
 
-        // objectid routing: each score reaches its own column.
+        // Objectid routing: each score reaches its own column.
         $attempt = local\attempts::resolve_attempt_number($instance->id, $student->id, 'sessOK');
         $saved = track::apply_item_scores($instance, $student->id, $attempt, [
             'idevice-tf-0001'    => ['scorepct' => 90.0, 'weighted' => 100.0, 'title' => 'tf'],
