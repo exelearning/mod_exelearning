@@ -364,10 +364,74 @@ if (!$mainfile) {
     var errCode = '0', cmi = {}, dirty = false, autoTimer = null;
     // Unique token per page load: groups the auto-commits into a single attempt.
     var session = '%SESSION%';
+    // Per-iDevice routing by stable objectid (DEC-0017 / RIE-007). eXeLearning v4
+    // keys cmi.suspend_data by the page-local DOM index N, which collides across
+    // the package's separate HTML pages. We instead resolve each scored iDevice to
+    // its objectid (the .idevice_node element id, equal to <odeIdeviceId> and to
+    // our exelearning_grade_item.objectid) by reading the iframe DOM at the moment
+    // of scoring, and send objectid => result. Same-origin access is the same
+    // technique the teacher-mode hider uses (lib.php).
+    var prevSuspend = {};   // Last parsed cmi.suspend_data, keyed by page-local N.
+    var itemScores = {};    // objectid => { scorepct, weighted, title }.
+    // Parse cmi.suspend_data exactly like \mod_exelearning\local\track::parse_suspend_data.
+    function parseSuspend(s) {
+        var out = {};
+        if (!s) { return out; }
+        var re = /^(\d+)\.\s"([^"]*)";\s[^:]+:\s([\d.]+)%;\s[^:]+:\s([\d.]+)%\.?$/;
+        var parts = String(s).split(/\.\t/);
+        for (var i = 0; i < parts.length; i++) {
+            var line = parts[i].replace(/^\s+|\s+$/g, '');
+            if (!line) { continue; }
+            var m = line.match(re);
+            if (m) {
+                out[parseInt(m[1], 10)] = {
+                    title: m[2],
+                    scorepct: Math.max(0, Math.min(100, parseFloat(m[3]))),
+                    weighted: parseFloat(m[4])
+                };
+            }
+        }
+        return out;
+    }
+    // Map page-local index N (1-based) to the iDevice objectid, read live from the
+    // currently loaded iframe page. Reproduces eXeLearning's own
+    // $('.idevice_node').index(el)+1 ordering, so N resolves to the right objectid.
+    function resolveObjectMap() {
+        try {
+            var fr = document.getElementById('exelearningobject');
+            var doc = fr && fr.contentDocument;
+            if (!doc) { return null; }
+            var nodes = doc.querySelectorAll('.idevice_node');
+            if (!nodes || !nodes.length) { return null; }
+            var map = {};
+            for (var i = 0; i < nodes.length; i++) {
+                if (nodes[i].id) { map[i + 1] = nodes[i].id; }
+            }
+            return map;
+        } catch (e) { return null; }
+    }
+    // On each suspend_data write, capture only the entries that changed (the iDevice
+    // just scored, always on the currently loaded page) and stamp them by objectid.
+    // Stale cross-page entries left in the collided suspend_data are skipped because
+    // they do not resolve against the current page's DOM — that is what fixes the
+    // multi-page collision.
+    function captureItemScores(s) {
+        var newD = parseSuspend(s);
+        var domMap = resolveObjectMap();
+        for (var n in newD) {
+            if (!newD.hasOwnProperty(n)) { continue; }
+            var prev = prevSuspend[n], cur = newD[n];
+            var changed = !prev || prev.scorepct !== cur.scorepct || prev.weighted !== cur.weighted;
+            if (changed && domMap && domMap[n]) {
+                itemScores[domMap[n]] = { scorepct: cur.scorepct, weighted: cur.weighted, title: cur.title };
+            }
+        }
+        prevSuspend = newD;
+    }
     function send(sync) {
         if (!dirty) { return true; }
         var snapshot = JSON.stringify(cmi);
-        var payload = JSON.stringify({ id: %CMID%, session: session, cmi: cmi });
+        var payload = JSON.stringify({ id: %CMID%, session: session, cmi: cmi, itemscores: itemScores });
         try {
             var xhr = new XMLHttpRequest();
             // Synchronous in LMSFinish (student closes the tab); async otherwise.
@@ -407,6 +471,12 @@ if (!$mainfile) {
         LMSGetValue:     function (k) { return cmi[k] || ''; },
         LMSSetValue:     function (k, v) {
             cmi[k] = String(v); dirty = true;
+            // Resolve per-iDevice scores to stable objectids while the scoring
+            // page is still loaded in the iframe (DEC-0017).
+            if (k === 'cmi.suspend_data') {
+                captureItemScores(cmi[k]);
+                schedule();
+            }
             // Autocommit on critical keys so the grade reaches the gradebook
             // even if eXeLearning does not call Commit explicitly.
             if (k === 'cmi.core.score.raw' || k === 'cmi.core.lesson_status'
