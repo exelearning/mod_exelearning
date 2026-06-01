@@ -842,7 +842,10 @@ function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null
     // column to the gradebook.
     if ($grademodel === EXELEARNING_GRADEMODEL_OVERALL) {
         // Overall only: the gradebook shows a single aggregated column (SCORM-style).
-        exelearning_grade_item_update($instance);
+        // Pass hidden=0 explicitly so switching PERITEM -> OVERALL un-hides the
+        // overall item; grade_update() leaves the flag untouched otherwise and the
+        // column would stay hidden from when it was the completion-only stub.
+        exelearning_grade_item_update($instance, null, ['hidden' => 0]);
     } else {
         // Per iDevice (default): keep the overall hidden for completion only.
         exelearning_grade_item_update($instance, null, ['hidden' => 1]);
