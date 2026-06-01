@@ -1,0 +1,25 @@
+id: TAREA-012
+titulo: "RIE-001: investigar aislamiento fuerte del paquete .elpx"
+estado: Pending
+fecha: 2026-06-01
+agente: pendiente
+prioridad: alta
+objetivo: >-
+  Reducir el riesgo XSS cross-component de paquetes .elpx maliciosos sin romper
+  sidebar nativa, acceso same-origin necesario para tracking ni compatibilidad
+  con Moodle Playground.
+pasos:
+  - "Revisar viabilidad de servir paquetes desde subdominio/origen separado."
+  - "Evaluar CSP/Permissions-Policy específicas para pluginfile.php de paquetes."
+  - "Probar impacto en sidebar, SCORM shim, teacher-mode hider e itemscores por objectid."
+  - "Proponer ADR si el aislamiento cambia arquitectura o requisitos de despliegue."
+relacionados:
+  - RIE-001
+  - AN-008
+  - DEC-0003
+  - DEC-0017
+criterios_aceptacion:
+  - "Opciones comparadas con impacto funcional y operativo."
+  - "Recomendación documentada como ADR o nota AN."
+  - "No se degrada la preservación de sidebar nativa."
+notas: "Riesgo medio, probabilidad baja; importante antes de estabilizar."

@@ -14,7 +14,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:15
+        image: postgres:16
         env:
           POSTGRES_USER: 'postgres'
           POSTGRES_HOST_AUTH_METHOD: 'trust'
@@ -100,6 +100,20 @@ jobs:
             php: '8.4'
             database: 'pgsql'
           - moodle-branch: 'MOODLE_501_STABLE'
+            php: '8.4'
+            database: 'mariadb'
+          # Moodle 5.2 (MOODLE_502_STABLE) -> PHP 8.3, 8.4
+          # Moodle 5.2 raises the PostgreSQL minimum to 16.
+          - moodle-branch: 'MOODLE_502_STABLE'
+            php: '8.3'
+            database: 'pgsql'
+          - moodle-branch: 'MOODLE_502_STABLE'
+            php: '8.3'
+            database: 'mariadb'
+          - moodle-branch: 'MOODLE_502_STABLE'
+            php: '8.4'
+            database: 'pgsql'
+          - moodle-branch: 'MOODLE_502_STABLE'
             php: '8.4'
             database: 'mariadb'
 

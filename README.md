@@ -37,12 +37,11 @@ latest Moodle 5.x stable.
 | 4.5.x (LTS)           | Supported (minimum required version)      |
 | 5.0.x                 | Supported · default reference image       |
 | 5.1.x                 | Supported                                 |
-| 5.2.x (latest stable) | Supported                                 |
+| 5.2.x (latest stable) | Supported · covered by CI                 |
 
 Older Moodle releases (3.x, 4.0–4.4) are **not** supported because the plugin
 relies on the multi-grade-item API (`get_grade_item_names` and the
-`itemnumber_mapping` interface) that was finalised in Moodle 4.5 LTS, and on
-`core_xapi` for the runtime SCORM/xAPI bridge. The plugin is expected to keep
+`itemnumber_mapping` interface) that was finalised in Moodle 4.5 LTS. The plugin is expected to keep
 working with newer Moodle releases as they appear; if you find an incompatibility
 please open an issue at <https://github.com/ateeducacion/mod_exelearning/issues>.
 
@@ -168,15 +167,12 @@ capabilities.
 ## Gradebook behaviour
 
 When a teacher uploads a `.elpx`, the plugin extracts the package and detects
-gradable iDevices from `content.xml`. The current default emits:
-
-* One overall column per activity (`itemnumber=0`).
-* One column per detected gradable iDevice (`itemnumber=1..N`).
-
-The gradebook columns model is configurable per activity (see
-[DEC-0008](./research/decisiones/adr/DEC-0008-grade-aggregation-y-feedback.md)):
-**overall only**, **per-iDevice only**, or **both** with the overall excluded
-from the course total (default, avoids double counting).
+gradable iDevices from `content.xml`. The default gradebook model is **per-iDevice
+only**: one column per detected gradable iDevice (`itemnumber=1..N`), with no
+overall column. The teacher can switch the activity to **overall only** when a
+single aggregated grade is preferred (SCORM-style). The former "both" mode was
+removed in [DEC-0008](./research/decisiones/adr/DEC-0008-grade-aggregation-y-feedback.md)
+to avoid double-counting and gradebook complexity.
 
 Each submission is stored as an **attempt** (see
 [DEC-0007](./research/decisiones/adr/DEC-0007-gestion-intentos.md)); the
@@ -195,7 +191,7 @@ xAPI support via `core_xapi` is on the roadmap.
 
 See `research/decisiones/adr/` for the full set of ADRs. Highlights:
 
-* [DEC-0003](./research/decisiones/adr/DEC-0003-estandar-tracking-y-multi-grade-items.md) — tracking standard and multi-grade-items (xAPI: proposed).
+* [DEC-0003](./research/decisiones/adr/DEC-0003-estandar-tracking-y-multi-grade-items.md) — tracking standard and multi-grade-items (SCORM 1.2 now, xAPI roadmap).
 * [DEC-0006](./research/decisiones/adr/DEC-0006-modos-preview-grading.md) — preview vs grading modes (done).
 * [DEC-0007](./research/decisiones/adr/DEC-0007-gestion-intentos.md) — multi-attempt support (done).
 * [DEC-0008](./research/decisiones/adr/DEC-0008-grade-aggregation-y-feedback.md) — overall vs per-iDevice grade aggregation (done).
@@ -205,8 +201,8 @@ See `research/decisiones/adr/` for the full set of ADRs. Highlights:
 ## Development
 
 For development setup, build instructions, and contributing guidelines, see
-[DEVELOPMENT.md](DEVELOPMENT.md) (forthcoming). The full research history,
-including ADRs, source fixtures and analysis notes, lives under
+[DEVELOPMENT.md](DEVELOPMENT.md). The full research history, including ADRs,
+source fixtures and analysis notes, lives under
 [`research/`](./research/).
 
 ## Support

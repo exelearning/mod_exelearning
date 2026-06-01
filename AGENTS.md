@@ -37,10 +37,15 @@ Reglas operativas de investigación: [`research/AGENTS.md`](./research/AGENTS.md
 - README estilo `mod_exeweb`, dependabot, composer.json.
 
 ### Pendiente (orden sugerido)
-1. **TAREA-021**: `editor/index.php?id=N` devuelve 404 (lanzar editor embebido por actividad).
-2. (opcional/doc) TAREA-005: cuantificar a 0-5 la matriz de DEC-0003 (ya Aceptada).
-3. Verificación e2e por navegador de: completado tras aprobar, grademodel peritem/overall
-   en el libro (default peritem), límite de intentos y revisión del alumno.
+1. **TAREA-008 / RIE-010**: cerrar el `postMessage` legacy del editor
+   (`amd/src/editor_modal.js::handleLegacyBridgeMessage`) y regenerar
+   `amd/build/` con `grunt amd`.
+2. **TAREA-011**: verificación e2e por navegador de completado tras aprobar,
+   `grademodel` peritem/overall en el libro (default peritem), límite de intentos
+   y revisión del alumno.
+3. **TAREA-012 / RIE-001**: investigar aislamiento fuerte del paquete `.elpx`
+   (subdominio/origen separado, CSP o Permissions-Policy) sin romper la sidebar.
+4. **TAREA-009 / RIE-011**: endurecer `maxattempt` frente a doble carga concurrente.
 
 ### Hecho en sesión 2026-05-28 (tarde-noche, claude-opus-4-8)
 - DEC-0008 `grademodel` (selector peritem [default] / overall; modo both eliminado en rev. 2026-05-29).
@@ -130,7 +135,7 @@ mod_exelearning/
 ├── mod_form.php
 ├── settings.php               # 1 toggle (embeddededitor) + link a manage page
 ├── manage_embedded_editor.php # Página admin (instalar/borrar/actualizar editor)
-├── editor/index.php           # [TAREA-021: 404]
+├── editor/index.php           # Página bootstrap del editor embebido por actividad
 ├── classes/
 │   ├── grades/gradeitems.php  # itemnumber_mapping (MAX 100)
 │   ├── local/package.php      # Parser content.xml
