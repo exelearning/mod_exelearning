@@ -46,3 +46,36 @@ Feature: View a mod_exelearning activity and its attempts report
   Scenario: A teacher sees the participation summary line with no attempts yet
     Given I am on the "Evaluable unit" "exelearning activity" page logged in as teacher1
     Then I should see "0 of 1 students have attempted this activity."
+
+  # Multi-page detection (server-rendered, no @javascript): a package whose two
+  # gradable iDevices live on different pages registers them as two distinct
+  # columns. This is the parser/sync half of the RIE-007 / DEC-0017 fix.
+  Scenario: A multi-page package registers one column per gradable iDevice across pages
+    Given the following "activities" exist:
+      | activity    | name            | course | idnumber | packagefilepath                                |
+      | exelearning | Multi-page unit | C1     | exemp    | research/fixtures/elpx/multipage-gradable.elpx |
+    And I am on the "Multi-page unit" "exelearning activity" page logged in as teacher1
+    Then I should see "Gradable iDevices detected:"
+    And I should see "#1 trueorfalse"
+    And I should see "#2 guess"
+
+  # End-to-end bridge (DEC-0017): score the gradable iDevice on page 1 and, after
+  # navigating the iframe, the one on page 2. Both sit at the same page-local index
+  # N=2, so only the stable-objectid routing can keep them in their own columns.
+  @javascript
+  Scenario: Scores on different pages route to their own gradebook columns
+    Given the following "activities" exist:
+      | activity    | name            | course | idnumber | packagefilepath                                |
+      | exelearning | Multi-page unit | C1     | exemp    | research/fixtures/elpx/multipage-gradable.elpx |
+    And I am on the "Multi-page unit" "exelearning activity" page logged in as student1
+    And I wait until the eXeLearning package iframe has loaded
+    When I report a SCORM score of "90" for the gradable iDevice on the current eXeLearning page
+    And I switch the eXeLearning iframe to the package page "html/page-2.html"
+    And I report a SCORM score of "30" for the gradable iDevice on the current eXeLearning page
+    And I log out
+    And I am on the "Multi-page unit" "exelearning activity" page logged in as teacher1
+    And I follow "View attempts report"
+    Then I should see "Page One"
+    And I should see "Page Two"
+    And I should see "90.00 / 100.00"
+    And I should see "30.00 / 100.00"

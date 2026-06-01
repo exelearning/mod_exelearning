@@ -18,9 +18,10 @@
  * mod_exelearning tracking endpoint (SCORM bridge).
  *
  * Receives CMI pairs from the SCORM 1.2 shim that lives in `view.php` and
- * translates them into `grade_update()` calls in the Moodle gradebook. v1 only
- * manages the canonical grade item (itemnumber=0); per-iDevice routing will
- * arrive with the full xAPI bridge.
+ * translates them into `grade_update()` calls in the Moodle gradebook. It manages
+ * the canonical grade item (itemnumber=0) and routes per-iDevice scores to their
+ * columns by stable objectid (DEC-0017), falling back to the page-local index N in
+ * cmi.suspend_data when no objectid map is supplied by the shim.
  *
  * Endpoint: POST with sesskey + JSON `{ id: <cmid>, cmi: { "cmi.core.score.raw": "85", ... } }`.
  *
@@ -61,9 +62,9 @@ if (!is_array($payload) || !isset($payload['cmi']) || !is_array($payload['cmi'])
     throw new \moodle_exception('invalidparameter', 'error');
 }
 
-// V1: take the `cmi.core.score.raw` (SCORM 1.2) or `cmi.score.raw` (SCORM 2004)
-// and apply it to the canonical grade item (itemnumber=0). Multi-iDevice via
-// xAPI will arrive in TAREA-008.
+// Take the `cmi.core.score.raw` (SCORM 1.2) or `cmi.score.raw` (SCORM 2004) and
+// apply it to the canonical grade item (itemnumber=0). Per-iDevice routing is
+// handled separately below from the objectid map / cmi.suspend_data.
 $cmi = $payload['cmi'];
 // Page-load session token (DEC-0007): groups the auto-commits from a single
 // view.php page load into one attempt.
@@ -97,45 +98,32 @@ if ($ispreview) {
     die;
 }
 
-// Per-iDevice routing from cmi.suspend_data.
-// eXeLearning v4 serialises `{N}. "{title}"; Score: {S}%; Weight: {W}%`
-// separated by ".\t" where N=DOM index+1. This matches our itemnumber
-// assigned by the order in content.xml (classes/local/package.php).
+// Per-iDevice routing.
+//
+// Preferred path (DEC-0017): the view.php SCORM shim reads the iframe DOM at each
+// scoring event and sends `itemscores`, a map of stable iDevice objectid =>
+// {scorepct, weighted, title}. Routing by objectid is collision-free across pages.
+//
+// Legacy fallback: when no objectid map is present (old cached page, DOM read
+// failed) we still parse cmi.suspend_data and route by its page-local index N.
+// eXeLearning v4 serialises `{N}. "{title}"; Score: {S}%; Weight: {W}%` separated
+// by ".\t" where N is the per-page DOM index — which only matches our itemnumber
+// for a single-page package whose iDevices are all gradable (see RIE-007).
+$itemscores = (isset($payload['itemscores']) && is_array($payload['itemscores']))
+        ? $payload['itemscores'] : [];
 $suspend = $cmi['cmi.suspend_data'] ?? '';
-$peritem = [];
-if (is_string($suspend) && $suspend !== '') {
-    foreach (preg_split('~\.\t~', $suspend) as $line) {
-        $line = trim($line);
-        if ($line === '') {
-            continue;
-        }
-        if (
-            preg_match(
-                '~^(\d+)\.\s"([^"]*)";\s[^:]+:\s([\d.]+)%;\s[^:]+:\s([\d.]+)%\.?$~',
-                $line,
-                $m
-            )
-        ) {
-            $peritem[(int) $m[1]] = [
-                'title'    => $m[2],
-                // Clamp to 0..100: an out-of-range percentage (e.g. "150%") must
-                // not be persisted as a rawscore above maxscore.
-                'scorepct' => max(0.0, min(100.0, (float) $m[3])),
-                'weighted' => (float) $m[4],
-            ];
-        }
-    }
-    if ($peritem === []) {
-        // Non-empty suspend_data that yields no parsed items usually signals a
-        // format the regex above does not accept (locale decimal commas, an
-        // embedded quote in a title, or a producer change). Surface it for
-        // developers instead of silently recording no per-iDevice grades.
-        debugging(
-            'mod_exelearning: cmi.suspend_data was non-empty but no per-iDevice '
-                . 'results could be parsed from it.',
-            DEBUG_DEVELOPER
-        );
-    }
+$peritem = is_string($suspend)
+        ? \mod_exelearning\local\track::parse_suspend_data($suspend) : [];
+if (is_string($suspend) && $suspend !== '' && $peritem === [] && $itemscores === []) {
+    // Non-empty suspend_data that yields no parsed items and no objectid map
+    // usually signals a format the regex does not accept (locale decimal commas,
+    // an embedded quote in a title, or a producer change). Surface it for
+    // developers instead of silently recording no per-iDevice grades.
+    debugging(
+        'mod_exelearning: cmi.suspend_data was non-empty but no per-iDevice '
+            . 'results could be parsed from it.',
+        DEBUG_DEVELOPER
+    );
 }
 
 $grademax = (float) ($exelearning->grademax ?? 100);
@@ -177,52 +165,27 @@ if ($maxattempt > 0) {
 
 // 1) Attempts + aggregated grade per iDevice (itemnumber > 0).
 $persaved = [];
-if ($peritem) {
-    $rows = $DB->get_records(
-        'exelearning_grade_item',
-        ['exelearningid' => $exelearning->id, 'deleted' => 0],
-        'itemnumber ASC',
-        'itemnumber, name, objectid'
+if ($itemscores !== []) {
+    // Preferred: route by the stable objectid map captured client-side. This is
+    // correct for multi-page packages where the page-local N collides (DEC-0017).
+    $persaved = \mod_exelearning\local\track::apply_item_scores(
+        $exelearning,
+        $USER->id,
+        $attempt,
+        $itemscores,
+        $sessiontoken
     );
-    foreach ($peritem as $itemnumber => $info) {
-        if (!isset($rows[$itemnumber])) {
-            continue;
-        }
-        $rawitem = ($info['scorepct'] / 100.0) * $grademax;
-        \mod_exelearning\local\attempts::record_item(
-            $exelearning->id,
-            $USER->id,
-            $attempt,
-            (int) $itemnumber,
-            $rawitem,
-            $grademax,
-            'completed',
-            $sessiontoken
-        );
-        // Gradebook grade = aggregation of attempts according to grademethod.
-        $scaled = \mod_exelearning\local\attempts::aggregate_scaled(
-            $exelearning->id,
-            $USER->id,
-            (int) $itemnumber,
-            $grademethod
-        );
-        $finalitem = ($scaled === null) ? $rawitem : ($scaled * $grademax);
-        // In "overall only" mode per-iDevice columns are not published (DEC-0008),
-        // but the attempt IS recorded for the report.
-        if ($grademodel !== EXELEARNING_GRADEMODEL_OVERALL) {
-            grade_update(
-                'mod/exelearning',
-                $exelearning->course,
-                'mod',
-                'exelearning',
-                $exelearning->id,
-                $itemnumber,
-                (object) ['userid' => $USER->id, 'rawgrade' => $finalitem],
-                $itemdetailsbase + ['itemname' => $rows[$itemnumber]->name]
-            );
-        }
-        $persaved[$itemnumber] = $finalitem;
-    }
+} else if ($peritem) {
+    // Legacy fallback: route by the page-local N from cmi.suspend_data. Only
+    // reliable for single-page packages (see RIE-007); kept for old cached pages
+    // and when the DOM objectid map could not be captured.
+    $persaved = \mod_exelearning\local\track::apply_legacy_peritem(
+        $exelearning,
+        $USER->id,
+        $attempt,
+        $peritem,
+        $sessiontoken
+    );
 }
 
 // 2) Attempt + aggregated overall grade (itemnumber=0).

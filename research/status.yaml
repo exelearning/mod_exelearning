@@ -229,3 +229,27 @@ riesgos:
       - AN-008
       - DEC-0003
       - DEC-0004
+  RIE-007:
+    titulo: "suspend_data N (índice local de página) tratado como itemnumber → mis-ruteo y colisión de notas"
+    severidad: alta
+    probabilidad: alta
+    estado: resuelto
+    mitigacion: >-
+      RESUELTO en DEC-0017: el shim de view.php captura el objectid estable del
+      iDevice leyendo el contentDocument del iframe en el momento del scoring y
+      track.php rutea por objectid → itemnumber (clase \mod_exelearning\local\track),
+      con fallback legacy por N para single-page. Cero cambios en código vendorado.
+    relacionados:
+      - DEC-0016
+      - DEC-0017
+      - DEC-0008
+  RIE-008:
+    titulo: "Sin verificación de integridad (checksum/firma) del ZIP del editor descargado"
+    severidad: media
+    probabilidad: baja
+    estado: identificado
+    mitigacion: >-
+      TLS estricto + blocklist SSRF (DEC-0016) cierran la sustitución en tránsito;
+      el pinning de digest queda pendiente de que el release publique checksums.
+    relacionados:
+      - DEC-0016

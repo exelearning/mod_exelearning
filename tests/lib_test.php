@@ -107,6 +107,44 @@ final class lib_test extends advanced_testcase {
     }
 
     /**
+     * A multi-page package registers one grade item per gradable iDevice, keyed by
+     * the iDevice's stable objectid, even when those iDevices live on different
+     * pages and share the same page-local DOM index (the RIE-007 / DEC-0017 case).
+     */
+    public function test_multipage_detects_distinct_objectids_per_page(): void {
+        global $DB;
+
+        $instance = $this->create_activity(
+            ['packagefilepath' => 'research/fixtures/elpx/multipage-gradable.elpx']
+        );
+
+        $rows = $DB->get_records(
+            'exelearning_grade_item',
+            ['exelearningid' => $instance->id, 'deleted' => 0],
+            'itemnumber ASC'
+        );
+        $this->assertCount(2, $rows);
+
+        // Both gradable iDevices sit at page-local DOM index 2 on their respective
+        // pages, yet they map to distinct objectids, distinct pages and stable,
+        // sequential itemnumbers (1 and 2).
+        $byitem = [];
+        foreach ($rows as $r) {
+            $byitem[(int) $r->itemnumber] = $r;
+        }
+        $this->assertSame([1, 2], array_keys($byitem));
+        $this->assertSame('idevice-tf-0001', $byitem[1]->objectid);
+        $this->assertSame('trueorfalse', $byitem[1]->idevicetype);
+        $this->assertSame('idevice-guess-0002', $byitem[2]->objectid);
+        $this->assertSame('guess', $byitem[2]->idevicetype);
+        $this->assertNotEquals(
+            $byitem[1]->pageid,
+            $byitem[2]->pageid,
+            'the two gradable iDevices must be attributed to different pages'
+        );
+    }
+
+    /**
      * grademodel OVERALL: only itemnumber=0 is an active gradebook column.
      */
     public function test_grademodel_overall(): void {

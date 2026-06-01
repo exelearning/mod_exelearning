@@ -187,8 +187,10 @@ con `node --check`) porque no hay `grunt`/`node_modules` en este entorno; el pas
 
 ## Seguimiento
 
-- **RIE-007**: ADR dedicado para el mis-ruteo N→itemnumber (mapeo por `objectid`
-  o reordenación gradable-only en cliente) + verificación e2e en navegador.
+- **RIE-007**: **RESUELTO en DEC-0017** (mapeo por `objectid` estable capturado en
+  cliente + ruteo en `track.php`, con fallback legacy). El análisis reveló que el
+  problema es más grave de lo descrito aquí: en paquetes multipágina hay colisión
+  y pérdida de datos en cliente, no sólo mis-ruteo.
 - **RIE-008**: pinning de checksum/firma del ZIP del editor cuando el release
   publique digests.
 - Regenerar `amd/build/` con `grunt amd` para que el fix #10 (postMessage) quede
