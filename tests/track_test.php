@@ -237,4 +237,68 @@ final class track_test extends advanced_testcase {
             'exelearningid' => $instance->id, 'userid' => $student->id,
         ]));
     }
+
+    /**
+     * recompute_overall_pct() returns the weight-weighted mean of scorepct, falls back
+     * to a simple mean when all weights are zero, clamps out-of-range scorepct, skips
+     * malformed entries and returns null when nothing is usable (DEC-0018).
+     */
+    public function test_recompute_overall_pct(): void {
+        // Weighted mean: (80*100 + 40*300) / 400 = 50.
+        $this->assertEqualsWithDelta(50.0, track::recompute_overall_pct([
+            'a' => ['scorepct' => 80.0, 'weighted' => 100.0],
+            'b' => ['scorepct' => 40.0, 'weighted' => 300.0],
+        ]), 0.0001);
+
+        // All weights zero -> simple mean: (80 + 40) / 2 = 60.
+        $this->assertEqualsWithDelta(60.0, track::recompute_overall_pct([
+            'a' => ['scorepct' => 80.0, 'weighted' => 0.0],
+            'b' => ['scorepct' => 40.0, 'weighted' => 0.0],
+        ]), 0.0001);
+
+        // Out-of-range scorepct is clamped to 0..100 before averaging.
+        $this->assertEqualsWithDelta(100.0, track::recompute_overall_pct([
+            'a' => ['scorepct' => 150.0, 'weighted' => 100.0],
+        ]), 0.0001);
+
+        // Malformed entries (non-array, missing scorepct) are skipped.
+        $this->assertEqualsWithDelta(70.0, track::recompute_overall_pct([
+            'a' => ['scorepct' => 70.0, 'weighted' => 100.0],
+            'b' => 'not-an-array',
+            'c' => ['weighted' => 100.0],
+        ]), 0.0001);
+
+        // Nothing usable -> null.
+        $this->assertNull(track::recompute_overall_pct([]));
+        $this->assertNull(track::recompute_overall_pct(['a' => 'x', 'b' => ['weighted' => 1.0]]));
+    }
+
+    /**
+     * The overall recompute fixes the RIE-007 residual: two iDevices on different
+     * pages share page-local N, so the producer's collided getFinalScore is wrong,
+     * but recompute_overall_pct() derives the correct overall from the objectid map.
+     */
+    public function test_overall_recompute_from_collided_itemscores(): void {
+        // Producer would emit a single (collided) cmi.core.score.raw, but the two
+        // per-iDevice scores recovered by objectid average to the correct overall.
+        $itemscores = [
+            'idevice-tf-0001'    => ['scorepct' => 90.0, 'weighted' => 100.0, 'title' => 'tf'],
+            'idevice-guess-0002' => ['scorepct' => 30.0, 'weighted' => 100.0, 'title' => 'guess'],
+        ];
+        // Equal weights -> mean of 90 and 30 = 60, regardless of the corrupt CMI value.
+        $this->assertEqualsWithDelta(60.0, track::recompute_overall_pct($itemscores), 0.0001);
+    }
+
+    /**
+     * parse_suspend_data() accepts a comma decimal separator (es_ES/fr_FR/de_DE),
+     * keeping parity with the JS parser in the view.php shim.
+     */
+    public function test_parse_suspend_data_accepts_comma_decimals(): void {
+        $suspend = '1. "Quiz"; Puntuación: 60,5%; Peso: 12,5%.';
+        $parsed = track::parse_suspend_data($suspend);
+
+        $this->assertArrayHasKey(1, $parsed);
+        $this->assertEqualsWithDelta(60.5, $parsed[1]['scorepct'], 0.0001);
+        $this->assertEqualsWithDelta(12.5, $parsed[1]['weighted'], 0.0001);
+    }
 }

@@ -56,9 +56,13 @@ class track {
             if ($line === '') {
                 continue;
             }
+            // The score/weight numbers accept a comma as the decimal separator so a
+            // package localised to es_ES/fr_FR/de_DE ("60,5%") parses too; the
+            // captured group is normalised to a dot before casting (mirrors the JS
+            // parser in the view.php shim).
             if (
                 preg_match(
-                    '~^(\d+)\.\s"([^"]*)";\s[^:]+:\s([\d.]+)%;\s[^:]+:\s([\d.]+)%\.?$~',
+                    '~^(\d+)\.\s"([^"]*)";\s[^:]+:\s([\d.,]+)%;\s[^:]+:\s([\d.,]+)%\.?$~',
                     $line,
                     $m
                 )
@@ -67,12 +71,62 @@ class track {
                     'title'    => $m[2],
                     // Clamp to 0..100: an out-of-range percentage (e.g. "150%") must
                     // not be persisted as a rawscore above maxscore.
-                    'scorepct' => max(0.0, min(100.0, (float) $m[3])),
-                    'weighted' => (float) $m[4],
+                    'scorepct' => max(0.0, min(100.0, self::to_float($m[3]))),
+                    'weighted' => self::to_float($m[4]),
                 ];
             }
         }
         return $peritem;
+    }
+
+    /**
+     * Casts a parsed numeric string to float, accepting a comma decimal separator.
+     *
+     * eXeLearning serialises the score/weight percentages with the producer's locale,
+     * so a value can arrive as "60,5". Normalise the comma to a dot before casting.
+     *
+     * @param string $value Numeric string possibly using a comma decimal separator.
+     * @return float
+     */
+    private static function to_float(string $value): float {
+        return (float) str_replace(',', '.', $value);
+    }
+
+    /**
+     * Recomputes the overall score (0..100) from the per-iDevice objectid scores.
+     *
+     * DEC-0018 / RIE-007 residual: the producer's `cmi.core.score.raw`
+     * (`getFinalScore`) is corrupt under a multi-page `cmi.suspend_data` collision,
+     * but the per-iDevice scores the shim captures by stable objectid are not. This
+     * derives the overall as the weighted mean of each item's `scorepct` by its
+     * `weighted` (eXeLearning's per-iDevice weight); when every weight is zero it
+     * falls back to a simple mean so a package without weights still aggregates. For
+     * a single-page package (no collision) this equals the producer's overall, so the
+     * verified single-page behaviour is preserved.
+     *
+     * @param array $itemscores Map objectid => ['scorepct' => float, 'weighted' => float, ...].
+     * @return float|null Overall percentage in 0..100, or null when no item is usable.
+     */
+    public static function recompute_overall_pct(array $itemscores): ?float {
+        $sumweighted = 0.0;
+        $sumweight = 0.0;
+        $sumscore = 0.0;
+        $count = 0;
+        foreach ($itemscores as $info) {
+            if (!is_array($info) || !isset($info['scorepct'])) {
+                continue;
+            }
+            $scorepct = max(0.0, min(100.0, (float) $info['scorepct']));
+            $weight = (float) ($info['weighted'] ?? 0);
+            $sumweighted += $scorepct * $weight;
+            $sumweight += $weight;
+            $sumscore += $scorepct;
+            $count++;
+        }
+        if ($count === 0) {
+            return null;
+        }
+        return ($sumweight > 0) ? ($sumweighted / $sumweight) : ($sumscore / $count);
     }
 
     /**
