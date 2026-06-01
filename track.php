@@ -163,6 +163,7 @@ if ($maxattempt > 0) {
     );
     $priorcount = \mod_exelearning\local\attempts::count_user_attempts($exelearning->id, $USER->id);
     if (!$sessionknown && $priorcount >= $maxattempt) {
+        http_response_code(409);
         echo json_encode([
             'ok'      => false,
             'error'   => 'maxattemptsreached',
@@ -254,23 +255,22 @@ $grade = (object) [
     'feedback'  => null,
 ];
 
-// In "per-iDevice only" mode the overall column does not exist (DEC-0008).
-if ($grademodel === EXELEARNING_GRADEMODEL_PERITEM) {
-    $result = GRADE_UPDATE_OK;
-} else {
-    $result = grade_update(
-        'mod/exelearning',
-        $exelearning->course,
-        'mod',
-        'exelearning',
-        $exelearning->id,
-        0,
-        $grade,
-        $itemdetailsbase + [
-                'itemname'  => clean_param($exelearning->name, PARAM_NOTAGS),
-        ]
-    );
-}
+// Always publish the aggregated overall grade. In PERITEM mode the grade item is
+// hidden and exists only so Moodle's completionpassgrade rule can evaluate the
+// pass/fail result without adding an extra visible gradebook column (TAREA-011).
+$result = grade_update(
+    'mod/exelearning',
+    $exelearning->course,
+    'mod',
+    'exelearning',
+    $exelearning->id,
+    0,
+    $grade,
+    $itemdetailsbase + [
+            'itemname' => clean_param($exelearning->name, PARAM_NOTAGS),
+            'hidden'   => ($grademodel === EXELEARNING_GRADEMODEL_PERITEM) ? 1 : 0,
+    ]
+);
 
 // Recalculate completion: with "require passing grade" (completionpassgrade,
 // SCORM style) Moodle marks the activity complete when the passing grade is

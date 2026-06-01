@@ -111,5 +111,16 @@ Negativas:
 
 ## Seguimiento
 
-- Verificación e2e por navegador de la marca de completado tras aprobar (queda
-  para la sesión de QA con login de alumno).
+- Verificación e2e por navegador de la marca de completado tras aprobar:
+  **cerrada en TAREA-011 (2026-06-01)** con Google Chrome + Docker. La prueba
+  cubre `grademodel=peritem` y `grademodel=overall`, ambos con
+  `completionstate=2` tras alcanzar 80/100.
+
+## Revisión 2026-06-01 — compatibilidad con `peritem`
+
+La sesión e2e de TAREA-011 confirmó que DEC-0010 depende de que exista un
+`grade_item` overall evaluable. Para mantener la UX de DEC-0008 y la semántica
+SCORM-style de esta ADR, `peritem` conserva un overall oculto y `track.php`
+publica ahí la nota agregada. Moodle core puede evaluar `completionpassgrade`,
+pero el profesor sigue viendo las columnas por iDevice como presentación normal
+del libro.

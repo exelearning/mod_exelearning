@@ -3,7 +3,7 @@ titulo: "RIE-008: evaluar pinning de checksum/firma del ZIP del editor"
 estado: Done
 fecha: 2026-06-01
 agente: codex
-prioridad: baja
+prioridad: alta
 objetivo: >-
   Determinar si los releases del editor embebido publican digests o firmas
   verificables y, si existe una fuente de confianza, añadir verificación de

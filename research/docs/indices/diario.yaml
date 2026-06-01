@@ -9,4 +9,5 @@ items:
   - ruta: 'tareas/diario/2026-06-01-behat-ci.yaml', fecha: '2026-06-01'
   - ruta: 'tareas/diario/2026-06-01-integridad-ci.yaml', fecha: '2026-06-01'
   - ruta: 'tareas/diario/2026-06-01-rie-010-postmessage.yaml', fecha: '2026-06-01'
+  - ruta: 'tareas/diario/2026-06-01-tarea-011-e2e.yaml', fecha: '2026-06-01'
   - ruta: 'tareas/diario/2026-06-01.yaml', fecha: '2026-06-01'

@@ -1,0 +1,33 @@
+fecha: 2026-06-01
+sesion: tarea-011-e2e-release
+agente: codex
+resumen: >-
+  Verificación e2e real por navegador antes de release para los flujos críticos
+  de mod_exelearning: iframe/SCORM, completionpassgrade, grademodel peritem y
+  overall, libro de calificaciones, maxattempt y reviewmode.
+
+acciones:
+  - "Levantado Moodle local con Docker (`erseco/alpine-moodle:v5.0.7`) y demo `EXEDEMO`."
+  - "Ejecutado script temporal Playwright con Google Chrome contra `http://localhost/mod/exelearning/view.php?id=2`."
+  - "El navegador puntuó vía `window.API`/SCORM shim dentro de la página real; no se insertaron intentos directamente para simular el scoring."
+  - "Se probaron dos fases: `grademodel=peritem` y `grademodel=overall`, ambas con `maxattempt=1`, `reviewmode=aftercompletion` y `gradepass=50`."
+  - "Se corrigió un hallazgo: en `peritem` se mantiene y actualiza un overall oculto (`itemnumber=0`) para que Moodle core pueda evaluar `completionpassgrade`."
+  - "Se corrigió un segundo hallazgo: cuando `maxattempt` bloquea un intento nuevo, `track.php` responde HTTP 409 para que `LMSCommit()` devuelva `false`."
+
+evidencia:
+  - "research/evidencias/2026-06-01-tarea-011-e2e/summary.json"
+  - "research/evidencias/2026-06-01-tarea-011-e2e/peritem.json"
+  - "research/evidencias/2026-06-01-tarea-011-e2e/overall.json"
+  - "Resultado final: `completionstate=2` en peritem y overall; primer `LMSCommit()` = true; segundo `LMSCommit()` = false por `maxattempt`; el alumno ve resumen de intentos tras completar."
+
+pendientes:
+  - "TAREA-009 / RIE-011 mantiene la investigación de carrera concurrente real en `maxattempt`."
+  - "TAREA-012 / RIE-001 mantiene el aislamiento fuerte del paquete `.elpx`."
+
+relacionados:
+  - TAREA-011
+  - DEC-0007
+  - DEC-0008
+  - DEC-0010
+  - DEC-0011
+  - RIE-011

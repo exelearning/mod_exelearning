@@ -37,15 +37,9 @@ Reglas operativas de investigación: [`research/AGENTS.md`](./research/AGENTS.md
 - README estilo `mod_exeweb`, dependabot, composer.json.
 
 ### Pendiente (orden sugerido)
-1. **TAREA-008 / RIE-010**: cerrar el `postMessage` legacy del editor
-   (`amd/src/editor_modal.js::handleLegacyBridgeMessage`) y regenerar
-   `amd/build/` con `grunt amd`.
-2. **TAREA-011**: verificación e2e por navegador de completado tras aprobar,
-   `grademodel` peritem/overall en el libro (default peritem), límite de intentos
-   y revisión del alumno.
-3. **TAREA-012 / RIE-001**: investigar aislamiento fuerte del paquete `.elpx`
+1. **TAREA-012 / RIE-001**: investigar aislamiento fuerte del paquete `.elpx`
    (subdominio/origen separado, CSP o Permissions-Policy) sin romper la sidebar.
-4. **TAREA-009 / RIE-011**: endurecer `maxattempt` frente a doble carga concurrente.
+2. **TAREA-009 / RIE-011**: endurecer `maxattempt` frente a doble carga concurrente.
 
 ### Hecho en sesión 2026-05-28 (tarde-noche, claude-opus-4-8)
 - DEC-0008 `grademodel` (selector peritem [default] / overall; modo both eliminado en rev. 2026-05-29).
@@ -62,7 +56,7 @@ Reglas operativas de investigación: [`research/AGENTS.md`](./research/AGENTS.md
 | DEC-0001 | Aceptada | Metodología evidencia + ADRs |
 | DEC-0002 | Aceptada | Política clones externos (no vendorar) |
 | DEC-0003 | **Aceptada** (2026-05-29) | SCORM 1.2 estándar de tracking vigente y suficiente; xAPI sólo hoja de ruta |
-| DEC-0004 | **Aceptada** (2026-05-29) | CI matriz Moodle 4.5/5.0/5.1 × PHP 8.1-8.4 × pgsql/mariadb (5.2 follow-up) |
+| DEC-0004 | **Aceptada** (2026-05-29) | CI matriz Moodle 4.5/5.0/5.1/5.2 × PHP 8.1-8.4 × pgsql/mariadb; `version.php` soporta Moodle [405, 502] |
 | DEC-0005 | **Superseded** by DEC-0009 | Editor embebido (versión con online) |
 | DEC-0006 | Aceptada | Modos preview/grading |
 | DEC-0007 | **Aceptada** | Intentos: tabla plana `exelearning_attempt` + `grademethod` (implementado) |

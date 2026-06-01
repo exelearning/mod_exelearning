@@ -5,8 +5,6 @@ siendo `status.yaml` + `tareas/backlog/`.
 
 ## Prioridad Alta
 
-- [ ] TAREA-011: verificación e2e por navegador de completado tras aprobar,
-      `grademodel` peritem/overall, límite de intentos y revisión del alumno.
 - [ ] TAREA-012 / RIE-001: investigar aislamiento fuerte del paquete `.elpx`
       (subdominio/origen separado, CSP o Permissions-Policy).
 
@@ -30,3 +28,6 @@ siendo `status.yaml` + `tareas/backlog/`.
       `postMessage`; `amd/build/` regenerado con `grunt amd` en Moodle 5.2beta.
 - [x] TAREA-010: el ZIP del editor descargado desde GitHub se verifica contra
       el digest SHA-256 publicado por GitHub Releases API.
+- [x] TAREA-011: e2e real por navegador completado: `completionpassgrade`,
+      `grademodel` peritem/overall, libro, `maxattempt`, `reviewmode` y puente
+      iframe/SCORM verificados con Chrome + Docker.

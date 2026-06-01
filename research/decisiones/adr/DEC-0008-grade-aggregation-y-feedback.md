@@ -227,3 +227,25 @@ defecto; el profesor cambia a `overall` si quiere una sola columna.
   default `1`. `docs/USER_GUIDE.md` actualizado.
 
 `grademethod` por defecto se confirma en `highest` (sin cambio; ya lo era).
+
+## Revisión 2026-06-01 — overall oculto en `peritem` para finalización
+
+TAREA-011 (e2e real por navegador) detectó una interacción no cubierta por
+PHPUnit/Behat: con `grademodel=peritem`, la decisión de borrar por completo el
+`itemnumber=0` impedía que Moodle evaluara `completionpassgrade`, porque la
+condición core de "aprobar para completar" necesita un `grade_item` con nota y
+`gradepass`.
+
+La semántica visible de DEC-0008 se mantiene: en `peritem`, el libro muestra las
+columnas por iDevice como valor diferencial del plugin. El ajuste aceptado es
+conservar y actualizar un `itemnumber=0` **oculto** que sirve sólo como soporte
+técnico para la finalización core de DEC-0010. En `overall`, el `itemnumber=0`
+sigue siendo la única columna visible.
+
+Evidencia:
+
+- `research/evidencias/2026-06-01-tarea-011-e2e/summary.json`: Chrome + Docker
+  verifica `completionstate=2` tras puntuar 80/100 tanto en `peritem` como en
+  `overall`.
+- `peritem.json`: `itemnumber=0` recibe `finalgrade=80` y los iDevices mantienen
+  sus columnas (`itemnumber=1`, `itemnumber=2`).
