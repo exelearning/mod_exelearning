@@ -181,3 +181,19 @@ podemos hacerlo mejor en el plugin sin tocarlo.
 - Recálculo opcional del overall (`itemnumber=0`) a partir de `itemscores` para
   cerrar el residuo de colisión multipágina del `cmi.core.score.raw`.
 - RIE-008 (DEC-0016): pinning de checksum/firma del ZIP del editor — independiente.
+
+## Revisión 2026-06-01 (CI Behat)
+
+- Evidencia: PR #8, run GitHub Actions `26767455663`, jobs Moodle 4.5 y 5.2
+  fallaron igual: 5 escenarios pasaban y el único `@javascript` abortaba en
+  `BeforeStep` antes del primer `Background` (`mod_exelearning.feature:8`) por
+  `wait_for_pending_js`: `core/first` seguía pendiente tras 30 s.
+- Decisión operativa: retirar el escenario de navegador de Behat CI y sustituirlo
+  por un escenario determinista sin `@javascript` que siembra puntuaciones por
+  `objectid` usando la misma ruta servidor (`track::apply_item_scores`) y verifica
+  el informe. Behat vuelve a bloquear CI; no se usa `continue-on-error`.
+- Cobertura vigente: `tests/track_test.php` mantiene la regresión de colisión
+  multipágina por `objectid`; `tests/lib_test.php` mantiene la detección de
+  objectids distintos; `tests/behat/mod_exelearning.feature` mantiene la
+  presentación del informe. La verificación de navegador real queda en la pista
+  e2e manual/Playwright indicada arriba.

@@ -59,21 +59,19 @@ Feature: View a mod_exelearning activity and its attempts report
     And I should see "#1 trueorfalse"
     And I should see "#2 guess"
 
-  # End-to-end bridge (DEC-0017): score the gradable iDevice on page 1 and, after
-  # navigating the iframe, the one on page 2. Both sit at the same page-local index
-  # N=2, so only the stable-objectid routing can keep them in their own columns.
-  @javascript
-  Scenario: Scores on different pages route to their own gradebook columns
+  # Browser-level bridge coverage for DEC-0017 belongs in manual/Playwright e2e:
+  # under moodle-plugin-ci the JS driver can enter the scenario with Moodle core JS
+  # still pending before the first Background step. This deterministic Behat case
+  # keeps the report contract covered while PHPUnit covers the objectid collision.
+  Scenario: Objectid-routed scores on different pages appear in their report columns
     Given the following "activities" exist:
       | activity    | name            | course | idnumber | packagefilepath                                |
       | exelearning | Multi-page unit | C1     | exemp    | research/fixtures/elpx/multipage-gradable.elpx |
-    And I am on the "Multi-page unit" "exelearning activity" page logged in as student1
-    And I wait until the eXeLearning package iframe has loaded
-    When I report a SCORM score of "90" for the gradable iDevice on the current eXeLearning page
-    And I switch the eXeLearning iframe to the package page "html/page-2.html"
-    And I report a SCORM score of "30" for the gradable iDevice on the current eXeLearning page
-    And I log out
-    And I am on the "Multi-page unit" "exelearning activity" page logged in as teacher1
+    And the following eXeLearning SCORM scores exist:
+      | activity | user     | sessiontoken     | objectid            | score |
+      | exemp    | student1 | multipage-attempt | idevice-tf-0001     | 90    |
+      | exemp    | student1 | multipage-attempt | idevice-guess-0002  | 30    |
+    When I am on the "Multi-page unit" "exelearning activity" page logged in as teacher1
     And I follow "View attempts report"
     Then I should see "Page One"
     And I should see "Page Two"

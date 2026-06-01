@@ -19,15 +19,15 @@
 
 require_once(__DIR__ . '/../../../../lib/behat/behat_base.php');
 
+use Behat\Gherkin\Node\TableNode;
 use Behat\Mink\Exception\ExpectationException;
 
 /**
- * Steps to drive the SCORM bridge of a mod_exelearning activity from the browser.
+ * Steps to exercise mod_exelearning tracking and report behaviour in Behat.
  *
- * These exercise the DEC-0017 fix end to end: the view.php shim reads the iframe
- * DOM to resolve each scored iDevice to its stable objectid, and track.php routes
- * the score to the right gradebook column. The steps talk to the parent
- * window.API exactly as eXeLearning's pipwerks SCORM client would.
+ * The non-JS score seeding step uses the same server-side objectid routing as
+ * track.php, keeping CI deterministic while PHPUnit covers the DEC-0017 collision
+ * and browser-level bridge checks remain in the e2e/manual lane.
  *
  * @package    mod_exelearning
  * @category   test
@@ -37,6 +37,61 @@ use Behat\Mink\Exception\ExpectationException;
 class behat_mod_exelearning extends behat_base {
     /** @var string DOM id of the package iframe rendered by view.php. */
     const IFRAME_ID = 'exelearningobject';
+
+    /**
+     * Seeds SCORM scores through the same objectid routing used by track.php.
+     *
+     * Required columns: activity, user, sessiontoken, objectid, score.
+     *
+     * @Given /^the following eXeLearning SCORM scores exist:$/
+     * @param TableNode $table Scores keyed by activity idnumber and username.
+     */
+    public function the_following_exelearning_scorm_scores_exist(TableNode $table): void {
+        global $CFG, $DB;
+
+        require_once($CFG->dirroot . '/mod/exelearning/lib.php');
+
+        $required = ['activity', 'user', 'sessiontoken', 'objectid', 'score'];
+        $moduleid = (int) $DB->get_field('modules', 'id', ['name' => 'exelearning'], MUST_EXIST);
+
+        foreach ($table->getHash() as $row) {
+            foreach ($required as $column) {
+                if (!array_key_exists($column, $row) || $row[$column] === '') {
+                    throw new \coding_exception('Missing required eXeLearning score column: ' . $column);
+                }
+            }
+            if (!is_numeric($row['score'])) {
+                throw new \coding_exception('eXeLearning SCORM score must be numeric.');
+            }
+
+            $cm = $DB->get_record('course_modules', [
+                'module'   => $moduleid,
+                'idnumber' => $row['activity'],
+            ], '*', MUST_EXIST);
+            $exe = $DB->get_record('exelearning', ['id' => $cm->instance], '*', MUST_EXIST);
+            $user = $DB->get_record('user', ['username' => $row['user']], '*', MUST_EXIST);
+            $sessiontoken = (string) $row['sessiontoken'];
+            $attempt = \mod_exelearning\local\attempts::resolve_attempt_number(
+                (int) $exe->id,
+                (int) $user->id,
+                $sessiontoken
+            );
+
+            \mod_exelearning\local\track::apply_item_scores(
+                $exe,
+                (int) $user->id,
+                $attempt,
+                [
+                    (string) $row['objectid'] => [
+                        'scorepct' => (float) $row['score'],
+                        'weighted' => 100.0,
+                        'title'    => (string) $row['objectid'],
+                    ],
+                ],
+                $sessiontoken
+            );
+        }
+    }
 
     /**
      * Waits until the package iframe has loaded and exposes gradable iDevice nodes.
