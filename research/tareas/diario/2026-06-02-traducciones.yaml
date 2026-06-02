@@ -1,0 +1,32 @@
+fecha: 2026-06-02
+sesion: traducciones-es-ca-eu-gl
+agente: claude-code
+resumen: >-
+  Añadidos los ficheros de idioma es/ca/eu/gl a mod_exelearning, alineando la
+  cobertura multilingüe con los plugins hermanos mod_exeweb y mod_exescorm.
+  Reuso verbatim de traducciones humanas de los hermanos donde la clave coincide
+  con el mismo significado; el resto traducido automáticamente y marcado con el
+  prefijo «~» para revisión humana posterior.
+
+acciones:
+  - "Creados lang/{es,ca,eu,gl}/exelearning.php con las 309 claves de lang/en cada uno."
+  - "Reutilizadas ~119 cadenas humanas de mod_exeweb/mod_exescorm (editor embebido, guardado, attempt/attempts/reports y, en es, el bloque de estilos) sin prefijo."
+  - "Traducidas automáticamente las ~190 cadenas restantes por idioma, prefijadas con «~» (visible en UI a propósito)."
+  - "Verificado: php -l limpio, paridad exacta de claves contra lang/en (309/309), placeholders {$a} intactos."
+  - "Documentada la decisión y la convención «~» en DEC-0020."
+  - "PR ateeducacion/mod_exelearning#11 (rama feature/lang-es-ca-eu-gl); el único fallo de CI fue un docker pull transitorio del runner, no del cambio."
+
+evidencia:
+  - "lang/es/exelearning.php"
+  - "lang/ca/exelearning.php"
+  - "lang/eu/exelearning.php"
+  - "lang/gl/exelearning.php"
+  - "research/decisiones/adr/DEC-0020-traducciones-marca-tilde.md"
+
+pendientes:
+  - "Revisión humana de las cadenas «~» por idioma y retirada del prefijo cuando se validen."
+
+relacionados:
+  - DEC-0020
+  - DEC-0005
+  - DEC-0009
