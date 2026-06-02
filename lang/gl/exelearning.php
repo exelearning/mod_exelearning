@@ -223,6 +223,7 @@ $string['grademodel_overall'] = '~Só global';
 $string['grademodel_peritem'] = '~Só por iDevice';
 $string['gradepass'] = '~Cualificación para aprobar';
 $string['gradepass_help'] = '~A cualificación global mínima necesaria para aprobar. Cando se habilita a condición de finalización «Require cualificación para aprobar», a actividade márcase como completada (ao estilo SCORM) cando o estudante alcanza esta cualificación. Déixeo en 0 para desactivar a finalización baseada no aprobado.';
+$string['gradesetchangedwarning'] = '~O contido cualificable desta actividade cambiou e algúns estudantes xa teñen intentos. As cualificacións existentes consérvanse tal cal e non se recalculan co novo contido. Se os cambios fan que esas cualificacións sexan enganosas, elimine os intentos afectados para recalculalas.';
 $string['gradingheading'] = '~Cualificación';
 $string['installstale'] = 'A instalación pode fallar. Ténteo de novo.';
 $string['intro'] = '~Descrición';

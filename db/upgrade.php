@@ -322,5 +322,27 @@ function xmldb_exelearning_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026060100, 'exelearning');
     }
 
+    // Stage 10 (2026060102): per-iDevice contenthash on exelearning_grade_item.
+    // Stores a sha1 of each iDevice's content block in content.xml so a re-sync
+    // can detect an in-place options edit (same objectid, changed scoring) and
+    // warn the teacher that existing grades/attempts are now stale (DEC-0021).
+    if ($oldversion < 2026060102) {
+        $gradeitem = new xmldb_table('exelearning_grade_item');
+        $field = new xmldb_field(
+            'contenthash',
+            XMLDB_TYPE_CHAR,
+            '40',
+            null,
+            null,
+            null,
+            null,
+            'deleted'
+        );
+        if (!$dbman->field_exists($gradeitem, $field)) {
+            $dbman->add_field($gradeitem, $field);
+        }
+        upgrade_mod_savepoint(true, 2026060102, 'exelearning');
+    }
+
     return true;
 }

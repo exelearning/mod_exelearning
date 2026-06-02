@@ -223,6 +223,7 @@ $string['grademodel_overall'] = '~Orokorra soilik';
 $string['grademodel_peritem'] = '~iDevice bakoitzeko soilik';
 $string['gradepass'] = '~Gainditzeko kalifikazioa';
 $string['gradepass_help'] = '~Gainditzeko behar den gutxieneko kalifikazio orokorra. «Gainditze-kalifikazioa behar da» osatze-baldintza gaituta dagoenean, jarduera osatutzat markatzen da (SCORM estiloan) ikasleak kalifikazio hau lortzen duenean. Utzi 0 balioan gainditzean oinarritutako osatzea desgaitzeko.';
+$string['gradesetchangedwarning'] = '~Jarduera honen eduki kalifikagarria aldatu da eta ikasle batzuek jada saiakerak dituzte. Lehendik dauden kalifikazioak zeuden bezala gordetzen dira eta ez dira eduki berriarekin birkalkulatzen. Aldaketek kalifikazio horiek engainagarri bihurtzen badituzte, ezabatu eragindako saiakerak birkalkulatzeko.';
 $string['gradingheading'] = '~Kalifikazioa';
 $string['installstale'] = 'Baliteke instalazioak huts egin izana. Saiatu berriro.';
 $string['intro'] = '~Deskribapena';

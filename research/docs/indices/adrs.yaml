@@ -20,3 +20,4 @@ items:
   - id: 'DEC-0018', titulo: 'Recálculo del overall desde itemscores (cierre residuo RIE-007) + hardening menor', estado: 'Aceptada', fecha: '2026-06-01', ruta: 'decisiones/adr/DEC-0018-recalculo-overall-y-hardening.md'
   - id: 'DEC-0019', titulo: 'Aislamiento del paquete .elpx (RIE-001): análisis, paridad con core y roadmap', estado: 'Aceptada', fecha: '2026-06-02', ruta: 'decisiones/adr/DEC-0019-aislamiento-paquete-elpx.md'
   - id: 'DEC-0020', titulo: 'Traducciones es/ca/eu/gl: reuso de hermanos + marca «~» para traducción automática pendiente de revisión', estado: 'Aceptada', fecha: '2026-06-02', ruta: 'decisiones/adr/DEC-0020-traducciones-marca-tilde.md'
+  - id: 'DEC-0021', titulo: 'Edición de contenido calificable: semántica snapshot + aviso al profesor (estilo SCORM)', estado: 'Aceptada', fecha: '2026-06-02', ruta: 'decisiones/adr/DEC-0021-edicion-contenido-calificable.md'

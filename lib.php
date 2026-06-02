@@ -168,7 +168,11 @@ function exelearning_update_instance($data, $mform = null) {
 
     exelearning_save_and_extract_package($data);
     $contextid = context_module::instance($data->coursemodule)->id;
-    exelearning_sync_grade_items($data->id, $contextid);
+    $delta = exelearning_sync_grade_items($data->id, $contextid);
+    // Re-uploading a package over an activity that already has attempts may add,
+    // remove or re-score gradable iDevices; warn that old grades are not
+    // recomputed (DEC-0021). The notice renders on the post-form redirect.
+    exelearning_warn_if_grades_stale($data->id, $delta, (int) $data->coursemodule);
 
     return true;
 }
@@ -807,20 +811,27 @@ function exelearning_inject_scorm_loader(int $contextid, int $revision): void {
 /**
  * Detects gradable iDevices in the stored package and synchronises grade items.
  *
+ * Returns the change delta against the previously synced state so callers can
+ * warn the teacher when editing a graded package alters the gradable set
+ * (DEC-0021). "changed" means the same objectid whose content block hash
+ * differs, i.e. an in-place options/scoring edit.
+ *
  * @param int $exelearningid
  * @param int|null $contextid
- * @return void
+ * @return array{added:int,removed:int,changed:int}
  */
-function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null): void {
+function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null): array {
     global $CFG, $DB;
     require_once($CFG->libdir . '/gradelib.php');
+
+    $delta = ['added' => 0, 'removed' => 0, 'changed' => 0];
 
     $instance = $DB->get_record('exelearning', ['id' => $exelearningid], '*', MUST_EXIST);
 
     if ($contextid === null) {
         $cm = get_coursemodule_from_instance('exelearning', $exelearningid);
         if (!$cm) {
-            return;
+            return $delta;
         }
         $contextid = context_module::instance($cm->id)->id;
     }
@@ -830,7 +841,7 @@ function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null
     // Playground addModule=1, editor/save.php=revision).
     $elpx = exelearning_get_stored_package($context->id);
     if (!$elpx instanceof \stored_file) {
-        return;
+        return $delta;
     }
 
     $grademodel = (int) ($instance->grademodel ?? EXELEARNING_GRADEMODEL_PERITEM);
@@ -869,14 +880,14 @@ function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null
     );
 
     if ($detected === []) {
-        return;
+        return $delta;
     }
 
     $existing = $DB->get_records(
         'exelearning_grade_item',
         ['exelearningid' => $exelearningid],
         '',
-        'objectid, id, itemnumber, deleted'
+        'objectid, id, itemnumber, deleted, contenthash'
     );
 
     $nextnum = (int) $DB->get_field_sql(
@@ -891,12 +902,24 @@ function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null
         $name = exelearning_grade_item_name($instance, $d);
         $now = time();
 
+        $newhash = $d->contenthash ?? null;
+
         if (isset($existing[$d->objectid])) {
             $row = $existing[$d->objectid];
+            // An in-place options/scoring edit keeps the objectid but changes
+            // the content block hash; a re-appearing (un-deleted) iDevice also
+            // counts as a change worth flagging. Rows synced before this column
+            // existed have a NULL hash: backfill silently, never flag, so the
+            // first sync after upgrade does not warn on every iDevice.
+            $oldhash = $row->contenthash ?? null;
+            if (($oldhash !== null && $oldhash !== $newhash) || (int) $row->deleted === 1) {
+                $delta['changed']++;
+            }
             $row->name         = $name;
             $row->idevicetype  = $d->idevicetype;
             $row->pageid       = $d->pageid;
             $row->deleted      = 0;
+            $row->contenthash  = $newhash;
             $row->timemodified = $now;
             $DB->update_record('exelearning_grade_item', $row);
             $itemnumber = (int) $row->itemnumber;
@@ -921,6 +944,7 @@ function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null
             }
             $nextnum++;
             $itemnumber = $nextnum;
+            $delta['added']++;
             $DB->insert_record('exelearning_grade_item', (object) [
                 'exelearningid' => $exelearningid,
                 'itemnumber'    => $itemnumber,
@@ -931,6 +955,7 @@ function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null
                 'grademax'      => $instance->grademax ?? 100,
                 'grademin'      => $instance->grademin ?? 0,
                 'deleted'       => 0,
+                'contenthash'   => $newhash,
                 'timecreated'   => $now,
                 'timemodified'  => $now,
             ]);
@@ -976,6 +1001,7 @@ function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null
     // with ['deleted' => true]. Grade history in grade_grades is preserved.
     foreach ($existing as $objectid => $row) {
         if (!isset($seen[$objectid]) && !$row->deleted) {
+            $delta['removed']++;
             $row->deleted = 1;
             $row->timemodified = time();
             $DB->update_record('exelearning_grade_item', $row);
@@ -991,6 +1017,42 @@ function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null
             );
         }
     }
+
+    return $delta;
+}
+
+/**
+ * Queues a teacher-facing warning when editing a graded package changed its
+ * gradable set while student attempts already exist (DEC-0021).
+ *
+ * mod_exelearning keeps the snapshot semantics of mod_scorm / mod_h5pactivity:
+ * existing attempts and the grades derived from them are NOT recomputed when the
+ * content changes — the scoring runs client-side, so the server cannot re-derive
+ * a past attempt's score against the new content. Mirroring mod_scorm's
+ * "confirmloosetracks" notice, we tell the teacher so they can reset attempts
+ * from the report if the edited tasks make the old grades misleading.
+ *
+ * @param int $exelearningid
+ * @param array $delta From exelearning_sync_grade_items(): keys added, removed, changed.
+ * @param int|null $cmid Course module id, to link the attempts report.
+ * @return void
+ */
+function exelearning_warn_if_grades_stale(int $exelearningid, array $delta, ?int $cmid = null): void {
+    $changes = (int) ($delta['added'] ?? 0)
+        + (int) ($delta['removed'] ?? 0)
+        + (int) ($delta['changed'] ?? 0);
+    if ($changes === 0) {
+        return;
+    }
+    if (!\mod_exelearning\local\attempts::activity_has_attempts($exelearningid)) {
+        return;
+    }
+    $message = get_string('gradesetchangedwarning', 'mod_exelearning');
+    if ($cmid !== null) {
+        $url = new moodle_url('/mod/exelearning/report.php', ['id' => $cmid]);
+        $message .= ' ' . html_writer::link($url, get_string('attemptsreport', 'mod_exelearning'));
+    }
+    \core\notification::warning($message);
 }
 
 /**

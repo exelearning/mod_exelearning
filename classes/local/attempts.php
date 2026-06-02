@@ -78,6 +78,20 @@ class attempts {
     }
 
     /**
+     * Whether any student has at least one attempt on this activity.
+     *
+     * Used to decide whether editing the package should warn the teacher that
+     * existing grades are now stale (DEC-0021).
+     *
+     * @param int $exelearningid
+     * @return bool
+     */
+    public static function activity_has_attempts(int $exelearningid): bool {
+        global $DB;
+        return $DB->record_exists('exelearning_attempt', ['exelearningid' => $exelearningid]);
+    }
+
+    /**
      * Lang string key for a grademethod value (for display, not just the form).
      *
      * @param int $grademethod

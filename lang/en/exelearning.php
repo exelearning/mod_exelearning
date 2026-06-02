@@ -219,6 +219,7 @@ $string['grademodel_overall'] = 'Overall only';
 $string['grademodel_peritem'] = 'Per iDevice only';
 $string['gradepass']       = 'Grade to pass';
 $string['gradepass_help']  = 'The minimum overall grade required to pass. When the "Require passing grade" completion condition is enabled, the activity is marked complete (SCORM-style) once the student reaches this grade. Leave at 0 to disable pass-based completion.';
+$string['gradesetchangedwarning'] = 'The gradable content of this activity changed and some students already have attempts. Existing grades are kept as they were and are not recalculated against the new content. If the changes make those grades misleading, delete the affected attempts to recalculate them.';
 $string['gradingheading'] = 'Grading';
 $string['installstale'] = 'Installation may have failed. Please try again.';
 $string['intro']         = 'Description';
