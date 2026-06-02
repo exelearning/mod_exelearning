@@ -8,6 +8,14 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Cancel superseded runs to save resources: a new push aborts the previous
+# in-progress run of the same group. The group separates each PR (by number)
+# from branch pushes (by ref), so a main/master push only cancels other
+# main/master runs, never a PR's runs (and vice versa).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-22.04
