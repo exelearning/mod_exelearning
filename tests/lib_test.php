@@ -269,4 +269,139 @@ final class lib_test extends advanced_testcase {
         );
         $this->assertCount(2, $rows);
     }
+
+    /**
+     * The first sync stores a contenthash for each gradable iDevice and reports
+     * them all as "added" (a fresh activity has no prior state).
+     */
+    public function test_sync_persists_contenthash(): void {
+        global $DB;
+
+        $instance = $this->create_activity();
+
+        $rows = $DB->get_records(
+            'exelearning_grade_item',
+            ['exelearningid' => $instance->id, 'deleted' => 0]
+        );
+        $this->assertCount(2, $rows);
+        foreach ($rows as $row) {
+            $this->assertMatchesRegularExpression('/^[0-9a-f]{40}$/', (string) $row->contenthash);
+        }
+    }
+
+    /**
+     * Re-syncing the same package reports no changes; a stored hash that no
+     * longer matches the package (simulating an in-place options edit) is
+     * reported as "changed" and the stored hash is refreshed (DEC-0021).
+     */
+    public function test_sync_delta_detects_edited_options(): void {
+        global $DB;
+
+        $instance = $this->create_activity();
+        $cm = get_coursemodule_from_instance('exelearning', $instance->id);
+        $contextid = \context_module::instance($cm->id)->id;
+
+        // Re-syncing the unchanged package is a no-op delta.
+        $delta = exelearning_sync_grade_items($instance->id, $contextid);
+        $this->assertSame(
+            ['added' => 0, 'removed' => 0, 'changed' => 0],
+            $delta
+        );
+
+        // Simulate an in-place edit: one stored hash diverges from the package.
+        $target = $DB->get_records(
+            'exelearning_grade_item',
+            ['exelearningid' => $instance->id, 'deleted' => 0],
+            'itemnumber ASC',
+            '*',
+            0,
+            1
+        );
+        $target = reset($target);
+        $original = $target->contenthash;
+        $DB->set_field('exelearning_grade_item', 'contenthash', 'stalehash', ['id' => $target->id]);
+
+        $delta = exelearning_sync_grade_items($instance->id, $contextid);
+        $this->assertSame(1, $delta['changed']);
+        $this->assertSame(0, $delta['added']);
+        $this->assertSame(0, $delta['removed']);
+
+        // The stored hash is refreshed back to the real content hash.
+        $this->assertSame(
+            $original,
+            $DB->get_field('exelearning_grade_item', 'contenthash', ['id' => $target->id])
+        );
+    }
+
+    /**
+     * activity_has_attempts() reflects the presence of attempt rows.
+     */
+    public function test_activity_has_attempts(): void {
+        global $DB;
+
+        $instance = $this->create_activity();
+
+        $this->assertFalse(
+            \mod_exelearning\local\attempts::activity_has_attempts($instance->id)
+        );
+
+        $DB->insert_record('exelearning_attempt', (object) [
+            'exelearningid' => $instance->id,
+            'userid'        => 2,
+            'attempt'       => 1,
+            'itemnumber'    => 1,
+            'rawscore'      => 50,
+            'maxscore'      => 100,
+            'scaledscore'   => 0.5,
+            'status'        => 'completed',
+            'sessiontoken'  => 'tok',
+            'timecreated'   => time(),
+            'timemodified'  => time(),
+        ]);
+
+        $this->assertTrue(
+            \mod_exelearning\local\attempts::activity_has_attempts($instance->id)
+        );
+    }
+
+    /**
+     * The stale-grades warning is queued only when the gradable set changed AND
+     * attempts exist; otherwise nothing is shown.
+     */
+    public function test_warn_if_grades_stale(): void {
+        global $DB;
+
+        $instance = $this->create_activity();
+        $cm = get_coursemodule_from_instance('exelearning', $instance->id);
+
+        $nochange = ['added' => 0, 'removed' => 0, 'changed' => 0];
+        $changed  = ['added' => 0, 'removed' => 0, 'changed' => 1];
+
+        // No attempts yet: even a real change is silent.
+        \core\notification::fetch();
+        exelearning_warn_if_grades_stale($instance->id, $changed, $cm->id);
+        $this->assertCount(0, \core\notification::fetch());
+
+        // With an attempt present, a change warns; no change stays silent.
+        $DB->insert_record('exelearning_attempt', (object) [
+            'exelearningid' => $instance->id,
+            'userid'        => 2,
+            'attempt'       => 1,
+            'itemnumber'    => 1,
+            'rawscore'      => 50,
+            'maxscore'      => 100,
+            'scaledscore'   => 0.5,
+            'status'        => 'completed',
+            'sessiontoken'  => 'tok',
+            'timecreated'   => time(),
+            'timemodified'  => time(),
+        ]);
+
+        \core\notification::fetch();
+        exelearning_warn_if_grades_stale($instance->id, $nochange, $cm->id);
+        $this->assertCount(0, \core\notification::fetch());
+
+        exelearning_warn_if_grades_stale($instance->id, $changed, $cm->id);
+        $this->assertCount(1, \core\notification::fetch());
+    }
 }

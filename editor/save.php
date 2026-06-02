@@ -130,7 +130,12 @@ try {
     // marked deleted (grade history preserved). Both helpers locate the package
     // at any itemid, so they pick up the new revision stored above.
     exelearning_extract_stored_package($context->id, (int)$exelearning->revision);
-    exelearning_sync_grade_items($exelearning->id, $context->id);
+    $delta = exelearning_sync_grade_items($exelearning->id, $context->id);
+    // If editing changed the gradable set (added/removed/edited-options) and
+    // attempts exist, warn that prior grades are not recomputed (DEC-0021). The
+    // editor reloads view.php after a successful save (amd/src/editor_modal.js),
+    // so this queued notification surfaces there without any JS change.
+    exelearning_warn_if_grades_stale($exelearning->id, $delta, $cmid);
 
     echo json_encode([
         'success' => true,

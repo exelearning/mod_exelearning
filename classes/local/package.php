@@ -81,6 +81,8 @@ class package {
      *   - pageid      string Stable ID of the owning page.
      *   - pagename    string Page name (best-effort, may be empty).
      *   - orderhint   int    Order of appearance in the document (0-based).
+     *   - contenthash string sha1 of the iDevice content block (detects an
+     *                        in-place options edit; same objectid, new scoring).
      *
      * @return \stdClass[]
      */
@@ -121,32 +123,71 @@ class package {
         // is identical to the previous flat fallback (an <odeIdeviceId> directly
         // followed by its <odeIdeviceTypeName>); the page id/name are recovered
         // on top, so two same-type iDevices on different pages stay distinct.
+        // PREG_OFFSET_CAPTURE records each token's byte position. A gradable
+        // iDevice's content block is the slice from its own <odeIdeviceId>
+        // marker to the next token (any page id or iDevice id) — i.e. all of its
+        // properties/answers/scoring. Hashing that slice lets a re-sync tell an
+        // unchanged iDevice from one whose options were edited in place.
         $order = 0;
         $currentpage = '';
         $token = '~<odePageId>([^<]+)</odePageId>'
             . '|<odeIdeviceId>([^<]+)</odeIdeviceId>\s*<odeIdeviceTypeName>([^<]+)</odeIdeviceTypeName>~';
-        if (preg_match_all($token, $xml, $tokens, PREG_SET_ORDER)) {
-            foreach ($tokens as $t) {
-                $pageid   = $t[1] ?? '';
-                $deviceid = $t[2] ?? '';
-                $devtype  = $t[3] ?? '';
+        if (preg_match_all($token, $xml, $tokens, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
+            $total = count($tokens);
+            $xmllen = strlen($xml);
+            for ($i = 0; $i < $total; $i++) {
+                $t = $tokens[$i];
+                $pageid   = $t[1][0] ?? '';
+                $deviceid = $t[2][0] ?? '';
+                $devtype  = $t[3][0] ?? '';
                 if ($pageid !== '' && $deviceid === '') {
                     $currentpage = $pageid;
                     continue;
                 }
                 if ($deviceid !== '' && in_array($devtype, self::GRADABLE_IDEVICE_TYPES, true)) {
+                    $start = (int) $t[0][1];
+                    $end = ($i + 1 < $total) ? (int) $tokens[$i + 1][0][1] : $xmllen;
+                    $block = substr($xml, $start, $end - $start);
                     $items[] = (object) [
                         'objectid'    => $deviceid,
                         'idevicetype' => $devtype,
                         'pageid'      => $currentpage,
                         'pagename'    => $pagenames[$currentpage] ?? '',
                         'orderhint'   => $order++,
+                        'contenthash' => $this->hash_idevice_block($block),
                     ];
                 }
             }
         }
 
         return $items;
+    }
+
+    /**
+     * Hashes an iDevice content block, ignoring volatile metadata.
+     *
+     * eXeLearning re-serialises content.xml on every save; per-iDevice
+     * modification timestamps would otherwise flip the hash even when the
+     * scoring/options did not change. We strip the obvious volatile tags
+     * (anything whose name contains "date", "modified" or "timestamp") before
+     * hashing so the hash tracks the pedagogical content, not the export time.
+     * A residual false positive only produces an extra informational warning
+     * (the save is never blocked), matching mod_scorm's conservative notice.
+     *
+     * @param string $block Raw content.xml slice for one iDevice.
+     * @return string 40-char sha1.
+     */
+    private function hash_idevice_block(string $block): string {
+        // Drop volatile metadata tags…
+        $normalised = preg_replace(
+            '~<([a-zA-Z0-9_]*(?:[Dd]ate|[Mm]odified|[Tt]imestamp)[a-zA-Z0-9_]*)>[^<]*</\1>~',
+            '',
+            $block
+        ) ?? $block;
+        // …then collapse whitespace so the residual gap a stripped tag leaves —
+        // and any reflow a re-export introduces — does not flip the hash.
+        $normalised = trim(preg_replace('~\s+~', ' ', $normalised) ?? $normalised);
+        return sha1($normalised);
     }
 
     /**

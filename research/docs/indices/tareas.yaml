@@ -12,3 +12,4 @@ items:
   - ruta: 'tareas/backlog/TAREA-010-rie-008-editor-zip-checksum.yaml', id: 'TAREA-010', titulo: 'RIE-008: evaluar pinning de checksum/firma del ZIP del editor', estado: 'Done', fecha: '2026-06-01'
   - ruta: 'tareas/backlog/TAREA-011-e2e-flujos-criticos.yaml', id: 'TAREA-011', titulo: 'Verificación e2e por navegador de flujos críticos', estado: 'Done', fecha: '2026-06-01'
   - ruta: 'tareas/backlog/TAREA-012-rie-001-aislamiento-paquete.yaml', id: 'TAREA-012', titulo: 'RIE-001: investigar aislamiento fuerte del paquete .elpx', estado: 'Pending', fecha: '2026-06-01'
+  - ruta: 'tareas/backlog/TAREA-014-rie-012-nota-obsoleta-edicion.yaml', id: 'TAREA-014', titulo: 'RIE-012: observar falsos positivos del contenthash al editar contenido calificable', estado: 'Pending', fecha: '2026-06-02'

@@ -321,6 +321,23 @@ tareas:
       (Proxy sobre globalThis). Evaluar viabilidad real con el motor eXeLearning v4 (asume DOM
       real + jQuery + pipwerks → un realm/worker sin DOM probablemente no lo ejecuta sin un shim
       costoso) y coste/beneficio frente a M6+M7. Documentado como M8 en DEC-0019.
+  TAREA-014:
+    fecha: 2026-06-02
+    titulo: "RIE-012: observar falsos positivos del contenthash al editar contenido calificable"
+    estado: Pending
+    agente: pendiente
+    relacionados:
+      - RIE-012
+      - DEC-0021
+      - DEC-0012
+      - FTE-010
+    notas: >-
+      DEC-0021 implementa snapshot + aviso estilo SCORM al editar un .elpx calificable
+      (contenthash por iDevice en exelearning_grade_item; delta added/removed/changed en
+      exelearning_sync_grade_items; aviso \core\notification cuando hay cambio E intentos).
+      Seguimiento: confirmar que el hash no marque "changed" por re-export sin cambio
+      semántico; afinar la región hasheada si hay ruido. Recálculo automático inviable
+      (scoring client-side); remediación = reset manual de intentos en report.php.
 riesgos:
   RIE-001:
     titulo: "XSS cross-component desde paquete eXeLearning malicioso"
@@ -403,3 +420,25 @@ riesgos:
       - DEC-0007
       - DEC-0018
       - TAREA-009
+  RIE-012:
+    titulo: "Nota obsoleta al editar las opciones de una tarea calificable de un .elpx ya intentado"
+    severidad: media
+    probabilidad: media
+    estado: mitigado
+    mitigacion: >-
+      Editar las opciones/respuesta/puntuación de un iDevice conserva su objectid (y por
+      tanto su itemnumber y los intentos enlazados), pero el scaledscore guardado es del
+      contenido viejo y no se recalcula. mod_exelearning puntúa en el cliente (eXeLearning)
+      y el servidor solo persiste el scaledscore, así que el recálculo estilo quiz es
+      inviable (FTE-010). MITIGADO en DEC-0021 con semántica snapshot (= core) + aviso al
+      profesor estilo SCORM: contenthash por iDevice en exelearning_grade_item detecta la
+      edición; exelearning_sync_grade_items devuelve delta added/removed/changed;
+      exelearning_warn_if_grades_stale encola \core\notification::warning cuando hay cambio
+      E intentos, enlazando al informe de intentos (reset manual = remediación). Residuo:
+      posibles falsos positivos del hash (aviso informativo, no bloquea). Seguimiento:
+      TAREA-014.
+    relacionados:
+      - DEC-0021
+      - DEC-0012
+      - FTE-010
+      - TAREA-014

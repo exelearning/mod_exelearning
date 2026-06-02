@@ -223,6 +223,7 @@ $string['grademodel_overall'] = '~Només global';
 $string['grademodel_peritem'] = '~Només per iDevice';
 $string['gradepass'] = '~Qualificació per aprovar';
 $string['gradepass_help'] = '~La qualificació global mínima necessària per aprovar. Quan s\'habilita la condició de finalització «Requereix qualificació per aprovar», l\'activitat es marca com a completada (a l\'estil SCORM) quan l\'estudiant assoleix aquesta qualificació. Deixeu-ho a 0 per desactivar la finalització basada en l\'aprovat.';
+$string['gradesetchangedwarning'] = '~El contingut qualificable d\'aquesta activitat ha canviat i alguns estudiants ja tenen intents. Les qualificacions existents es conserven tal com estaven i no es recalculen amb el nou contingut. Si els canvis fan que aquestes qualificacions siguin enganyoses, elimineu els intents afectats per recalcular-les.';
 $string['gradingheading'] = '~Qualificació';
 $string['installstale'] = 'La instal·lació pot haver fallat. Torneu-ho a provar.';
 $string['intro'] = '~Descripció';
