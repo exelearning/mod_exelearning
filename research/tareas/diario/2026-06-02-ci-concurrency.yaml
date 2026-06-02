@@ -1,0 +1,28 @@
+fecha: 2026-06-02
+sesion: ci-concurrency
+agente: claude-code
+resumen: >-
+  Añadido bloque `concurrency` al workflow Moodle Plugin CI (.github/workflows/ci.yml)
+  para que un push nuevo cancele el run en curso del mismo grupo y solo se ejecute el
+  más reciente («el último manda»), ahorrando recursos al evitar varios runs en paralelo
+  de lo mismo. Detectado al observar que un push de documentación dejó dos runs de la
+  matriz completa corriendo a la vez en el PR #11.
+
+acciones:
+  - "Comprobado que ci.yml no tenía `concurrency`; solo pr-playground-preview.yml lo tenía."
+  - "Añadido: group `${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}` con `cancel-in-progress: true`."
+  - "El group separa cada PR (por número) de los pushes de rama (por ref): un push a main solo cancela runs de main; un PR solo cancela los suyos."
+  - "cancel-in-progress aplica en PRs y en main/master (decisión del usuario: cancelar también en main)."
+  - "Verificado en vivo: el último run del PR canceló automáticamente al anterior del mismo grupo (estado `cancelled`)."
+
+evidencia:
+  - ".github/workflows/ci.yml (bloque concurrency)"
+  - "PR ateeducacion/mod_exelearning#11"
+
+notas:
+  - "[INTERPRETACION] GitHub evalúa `concurrency` con el workflow del commit de cada run; runs ya en curso de commits previos sin el bloque no se cancelan retroactivamente (se cancelaron a mano una vez)."
+  - "release.yml (on release) y check-editor-releases.yml (cron) no se tocan: no sufren duplicados."
+
+pendientes: []
+
+relacionados: []
