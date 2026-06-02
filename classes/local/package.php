@@ -178,14 +178,14 @@ class package {
      * @return string 40-char sha1.
      */
     private function hash_idevice_block(string $block): string {
-        // Drop volatile metadata tags…
+        // Drop volatile metadata tags first.
         $normalised = preg_replace(
             '~<([a-zA-Z0-9_]*(?:[Dd]ate|[Mm]odified|[Tt]imestamp)[a-zA-Z0-9_]*)>[^<]*</\1>~',
             '',
             $block
         ) ?? $block;
-        // …then collapse whitespace so the residual gap a stripped tag leaves —
-        // and any reflow a re-export introduces — does not flip the hash.
+        // Then collapse whitespace so the residual gap a stripped tag leaves, and
+        // any reflow a re-export introduces, does not flip the hash.
         $normalised = trim(preg_replace('~\s+~', ' ', $normalised) ?? $normalised);
         return sha1($normalised);
     }

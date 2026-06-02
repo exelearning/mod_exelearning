@@ -1033,7 +1033,7 @@ function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null
  * from the report if the edited tasks make the old grades misleading.
  *
  * @param int $exelearningid
- * @param array{added:int,removed:int,changed:int} $delta From exelearning_sync_grade_items().
+ * @param array $delta From exelearning_sync_grade_items(): keys added, removed, changed.
  * @param int|null $cmid Course module id, to link the attempts report.
  * @return void
  */

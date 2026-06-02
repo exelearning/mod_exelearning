@@ -19,8 +19,6 @@ namespace mod_exelearning;
 use advanced_testcase;
 use mod_exelearning\local\package;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Unit tests for the content.xml parser, focused on per-iDevice contenthash
  * (the change-detection that drives the "grades are now stale" warning, DEC-0021).
@@ -35,7 +33,7 @@ final class package_test extends advanced_testcase {
     /**
      * Builds a content.xml manifest from a list of [pageid, deviceid, type, body] rows.
      *
-     * @param array<int,array{0:string,1:string,2:string,3:string}> $idevices
+     * @param array $idevices List of [pageid, deviceid, type, body] arrays.
      * @return string
      */
     private function build_content_xml(array $idevices): string {
