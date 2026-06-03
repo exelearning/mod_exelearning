@@ -35,6 +35,7 @@ $string['attempt'] = 'Saialdia';
 $string['attemptdeleted'] = '~Saialdia ezabatu da eta kalifikazioa birkalkulatu da.';
 $string['attemptnotingroup'] = '~Ezin dituzu zure taldeetatik kanpoko erabiltzaileen saialdiak kudeatu.';
 $string['attempts'] = 'Saialdiak';
+$string['attemptsmanagementheading'] = '~Saialdien kudeaketa';
 $string['attemptsofmax'] = '~Saialdiak: {$a->used} / {$a->max}';
 $string['attemptsreport'] = '~Saialdien txostena';
 $string['attemptsused'] = '~Erabilitako saialdiak: {$a}';

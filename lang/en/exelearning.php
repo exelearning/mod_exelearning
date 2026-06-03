@@ -31,6 +31,7 @@ $string['attempt']           = 'Attempt';
 $string['attemptdeleted']     = 'The attempt was deleted and the grade was recalculated.';
 $string['attemptnotingroup']  = 'You cannot manage attempts of users outside your groups.';
 $string['attempts']          = 'Attempts';
+$string['attemptsmanagementheading'] = 'Attempts management';
 $string['attemptsofmax']      = 'Attempts: {$a->used} of {$a->max}';
 $string['attemptsreport']    = 'Attempts report';
 $string['attemptsused']       = 'Attempts used: {$a}';

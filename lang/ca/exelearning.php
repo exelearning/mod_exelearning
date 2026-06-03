@@ -35,6 +35,7 @@ $string['attempt'] = 'Intent';
 $string['attemptdeleted'] = '~L\'intent s\'ha eliminat i la qualificació s\'ha recalculat.';
 $string['attemptnotingroup'] = '~No podeu gestionar els intents d\'usuaris que no pertanyen als vostres grups.';
 $string['attempts'] = 'Intents';
+$string['attemptsmanagementheading'] = '~Gestió d\'intents';
 $string['attemptsofmax'] = '~Intents: {$a->used} de {$a->max}';
 $string['attemptsreport'] = '~Informe d\'intents';
 $string['attemptsused'] = '~Intents utilitzats: {$a}';
