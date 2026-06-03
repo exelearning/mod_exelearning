@@ -1181,6 +1181,37 @@ function exelearning_get_package_url($exelearning, $context) {
 }
 
 /**
+ * Builds the activity view URL a gradebook grade item should resolve to.
+ *
+ * The Moodle gradebook links each activity grade item to /mod/exelearning/grade.php
+ * passing its itemnumber (same pattern as core mod_h5pactivity). This maps that
+ * itemnumber to the owning iDevice's stable objectid so the view can deep-link
+ * straight to that iDevice instead of the resource front page (issue #13 #4,
+ * DEC-0023). itemnumber 0 (the overall grade) links to the front page.
+ *
+ * @param stdClass $exelearning Instance record.
+ * @param int $cmid Course module id.
+ * @param int $itemnumber Grade item number (0 = overall, > 0 = per-iDevice).
+ * @return moodle_url View URL, with an `idevice` parameter when one is known.
+ */
+function exelearning_grade_item_view_url(stdClass $exelearning, int $cmid, int $itemnumber): moodle_url {
+    global $DB;
+
+    $params = ['id' => $cmid];
+    if ($itemnumber > 0) {
+        $objectid = $DB->get_field('exelearning_grade_item', 'objectid', [
+            'exelearningid' => $exelearning->id,
+            'itemnumber'    => $itemnumber,
+            'deleted'       => 0,
+        ]);
+        if (!empty($objectid)) {
+            $params['idevice'] = $objectid;
+        }
+    }
+    return new moodle_url('/mod/exelearning/view.php', $params);
+}
+
+/**
  * Returns the absolute path to the index.html of the installed embedded editor.
  *
  * Wrapper for embedded_editor_source_resolver::get_index_source() (moodledata →

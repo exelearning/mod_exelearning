@@ -14,90 +14,81 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
+ * Fullscreen toggle for the eXeLearning package iframe.
  *
- * @author  2021 3iPunt <https://www.tresipunt.com/>
- * @license http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * Drives the Fullscreen API on the activity iframe (issue #13 #6, DEC-0024). The
+ * iframe already advertises allow="fullscreen"; this module wires the toolbar
+ * button to request/exit fullscreen (with a vendor-prefixed fallback) and keeps
+ * the button's aria-pressed state in sync with the fullscreen status.
+ *
+ * @module      mod_exelearning/fullscreen
+ * @copyright   2026 ATE (Área de Tecnología Educativa)
+ * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-/* eslint-disable no-unused-vars */
+import Log from 'core/log';
 
-define([
-        'jquery',
-        'core/str',
-        'core/ajax',
-        'core/templates'
-    ], function($) {
-        "use strict";
-        /**
-         * @constructor
-         */
-        function Fullscreen() {
-             $('#toggleFullscreen').on('click', this.toggleFullScreen.bind(this));
-             document.addEventListener('fullscreenchange', this.changeFullScreen, false);
-             document.addEventListener('mozfullscreenchange', this.changeFullScreen, false);
-             document.addEventListener('MSFullscreenChange', this.changeFullScreen, false);
-             document.addEventListener('webkitfullscreenchange', this.changeFullScreen, false);
+const TOGGLE_ID = 'exelearning-fullscreen-toggle';
+
+/**
+ * Returns the element currently displayed fullscreen, if any (vendor-prefix aware).
+ *
+ * @returns {Element|null} The fullscreen element, or null when not in fullscreen.
+ */
+const fullscreenElement = () => document.fullscreenElement || document.webkitFullscreenElement || null;
+
+/**
+ * Requests fullscreen on the given element, using a vendor fallback when needed.
+ *
+ * @param {Element} element The element to display fullscreen.
+ */
+const requestFullscreen = (element) => {
+    if (element.requestFullscreen) {
+        const result = element.requestFullscreen();
+        if (result && typeof result.catch === 'function') {
+            result.catch((e) => Log.debug('mod_exelearning/fullscreen: request rejected: ' + e));
         }
-
-        Fullscreen.prototype.changeFullScreen = function(e) {
-            let btnToggle = document.getElementById('toggleFullscreen');
-            let page = document.getElementById('exewebpage');
-            let iframe = document.getElementById('exelearningobject');
-            let btnEdit = document.getElementById('editonexe');
-
-            if (page.classList.contains('fullscreen')) {
-                btnToggle.classList.remove('actived');
-                page.classList.remove('fullscreen');
-                iframe.classList.remove('fullscreen');
-                btnEdit.classList.remove('hidden');
-            } else {
-                btnToggle.classList.add('actived');
-                page.classList.add('fullscreen');
-                iframe.classList.add('fullscreen');
-                btnEdit.classList.add('hidden');
-            }
-        };
-
-        Fullscreen.prototype.toggleFullScreen = function(e) {
-
-            if (document.fullscreenElement ||
-                document.webkitFullscreenElement ||
-                document.mozFullScreenElement ||
-                document.msFullscreenElement) {
-                if (document.exitFullscreen) {
-                    document.exitFullscreen();
-                } else if (document.mozCancelFullScreen) {
-                    document.mozCancelFullScreen();
-                } else if (document.webkitExitFullscreen) {
-                    document.webkitExitFullscreen();
-                } else if (document.msExitFullscreen) {
-                    document.msExitFullscreen();
-                }
-            } else {
-                let element = document.querySelector('#exewebpage');
-                if (element.requestFullscreen) {
-                    element.requestFullscreen();
-                } else if (element.mozRequestFullScreen) {
-                    element.mozRequestFullScreen();
-                } else if (element.webkitRequestFullscreen) {
-                    element.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
-                } else if (element.msRequestFullscreen) {
-                    element.msRequestFullscreen();
-                }
-            }
-
-        };
-
-        /** @type {jQuery} The jQuery node for the region. */
-        Fullscreen.prototype.node = null;
-
-        return {
-            /**
-             * @return {Fullscreen}
-             */
-            init: function() {
-                return new Fullscreen();
-            }
-        };
+    } else if (element.webkitRequestFullscreen) {
+        element.webkitRequestFullscreen();
     }
-);
+};
+
+/**
+ * Exits fullscreen, using a vendor fallback when needed.
+ */
+const exitFullscreen = () => {
+    if (document.exitFullscreen) {
+        const result = document.exitFullscreen();
+        if (result && typeof result.catch === 'function') {
+            result.catch((e) => Log.debug('mod_exelearning/fullscreen: exit rejected: ' + e));
+        }
+    } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+    }
+};
+
+/**
+ * Wires the toolbar button to toggle fullscreen on the package iframe.
+ *
+ * @param {string} iframeid The id of the iframe to display fullscreen.
+ */
+export const init = (iframeid) => {
+    const toggle = document.getElementById(TOGGLE_ID);
+    const target = document.getElementById(iframeid);
+    if (!toggle || !target) {
+        Log.debug('mod_exelearning/fullscreen: toggle or target element not found');
+        return;
+    }
+
+    toggle.addEventListener('click', () => {
+        if (fullscreenElement()) {
+            exitFullscreen();
+        } else {
+            requestFullscreen(target);
+        }
+    });
+
+    document.addEventListener('fullscreenchange', () => {
+        toggle.setAttribute('aria-pressed', fullscreenElement() ? 'true' : 'false');
+    });
+};

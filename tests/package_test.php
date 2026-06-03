@@ -31,15 +31,24 @@ use mod_exelearning\local\package;
  */
 final class package_test extends advanced_testcase {
     /**
-     * Builds a content.xml manifest from a list of [pageid, deviceid, type, body] rows.
+     * Builds a content.xml manifest from a list of [pageid, deviceid, type, body, isScorm?] rows.
      *
-     * @param array $idevices List of [pageid, deviceid, type, body] arrays.
+     * The optional 5th element is the eXeLearning per-iDevice `isScorm` flag
+     * (0/1/2). When provided it is emitted inside `<jsonProperties>` exactly as the
+     * editor does, so detection (gated on isScorm > 0, DEC-0022) sees it. Omitting
+     * it (or passing null) models an iDevice with no scoring config — never
+     * detected. A raw JSON string may also be passed to model nested shapes
+     * (e.g. interactive-video's `{"scorm":{"isScorm":2}}`).
+     *
+     * @param array $idevices List of [pageid, deviceid, type, body, isScorm?] arrays.
      * @return string
      */
     private function build_content_xml(array $idevices): string {
         $nav = "<odeNavStructure>\n";
         $lastpage = null;
-        foreach ($idevices as [$pageid, $deviceid, $type, $body]) {
+        foreach ($idevices as $row) {
+            [$pageid, $deviceid, $type, $body] = $row;
+            $isscorm = $row[4] ?? null;
             if ($pageid !== $lastpage) {
                 $nav .= "<odePageId>{$pageid}</odePageId>\n<pageName>Page {$pageid}</pageName>\n";
                 $lastpage = $pageid;
@@ -47,6 +56,10 @@ final class package_test extends advanced_testcase {
             $nav .= "<odePageId>{$pageid}</odePageId>\n";
             $nav .= "<odeIdeviceId>{$deviceid}</odeIdeviceId>\n";
             $nav .= "<odeIdeviceTypeName>{$type}</odeIdeviceTypeName>\n";
+            if ($isscorm !== null) {
+                $payload = is_string($isscorm) ? $isscorm : '{"isScorm":' . ((int) $isscorm) . '}';
+                $nav .= "<jsonProperties>{$payload}</jsonProperties>\n";
+            }
             $nav .= $body;
         }
         $nav .= "</odeNavStructure>\n";
@@ -113,8 +126,8 @@ final class package_test extends advanced_testcase {
 
         $manifest = [
             ['p1', 'idevice-text-a', 'text', "<p>intro</p>\n"],
-            ['p1', 'idevice-tf-1', 'trueorfalse', "<question>Sky is blue?</question><answer>true</answer>\n"],
-            ['p2', 'idevice-guess-1', 'guess', "<word>moodle</word>\n"],
+            ['p1', 'idevice-tf-1', 'trueorfalse', "<question>Sky is blue?</question><answer>true</answer>\n", 1],
+            ['p2', 'idevice-guess-1', 'guess', "<word>moodle</word>\n", 1],
         ];
 
         $first = $this->detect($manifest);
@@ -143,14 +156,14 @@ final class package_test extends advanced_testcase {
         $this->resetAfterTest();
 
         $before = $this->detect([
-            ['p1', 'idevice-tf-1', 'trueorfalse', "<answer>true</answer>\n"],
-            ['p2', 'idevice-guess-1', 'guess', "<word>moodle</word>\n"],
+            ['p1', 'idevice-tf-1', 'trueorfalse', "<answer>true</answer>\n", 1],
+            ['p2', 'idevice-guess-1', 'guess', "<word>moodle</word>\n", 1],
         ]);
 
         // Flip the correct answer of the true/false; leave the guess untouched.
         $after = $this->detect([
-            ['p1', 'idevice-tf-1', 'trueorfalse', "<answer>false</answer>\n"],
-            ['p2', 'idevice-guess-1', 'guess', "<word>moodle</word>\n"],
+            ['p1', 'idevice-tf-1', 'trueorfalse', "<answer>false</answer>\n", 1],
+            ['p2', 'idevice-guess-1', 'guess', "<word>moodle</word>\n", 1],
         ]);
 
         $this->assertNotSame(
@@ -172,10 +185,10 @@ final class package_test extends advanced_testcase {
         $this->resetAfterTest();
 
         $v1 = $this->detect([
-            ['p1', 'idevice-tf-1', 'trueorfalse', "<lastModified>2026-01-01</lastModified><answer>true</answer>\n"],
+            ['p1', 'idevice-tf-1', 'trueorfalse', "<lastModified>2026-01-01</lastModified><answer>true</answer>\n", 1],
         ]);
         $v2 = $this->detect([
-            ['p1', 'idevice-tf-1', 'trueorfalse', "<lastModified>2026-06-02</lastModified><answer>true</answer>\n"],
+            ['p1', 'idevice-tf-1', 'trueorfalse', "<lastModified>2026-06-02</lastModified><answer>true</answer>\n", 1],
         ]);
 
         $this->assertSame(
@@ -183,5 +196,69 @@ final class package_test extends advanced_testcase {
             $v2['idevice-tf-1']->contenthash,
             'Only the modification timestamp changed, so the hash must stay equal.'
         );
+    }
+
+    /**
+     * Only iDevices the author marked for assessment (isScorm > 0) are detected;
+     * a gradable-type iDevice left unscored (isScorm 0) or with no scoring config
+     * is skipped (issue #13 #2, DEC-0022).
+     */
+    public function test_only_marked_idevices_are_detected(): void {
+        $this->resetAfterTest();
+
+        $detected = $this->detect([
+            ['p1', 'idevice-tf-scored', 'trueorfalse', "<answer>true</answer>\n", 1],
+            ['p1', 'idevice-tf-unscored', 'trueorfalse', "<answer>true</answer>\n", 0],
+            ['p1', 'idevice-guess-noconfig', 'guess', "<word>moodle</word>\n"],
+            ['p1', 'idevice-text-a', 'text', "<p>intro</p>\n"],
+        ]);
+
+        $this->assertCount(1, $detected);
+        $this->assertArrayHasKey('idevice-tf-scored', $detected);
+        $this->assertArrayNotHasKey('idevice-tf-unscored', $detected);
+        $this->assertArrayNotHasKey('idevice-guess-noconfig', $detected);
+        $this->assertArrayNotHasKey('idevice-text-a', $detected);
+    }
+
+    /**
+     * The iDevice types requested in issue #13 #5 are detected when configured to
+     * report a score, exactly like any other type. Covers the "Send score" button
+     * variant (isScorm 2) and the nested flag shape used by interactive-video.
+     */
+    public function test_newly_supported_types_detected_when_scored(): void {
+        $this->resetAfterTest();
+
+        $detected = $this->detect([
+            ['p1', 'idevice-form-1', 'form', "<field>q</field>\n", 2],
+            ['p1', 'idevice-map-1', 'map', "<hotspot>x</hotspot>\n", 1],
+            ['p1', 'idevice-flip-1', 'flipcards', "<card>a</card>\n", 1],
+            ['p1', 'idevice-lock-1', 'padlock', "<code>1234</code>\n", 2],
+            // The interactive-video type stores the flag nested under "scorm".
+            ['p2', 'idevice-iv-1', 'interactive-video', "<src>v.mp4</src>\n", '{"scorm":{"isScorm":2}}'],
+            // A new-category iDevice present but not scored stays out.
+            ['p2', 'idevice-map-2', 'map', "<hotspot>y</hotspot>\n", 0],
+        ]);
+
+        $this->assertCount(5, $detected);
+        foreach (['idevice-form-1', 'idevice-map-1', 'idevice-flip-1', 'idevice-lock-1', 'idevice-iv-1'] as $id) {
+            $this->assertArrayHasKey($id, $detected, "{$id} should be detected (isScorm > 0)");
+        }
+        $this->assertArrayNotHasKey('idevice-map-2', $detected);
+        // The recorded type is the real odeIdeviceTypeName, not a normalised label.
+        $this->assertSame('interactive-video', $detected['idevice-iv-1']->idevicetype);
+    }
+
+    /**
+     * HTML-escaped jsonProperties (as emitted in real packages) is decoded before
+     * the isScorm flag is read.
+     */
+    public function test_html_escaped_isscorm_is_detected(): void {
+        $this->resetAfterTest();
+
+        $detected = $this->detect([
+            ['p1', 'idevice-tf-esc', 'trueorfalse', "<answer>true</answer>\n", '&quot;isScorm&quot;:1'],
+        ]);
+
+        $this->assertArrayHasKey('idevice-tf-esc', $detected);
     }
 }

@@ -64,7 +64,10 @@ class mod_exelearning_mod_form extends moodleform_mod {
             ]
         );
         $mform->addHelpButton('package', 'package', 'mod_exelearning');
-        $mform->addRule('package', null, 'required', null, 'client');
+        // The package is optional (issue #13 #1, DEC-0024): leaving it empty creates
+        // an empty activity that the teacher authors in place with the embedded
+        // editor ("Edit with eXeLearning"), mirroring how the sibling plugins let
+        // you start a new resource from scratch. Uploading an .elpx still works.
 
         // Grading configuration.
         $mform->addElement(

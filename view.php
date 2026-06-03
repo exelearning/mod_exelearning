@@ -189,15 +189,33 @@ if ($showeditorbutton) {
                         'data-activityname' => format_string($exelearning->name),
                 ]
         ),
-        'mb-3'
+        // Right-aligned per issue #13 #6.
+        'd-flex justify-content-end mb-3'
     );
 }
 
 if (!$mainfile) {
-    echo $OUTPUT->notification(
-        get_string('packagenotfound', 'mod_exelearning'),
-        \core\output\notification::NOTIFY_ERROR
-    );
+    // Create-from-scratch (issue #13 #1, DEC-0024): an activity may be created
+    // with no uploaded package. Rather than erroring, guide the teacher to author
+    // it in place with the embedded editor (the "Edit with eXeLearning" button is
+    // already rendered above when available). Only fall back to the hard error for
+    // students, who should never reach an unauthored activity.
+    if ($showeditorbutton) {
+        echo $OUTPUT->notification(
+            get_string('nocontentyet', 'mod_exelearning'),
+            \core\output\notification::NOTIFY_INFO
+        );
+    } else if ($canpreview) {
+        echo $OUTPUT->notification(
+            get_string('nocontentyetupload', 'mod_exelearning'),
+            \core\output\notification::NOTIFY_WARNING
+        );
+    } else {
+        echo $OUTPUT->notification(
+            get_string('packagenotfound', 'mod_exelearning'),
+            \core\output\notification::NOTIFY_ERROR
+        );
+    }
 } else {
     $iframeurl = moodle_url::make_pluginfile_url(
         $context->id,
@@ -207,6 +225,15 @@ if (!$mainfile) {
         '/',
         'index.html'
     );
+    // Deep-link from the gradebook (issue #13 #4, DEC-0023): grade.php maps a
+    // clicked grade item's itemnumber to its iDevice objectid and forwards it
+    // here. Exported iDevices render as <article id="<odeIdeviceId>">, so a URL
+    // fragment scrolls straight to the activity natively on single-page packages
+    // (multi-page packages land on the front page — best effort).
+    $ideviceid = optional_param('idevice', '', PARAM_RAW_TRIMMED);
+    if ($ideviceid !== '' && preg_match('/^[A-Za-z0-9_-]+$/', $ideviceid)) {
+        $iframeurl->set_anchor($ideviceid);
+    }
     // List of detected grade items (for quick feedback to the teacher).
     $items = $DB->get_records(
         'exelearning_grade_item',
@@ -507,6 +534,26 @@ JS;
         $shimjs
     );
     echo html_writer::tag('script', $shimjs);
+
+    // Fullscreen control (issue #13 #6, DEC-0024): a right-aligned button above the
+    // player. The iframe already advertises allow="fullscreen"; amd/src/fullscreen.js
+    // drives the Fullscreen API on it (and falls back to vendor-prefixed methods).
+    echo html_writer::div(
+        html_writer::tag(
+            'button',
+            '<i class="fa fa-expand mr-1" aria-hidden="true"></i> '
+                    . get_string('fullscreen', 'mod_exelearning'),
+            [
+                    'type' => 'button',
+                    'class' => 'btn btn-sm btn-outline-secondary',
+                    'id' => 'exelearning-fullscreen-toggle',
+                    'data-target' => 'exelearningobject',
+                    'aria-pressed' => 'false',
+            ]
+        ),
+        'exelearning-toolbar d-flex justify-content-end mb-2'
+    );
+    $PAGE->requires->js_call_amd('mod_exelearning/fullscreen', 'init', ['exelearningobject']);
 
     // Package iframe. Sandbox policy documented in AN-008:
     // allow-scripts: eXeLearning v4 uses jQuery + iDevice JS.

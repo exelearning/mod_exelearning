@@ -108,6 +108,33 @@ final class lib_test extends advanced_testcase {
     }
 
     /**
+     * Create-from-scratch (issue #13 #1, DEC-0024): an instance can be added with
+     * no uploaded package. It is created cleanly with no stored package, no
+     * content and no grade items, ready to be authored in the embedded editor.
+     */
+    public function test_create_instance_without_package(): void {
+        global $DB;
+
+        $instance = $this->create_activity(['packagefilepath' => false]);
+
+        $this->assertNotEmpty($instance->id);
+        $this->assertSame(1, (int) $instance->revision);
+
+        $cm = get_coursemodule_from_instance('exelearning', $instance->id);
+        $context = \context_module::instance($cm->id);
+
+        // No package was stored and nothing was detected.
+        $this->assertNull(exelearning_get_stored_package($context->id));
+        $this->assertSame(0, $DB->count_records(
+            'exelearning_grade_item',
+            ['exelearningid' => $instance->id, 'deleted' => 0]
+        ));
+
+        // The package URL degrades to null so the editor opens a blank project.
+        $this->assertNull(exelearning_get_package_url($instance, $context));
+    }
+
+    /**
      * A multi-page package registers one grade item per gradable iDevice, keyed by
      * the iDevice's stable objectid, even when those iDevices live on different
      * pages and share the same page-local DOM index (the RIE-007 / DEC-0017 case).
@@ -403,5 +430,37 @@ final class lib_test extends advanced_testcase {
 
         exelearning_warn_if_grades_stale($instance->id, $changed, $cm->id);
         $this->assertCount(1, \core\notification::fetch());
+    }
+
+    /**
+     * Gradebook deep-link (issue #13 #4, DEC-0023): exelearning_grade_item_view_url()
+     * maps an itemnumber to its iDevice objectid so grade.php can forward the click
+     * straight to that iDevice; itemnumber 0 and unknown numbers fall back to the
+     * activity front page.
+     */
+    public function test_grade_item_view_url_deeplinks_by_itemnumber(): void {
+        global $DB;
+
+        $instance = $this->create_activity();
+        $cm = get_coursemodule_from_instance('exelearning', $instance->id);
+
+        // The overall grade (itemnumber 0) links to the front page, no deep link.
+        $overall = exelearning_grade_item_view_url($instance, (int) $cm->id, 0);
+        $this->assertArrayNotHasKey('idevice', $overall->params());
+        $this->assertSame((string) $cm->id, (string) $overall->params()['id']);
+
+        // A per-iDevice grade item carries that iDevice's stable objectid.
+        $objectid = $DB->get_field('exelearning_grade_item', 'objectid', [
+            'exelearningid' => $instance->id,
+            'itemnumber'    => 1,
+            'deleted'       => 0,
+        ]);
+        $this->assertNotEmpty($objectid);
+        $deeplink = exelearning_grade_item_view_url($instance, (int) $cm->id, 1);
+        $this->assertSame($objectid, $deeplink->params()['idevice']);
+
+        // An unknown itemnumber degrades gracefully to the front page.
+        $unknown = exelearning_grade_item_view_url($instance, (int) $cm->id, 99);
+        $this->assertArrayNotHasKey('idevice', $unknown->params());
     }
 }
