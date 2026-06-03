@@ -46,7 +46,7 @@
       "fullname":  "Demo eXeLearning · ejemplo de uso",
       "shortname": "EXEDEMO",
       "category":  "Demo eXeLearning",
-      "summary":   "Curso demo con una actividad mod_exelearning y dos alumnos matriculados."
+      "summary":   "Curso demo con una actividad mod_exelearning y un alumno matriculado."
     },
     {
       "step": "createUser",
@@ -65,14 +65,6 @@
       "lastname":  "Uno"
     },
     {
-      "step": "createUser",
-      "username":  "alumno2",
-      "password":  "{{STUDENT_PASS}}",
-      "email":     "alumno2@example.test",
-      "firstname": "Alumno",
-      "lastname":  "Dos"
-    },
-    {
       "step": "enrolUser",
       "username": "{{ADMIN_USER}}",
       "course":   "EXEDEMO",
@@ -87,12 +79,6 @@
     {
       "step": "enrolUser",
       "username": "alumno1",
-      "course":   "EXEDEMO",
-      "role":     "student"
-    },
-    {
-      "step": "enrolUser",
-      "username": "alumno2",
       "course":   "EXEDEMO",
       "role":     "student"
     },
@@ -127,7 +113,7 @@
     },
     {
       "step": "runPhpCode",
-      "comment": "addModule stores the ELPX in filearea 'package' but bypasses exelearning_add_instance, so the content is not extracted and no grade items are detected (same self-heal that view.php runs on first open). runPhpCode runs raw PHP CLI with no Moodle bootstrap, so we require config.php first. Force extract + sync on every exelearning that still has no per-iDevice grade items.",
+      "comment": "addModule skips exelearning_add_instance; force extract + grade sync (view.php self-heal). runPhpCode = raw PHP CLI, so require config.php first.",
       "code": "define('CLI_SCRIPT', true); foreach (['/www/moodle/config.php', getcwd().'/config.php', '/var/www/html/config.php'] as $c) { if (is_file($c)) { require($c); break; } } global $DB, $CFG; require_once($CFG->dirroot.'/mod/exelearning/lib.php'); $fs = get_file_storage(); foreach ($DB->get_records('exelearning') as $exe) { $cm = get_coursemodule_from_instance('exelearning', $exe->id); if (!$cm) { continue; } $ctx = context_module::instance($cm->id); if (exelearning_get_stored_package($ctx->id) === null) { continue; } if (!$fs->get_file($ctx->id, 'mod_exelearning', 'content', (int)$exe->revision, '/', 'index.html')) { exelearning_extract_stored_package($ctx->id, (int)$exe->revision); } if (!$DB->record_exists_select('exelearning_grade_item', 'exelearningid = ? AND deleted = 0 AND itemnumber > 0', [$exe->id])) { exelearning_sync_grade_items($exe->id, $ctx->id); } }"
     },
     {
@@ -136,7 +122,7 @@
       "course":  "EXEDEMO",
       "section": 1,
       "name":    "Actividad SCORM evaluable (demo)",
-      "intro":   "Paquete SCORM 1.2 de ejemplo (exportado desde eXeLearning). Soporta intentos múltiples y finalización por aprobado.",
+      "intro":   "Paquete SCORM 1.2 de ejemplo exportado desde eXeLearning.",
       "gradepass": 50,
       "completion": 2,
       "completionusegrade": 1,
@@ -154,7 +140,7 @@
     },
     {
       "step": "runPhpCode",
-      "comment": "Parse the SCORM package: addModule stores the zip and inserts the scorm row directly, but leaves reference='' and does not populate mdl_scorm_scoes, so scorm_get_toc() crashes with array_keys(null). runPhpCode runs raw PHP CLI with no Moodle bootstrap, so we require config.php first. For every local SCORM without scoes, repoint reference to the stored package filename and run scorm_parse().",
+      "comment": "addModule leaves SCORM without scoes (scorm_get_toc crashes); repoint reference + scorm_parse(). runPhpCode = raw PHP CLI, so require config.php first.",
       "code": "define('CLI_SCRIPT', true); foreach (['/www/moodle/config.php', getcwd().'/config.php', '/var/www/html/config.php'] as $c) { if (is_file($c)) { require($c); break; } } global $DB, $CFG; require_once($CFG->dirroot.'/mod/scorm/lib.php'); require_once($CFG->dirroot.'/mod/scorm/locallib.php'); $fs = get_file_storage(); foreach ($DB->get_records('scorm', ['scormtype' => 'local']) as $scorm) { if ($DB->record_exists('scorm_scoes', ['scorm' => $scorm->id])) { continue; } $cm = get_coursemodule_from_instance('scorm', $scorm->id); if (!$cm) { continue; } $ctx = context_module::instance($cm->id); $files = $fs->get_area_files($ctx->id, 'mod_scorm', 'package', 0, 'sortorder, itemid, filepath, filename', false); $pkg = reset($files); if (!$pkg) { continue; } if ($scorm->reference !== $pkg->get_filename()) { $DB->set_field('scorm', 'reference', $pkg->get_filename(), ['id' => $scorm->id]); $scorm = $DB->get_record('scorm', ['id' => $scorm->id]); } scorm_parse($scorm, true); }"
     },
     {
@@ -163,7 +149,7 @@
       "course":  "EXEDEMO",
       "section": 1,
       "name":    "Actividad H5P evaluable (demo)",
-      "intro":   "Conjunto de preguntas H5P (varias tareas evaluables con intentos múltiples y finalización por aprobado).",
+      "intro":   "Conjunto de preguntas H5P de ejemplo.",
       "timecreated": 1748476800,
       "gradepass": 50,
       "completion": 2,

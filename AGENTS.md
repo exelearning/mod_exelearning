@@ -56,6 +56,19 @@ Cerradas: **TAREA-012 / RIE-001** investigación (DEC-0019); **TAREA-009 / RIE-0
   `exelearning/mod_exeweb` (DEC-0009: sin modo online). Página rota eliminada.
 - CI `ci.yml` con matriz moodle-plugin-ci (DEC-0004).
 
+### Hecho en sesión 2026-06-03 (issue #13 PR núcleo, claude-opus-4-8)
+- **Detección por `isScorm`** (DEC-0022): `package.php` detecta calificables por el flag
+  `isScorm>0` del iDevice (no por lista de tipos) → resuelve issue #13 #2 (solo marcados) y
+  #5 (10 tipos nuevos) a la vez. `track.php` sin cambios (enruta por `objectid`).
+- **Crear desde cero** (DEC-0024): `package` opcional en `mod_form.php`; `view.php` muestra CTA
+  de edición en vez de error; el editor embebido crea proyecto nuevo (issue #13 #1).
+- **Deep-link gradebook** (DEC-0023): nuevo `grade.php` mapea `itemnumber→objectid` y
+  redirige a `view.php?idevice=…` (ancla nativa); helper `exelearning_grade_item_view_url()`
+  (issue #13 #4).
+- **UI** (DEC-0024): botón "Editar con eXe" a la derecha + botón pantalla completa;
+  `amd/src/fullscreen.js` reescrito (ES6, Fullscreen API sobre el iframe) (issue #13 #6).
+- Pendiente issue #13: **#3 importar** desde `mod_exeweb`/`mod_exescorm` → PR aparte.
+
 ## Decisiones clave (ver `research/decisiones/adr/`)
 
 | ADR | Estado | Resumen |
@@ -75,6 +88,9 @@ Cerradas: **TAREA-012 / RIE-001** investigación (DEC-0019); **TAREA-009 / RIE-0
 | DEC-0013 | **Aceptada** | Editor Online vs embebido: confirma solo-embebido (DEC-0009); reapertura futura iría por opción D (enlace, sin HMAC) |
 | DEC-0014 | **Aceptada** (2026-05-29) | Soporte xAPI A+C: SCORM 1.2 vigente + diseño de referencia; sin empuje upstream (analítica LRS no prioritaria) |
 | DEC-0015 | **Aceptada** (2026-05-29) | Justificación de la multicalificación: DAFO + comparativa (exeweb/exescorm/scorm/h5p); veredicto: merece la pena con matices (deuda = shim SCORM, hoja de ruta = xAPI DEC-0014) |
+| DEC-0022 | **Aceptada** (2026-06-03) | Detección de calificables por `isScorm>0` (no por lista de tipos) → issue #13 #2 y #5 |
+| DEC-0023 | **Aceptada** (2026-06-03) | Deep-link del gradebook al iDevice vía `grade.php` (itemnumber→objectid→ancla) → issue #13 #4 |
+| DEC-0024 | **Aceptada** (2026-06-03) | Crear `.elpx` desde cero (paquete opcional) + pantalla completa → issue #13 #1 y #6 |
 
 ## Restricciones inmutables
 

@@ -64,14 +64,44 @@ class mod_exelearning_mod_form extends moodleform_mod {
             ]
         );
         $mform->addHelpButton('package', 'package', 'mod_exelearning');
-        $mform->addRule('package', null, 'required', null, 'client');
+        // The package is optional (issue #13 #1, DEC-0024): leaving it empty creates
+        // an empty activity that the teacher authors in place with the embedded
+        // editor ("Edit with eXeLearning"), mirroring how the sibling plugins let
+        // you start a new resource from scratch. Uploading an .elpx still works.
 
-        // Grading configuration.
+        // Grading configuration. Split into two sections — "Grading" (how the
+        // activity is scored) and "Attempts management" (how multiple attempts are
+        // handled) — mirroring mod_scorm / mod_exescorm so the grade settings stay
+        // focused and uncluttered (DEC-0031).
         $mform->addElement(
             'header',
             'gradingsection',
             get_string('gradingheading', 'mod_exelearning')
         );
+
+        // Master grading switch (issue #13, DEC-0029): when off, the activity
+        // creates no grade items, no reports, and shows nothing in the gradebook
+        // (it behaves like a plain resource). On by default.
+        $mform->addElement(
+            'advcheckbox',
+            'gradeenabled',
+            get_string('gradeenabled', 'mod_exelearning')
+        );
+        $mform->setDefault('gradeenabled', 1);
+        $mform->addHelpButton('gradeenabled', 'gradeenabled', 'mod_exelearning');
+
+        // Gradebook columns model (DEC-0008).
+        $mform->addElement(
+            'select',
+            'grademodel',
+            get_string('grademodel', 'mod_exelearning'),
+            [
+                    EXELEARNING_GRADEMODEL_PERITEM => get_string('grademodel_peritem', 'mod_exelearning'),
+                    EXELEARNING_GRADEMODEL_OVERALL => get_string('grademodel_overall', 'mod_exelearning'),
+            ]
+        );
+        $mform->setDefault('grademodel', EXELEARNING_GRADEMODEL_PERITEM);
+        $mform->addHelpButton('grademodel', 'grademodel', 'mod_exelearning');
 
         $mform->addElement(
             'text',
@@ -104,59 +134,6 @@ class mod_exelearning_mod_form extends moodleform_mod {
         $mform->setDefault('gradepass', 0);
         $mform->addHelpButton('gradepass', 'gradepass', 'mod_exelearning');
 
-        // Attempt aggregation (DEC-0007): how the student's attempt history is
-        // combined for the gradebook grade.
-        $methodoptions = [];
-        foreach (\mod_exelearning\local\attempts::grademethod_options() as $val => $strkey) {
-            $methodoptions[$val] = get_string($strkey, 'mod_exelearning');
-        }
-        $mform->addElement(
-            'select',
-            'grademethod',
-            get_string('grademethod', 'mod_exelearning'),
-            $methodoptions
-        );
-        $mform->setDefault('grademethod', \mod_exelearning\local\attempts::GRADE_HIGHEST);
-        $mform->addHelpButton('grademethod', 'grademethod', 'mod_exelearning');
-
-        // Gradebook columns model (DEC-0008).
-        $mform->addElement(
-            'select',
-            'grademodel',
-            get_string('grademodel', 'mod_exelearning'),
-            [
-                    EXELEARNING_GRADEMODEL_PERITEM => get_string('grademodel_peritem', 'mod_exelearning'),
-                    EXELEARNING_GRADEMODEL_OVERALL => get_string('grademodel_overall', 'mod_exelearning'),
-            ]
-        );
-        $mform->setDefault('grademodel', EXELEARNING_GRADEMODEL_PERITEM);
-        $mform->addHelpButton('grademodel', 'grademodel', 'mod_exelearning');
-
-        // Attempt limit per student (DEC-0007 phase 2): 0 = unlimited.
-        $mform->addElement(
-            'text',
-            'maxattempt',
-            get_string('maxattempt', 'mod_exelearning'),
-            ['size' => '6']
-        );
-        $mform->setType('maxattempt', PARAM_INT);
-        $mform->setDefault('maxattempt', 0);
-        $mform->addHelpButton('maxattempt', 'maxattempt', 'mod_exelearning');
-
-        // Student attempt review (DEC-0007 phase 2).
-        $reviewoptions = [];
-        foreach (\mod_exelearning\local\attempts::reviewmode_options() as $val => $strkey) {
-            $reviewoptions[$val] = get_string($strkey, 'mod_exelearning');
-        }
-        $mform->addElement(
-            'select',
-            'reviewmode',
-            get_string('reviewmode', 'mod_exelearning'),
-            $reviewoptions
-        );
-        $mform->setDefault('reviewmode', \mod_exelearning\local\attempts::REVIEW_ALWAYS);
-        $mform->addHelpButton('reviewmode', 'reviewmode', 'mod_exelearning');
-
         // How the grade is displayed in the gradebook (numeric, percentage, letter).
         // Moodle always stores the raw number; this selector only affects the
         // per-column display (gradedisplaytype on the grade_item).
@@ -175,6 +152,65 @@ class mod_exelearning_mod_form extends moodleform_mod {
         );
         $mform->setDefault('gradedisplaytype', GRADE_DISPLAY_TYPE_DEFAULT);
         $mform->addHelpButton('gradedisplaytype', 'gradedisplay', 'mod_exelearning');
+
+        // Attempts management: how multiple student attempts are limited, combined
+        // into the gradebook grade, and reviewed. Kept in its own section so the
+        // grade settings above are not overcrowded (DEC-0007, DEC-0031).
+        $mform->addElement(
+            'header',
+            'attemptssection',
+            get_string('attemptsmanagementheading', 'mod_exelearning')
+        );
+
+        // Attempt limit per student (DEC-0007 phase 2): 0 = unlimited.
+        $mform->addElement(
+            'text',
+            'maxattempt',
+            get_string('maxattempt', 'mod_exelearning'),
+            ['size' => '6']
+        );
+        $mform->setType('maxattempt', PARAM_INT);
+        $mform->setDefault('maxattempt', 0);
+        $mform->addHelpButton('maxattempt', 'maxattempt', 'mod_exelearning');
+
+        // Attempt aggregation (DEC-0007): how the student's attempt history is
+        // combined for the gradebook grade.
+        $methodoptions = [];
+        foreach (\mod_exelearning\local\attempts::grademethod_options() as $val => $strkey) {
+            $methodoptions[$val] = get_string($strkey, 'mod_exelearning');
+        }
+        $mform->addElement(
+            'select',
+            'grademethod',
+            get_string('grademethod', 'mod_exelearning'),
+            $methodoptions
+        );
+        $mform->setDefault('grademethod', \mod_exelearning\local\attempts::GRADE_HIGHEST);
+        $mform->addHelpButton('grademethod', 'grademethod', 'mod_exelearning');
+
+        // Student attempt review (DEC-0007 phase 2).
+        $reviewoptions = [];
+        foreach (\mod_exelearning\local\attempts::reviewmode_options() as $val => $strkey) {
+            $reviewoptions[$val] = get_string($strkey, 'mod_exelearning');
+        }
+        $mform->addElement(
+            'select',
+            'reviewmode',
+            get_string('reviewmode', 'mod_exelearning'),
+            $reviewoptions
+        );
+        $mform->setDefault('reviewmode', \mod_exelearning\local\attempts::REVIEW_ALWAYS);
+        $mform->addHelpButton('reviewmode', 'reviewmode', 'mod_exelearning');
+
+        // Disable every grade and attempt setting when the activity is not graded
+        // (DEC-0029); covers the fields in both the Grading and Attempts sections.
+        $gradefields = [
+            'grademodel', 'grademax', 'grademin', 'gradepass', 'gradedisplaytype',
+            'maxattempt', 'grademethod', 'reviewmode',
+        ];
+        foreach ($gradefields as $gradefield) {
+            $mform->disabledIf($gradefield, 'gradeenabled', 'notchecked');
+        }
 
         // Appearance: whether to show the teacher preview/grading toggle in the
         // activity view (mod_exeweb parity). Default on.

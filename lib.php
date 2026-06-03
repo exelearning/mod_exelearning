@@ -507,10 +507,14 @@ function exelearning_extend_settings_navigation(
     settings_navigation $settings,
     navigation_node $node
 ): void {
-    global $PAGE;
+    global $PAGE, $DB;
 
     $context = $PAGE->cm->context ?? null;
     if (!$context || !has_capability('mod/exelearning:viewreport', $context)) {
+        return;
+    }
+    // No reports node when the activity is not graded (DEC-0029).
+    if (!$DB->get_field('exelearning', 'gradeenabled', ['id' => $PAGE->cm->instance])) {
         return;
     }
 
@@ -833,6 +837,50 @@ function exelearning_inject_scorm_loader(int $contextid, int $revision): void {
 }
 
 /**
+ * Removes all gradebook items of an activity (master grading switch off, DEC-0029).
+ *
+ * Soft-deletes the plugin's grade-item mapping rows and deletes the matching Moodle
+ * grade items, including the overall item (itemnumber 0), so nothing shows in the
+ * gradebook. The attempt history (exelearning_attempt) is preserved, so re-enabling
+ * grading re-detects and recomputes from it.
+ *
+ * @param stdClass $instance The exelearning instance row.
+ * @return void
+ */
+function exelearning_remove_all_grade_items(stdClass $instance): void {
+    global $CFG, $DB;
+    require_once($CFG->libdir . '/gradelib.php');
+
+    $rows = $DB->get_records('exelearning_grade_item', ['exelearningid' => $instance->id, 'deleted' => 0]);
+    foreach ($rows as $row) {
+        $row->deleted = 1;
+        $row->timemodified = time();
+        $DB->update_record('exelearning_grade_item', $row);
+        grade_update(
+            'mod/exelearning',
+            $instance->course,
+            'mod',
+            'exelearning',
+            $instance->id,
+            (int) $row->itemnumber,
+            null,
+            ['deleted' => true]
+        );
+    }
+    // Remove the overall item (itemnumber 0) too.
+    grade_update(
+        'mod/exelearning',
+        $instance->course,
+        'mod',
+        'exelearning',
+        $instance->id,
+        0,
+        null,
+        ['deleted' => true]
+    );
+}
+
+/**
  * Detects gradable iDevices in the stored package and synchronises grade items.
  *
  * Returns the change delta against the previously synced state so callers can
@@ -860,6 +908,14 @@ function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null
         $contextid = context_module::instance($cm->id)->id;
     }
     $context = context::instance_by_id($contextid);
+
+    // Master grading switch (DEC-0029): when the activity is not graded, remove all
+    // gradebook items (soft-delete our rows + delete the Moodle grade items, overall
+    // included) and detect nothing. Attempt history (exelearning_attempt) is kept.
+    if (empty($instance->gradeenabled)) {
+        exelearning_remove_all_grade_items($instance);
+        return $delta;
+    }
 
     // Locate the ELPX in the 'package' filearea (any itemid: form=0,
     // Playground addModule=1, editor/save.php=revision).
@@ -1202,6 +1258,71 @@ function exelearning_get_package_url($exelearning, $context) {
         $package->get_filepath(),
         $package->get_filename()
     );
+}
+
+/**
+ * Builds the activity view URL a gradebook grade item should resolve to.
+ *
+ * The Moodle gradebook links each activity grade item to /mod/exelearning/grade.php
+ * passing its itemnumber (same pattern as core mod_h5pactivity). This maps that
+ * itemnumber to the owning iDevice's stable objectid so the view can deep-link
+ * straight to that iDevice instead of the resource front page (issue #13 #4,
+ * DEC-0023). itemnumber 0 (the overall grade) links to the front page.
+ *
+ * @param stdClass $exelearning Instance record.
+ * @param int $cmid Course module id.
+ * @param int $itemnumber Grade item number (0 = overall, > 0 = per-iDevice).
+ * @return moodle_url View URL, with an `idevice` parameter when one is known.
+ */
+function exelearning_grade_item_view_url(stdClass $exelearning, int $cmid, int $itemnumber): moodle_url {
+    global $DB;
+
+    $params = ['id' => $cmid];
+    if ($itemnumber > 0) {
+        $objectid = $DB->get_field('exelearning_grade_item', 'objectid', [
+            'exelearningid' => $exelearning->id,
+            'itemnumber'    => $itemnumber,
+            'deleted'       => 0,
+        ]);
+        if (!empty($objectid)) {
+            $params['idevice'] = $objectid;
+        }
+    }
+    return new moodle_url('/mod/exelearning/view.php', $params);
+}
+
+/**
+ * Builds the destination of a gradebook "grade analysis" click, by role.
+ *
+ * The gradebook column header is fixed by Moodle core to view.php and cannot be
+ * deep-linked by a plugin; the per-grade "grade analysis" link (which appears because
+ * this module ships grade.php) is the only place we can target. Teachers/graders go to
+ * the attempts report (the actual attempt behind the grade); students are deep-linked
+ * to the specific iDevice in the content (issue #13 #4, DEC-0028).
+ *
+ * @param stdClass $exelearning Instance record.
+ * @param int $cmid Course module id.
+ * @param int $itemnumber Grade item number (0 = overall).
+ * @param context $context Module context (for the capability check).
+ * @param int $userid Graded user, forwarded to the report so the teacher lands on
+ *                    that student's attempts (0 = no user filter).
+ * @return moodle_url
+ */
+function exelearning_grade_analysis_url(
+    stdClass $exelearning,
+    int $cmid,
+    int $itemnumber,
+    context $context,
+    int $userid = 0
+): moodle_url {
+    if (has_capability('mod/exelearning:viewreport', $context)) {
+        $params = ['id' => $cmid];
+        if ($userid > 0) {
+            $params['userid'] = $userid;
+        }
+        return new moodle_url('/mod/exelearning/report.php', $params);
+    }
+    return exelearning_grade_item_view_url($exelearning, $cmid, $itemnumber);
 }
 
 /**

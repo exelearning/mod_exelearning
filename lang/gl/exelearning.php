@@ -35,6 +35,7 @@ $string['attempt'] = 'Intento';
 $string['attemptdeleted'] = '~O intento eliminouse e a cualificación recalculouse.';
 $string['attemptnotingroup'] = '~Non pode xestionar intentos de usuarios que non pertencen aos seus grupos.';
 $string['attempts'] = 'Intentos';
+$string['attemptsmanagementheading'] = '~Xestión de intentos';
 $string['attemptsofmax'] = '~Intentos: {$a->used} de {$a->max}';
 $string['attemptsreport'] = '~Informe de intentos';
 $string['attemptsused'] = '~Intentos utilizados: {$a}';

@@ -108,6 +108,33 @@ final class lib_test extends advanced_testcase {
     }
 
     /**
+     * Create-from-scratch (issue #13 #1, DEC-0024): an instance can be added with
+     * no uploaded package. It is created cleanly with no stored package, no
+     * content and no grade items, ready to be authored in the embedded editor.
+     */
+    public function test_create_instance_without_package(): void {
+        global $DB;
+
+        $instance = $this->create_activity(['packagefilepath' => false]);
+
+        $this->assertNotEmpty($instance->id);
+        $this->assertSame(1, (int) $instance->revision);
+
+        $cm = get_coursemodule_from_instance('exelearning', $instance->id);
+        $context = \context_module::instance($cm->id);
+
+        // No package was stored and nothing was detected.
+        $this->assertNull(exelearning_get_stored_package($context->id));
+        $this->assertSame(0, $DB->count_records(
+            'exelearning_grade_item',
+            ['exelearningid' => $instance->id, 'deleted' => 0]
+        ));
+
+        // The package URL degrades to null so the editor opens a blank project.
+        $this->assertNull(exelearning_get_package_url($instance, $context));
+    }
+
+    /**
      * A multi-page package registers one grade item per gradable iDevice, keyed by
      * the iDevice's stable objectid, even when those iDevices live on different
      * pages and share the same page-local DOM index (the RIE-007 / DEC-0017 case).
@@ -406,6 +433,38 @@ final class lib_test extends advanced_testcase {
     }
 
     /**
+     * Gradebook deep-link (issue #13 #4, DEC-0023): exelearning_grade_item_view_url()
+     * maps an itemnumber to its iDevice objectid so grade.php can forward the click
+     * straight to that iDevice; itemnumber 0 and unknown numbers fall back to the
+     * activity front page.
+     */
+    public function test_grade_item_view_url_deeplinks_by_itemnumber(): void {
+        global $DB;
+
+        $instance = $this->create_activity();
+        $cm = get_coursemodule_from_instance('exelearning', $instance->id);
+
+        // The overall grade (itemnumber 0) links to the front page, no deep link.
+        $overall = exelearning_grade_item_view_url($instance, (int) $cm->id, 0);
+        $this->assertArrayNotHasKey('idevice', $overall->params());
+        $this->assertSame((string) $cm->id, (string) $overall->params()['id']);
+
+        // A per-iDevice grade item carries that iDevice's stable objectid.
+        $objectid = $DB->get_field('exelearning_grade_item', 'objectid', [
+            'exelearningid' => $instance->id,
+            'itemnumber'    => 1,
+            'deleted'       => 0,
+        ]);
+        $this->assertNotEmpty($objectid);
+        $deeplink = exelearning_grade_item_view_url($instance, (int) $cm->id, 1);
+        $this->assertSame($objectid, $deeplink->params()['idevice']);
+
+        // An unknown itemnumber degrades gracefully to the front page.
+        $unknown = exelearning_grade_item_view_url($instance, (int) $cm->id, 99);
+        $this->assertArrayNotHasKey('idevice', $unknown->params());
+    }
+
+    /**
      * Builds a stored ZIP file from a map of [entry name => content].
      *
      * @param array $entries Map of in-archive path => file content.
@@ -473,6 +532,7 @@ final class lib_test extends advanced_testcase {
             . '<odePageId>p1</odePageId>' . "\n"
             . '<odeIdeviceId>idevice-tf-zip</odeIdeviceId>' . "\n"
             . '<odeIdeviceTypeName>trueorfalse</odeIdeviceTypeName>' . "\n"
+            . '<jsonProperties>{"isScorm":1}</jsonProperties>' . "\n"
             . '</odeNavStructure>' . "\n</ode>\n";
         $stage = make_request_directory();
         file_put_contents($stage . '/content.xml', $contentxml);
@@ -494,5 +554,122 @@ final class lib_test extends advanced_testcase {
         $row = reset($rows);
         $this->assertSame('trueorfalse', $row->idevicetype);
         $this->assertSame('idevice-tf-zip', $row->objectid);
+    }
+
+    /**
+     * Master grading switch off (DEC-0029): no grade items are registered even when
+     * the package has gradable iDevices, and no overall grade item exists.
+     */
+    public function test_gradeenabled_off_creates_no_grade_items(): void {
+        global $DB;
+
+        $instance = $this->create_activity(['gradeenabled' => 0]);
+
+        $this->assertSame(0, $DB->count_records(
+            'exelearning_grade_item',
+            ['exelearningid' => $instance->id, 'deleted' => 0]
+        ));
+        $overall = grade_item::fetch([
+            'itemtype'     => 'mod',
+            'itemmodule'   => 'exelearning',
+            'iteminstance' => $instance->id,
+            'itemnumber'   => 0,
+            'courseid'     => $instance->course,
+        ]);
+        $this->assertFalse($overall);
+    }
+
+    /**
+     * Toggling grading off on an activity that already has grade items soft-deletes
+     * them (deleted=1, columns removed) while preserving attempt history (DEC-0029).
+     */
+    public function test_gradeenabled_toggle_off_softdeletes_and_preserves_attempts(): void {
+        global $DB;
+
+        $instance = $this->create_activity();
+        $cm = get_coursemodule_from_instance('exelearning', $instance->id);
+        $contextid = \context_module::instance($cm->id)->id;
+        $this->assertSame(2, $DB->count_records(
+            'exelearning_grade_item',
+            ['exelearningid' => $instance->id, 'deleted' => 0]
+        ));
+
+        // Seed an attempt to prove it survives the switch-off.
+        $DB->insert_record('exelearning_attempt', (object) [
+            'exelearningid' => $instance->id,
+            'userid'        => 2,
+            'attempt'       => 1,
+            'itemnumber'    => 1,
+            'rawscore'      => 50,
+            'maxscore'      => 100,
+            'scaledscore'   => 0.5,
+            'status'        => 'completed',
+            'sessiontoken'  => 'tok',
+            'timecreated'   => time(),
+            'timemodified'  => time(),
+        ]);
+
+        // Disable grading and re-sync.
+        $DB->set_field('exelearning', 'gradeenabled', 0, ['id' => $instance->id]);
+        exelearning_sync_grade_items($instance->id, $contextid);
+
+        $this->assertSame(0, $DB->count_records(
+            'exelearning_grade_item',
+            ['exelearningid' => $instance->id, 'deleted' => 0]
+        ));
+        $this->assertGreaterThan(0, $DB->count_records(
+            'exelearning_grade_item',
+            ['exelearningid' => $instance->id, 'deleted' => 1]
+        ));
+        $this->assertSame(1, $DB->count_records(
+            'exelearning_attempt',
+            ['exelearningid' => $instance->id]
+        ));
+    }
+
+    /**
+     * The gradebook "grade analysis" destination is role-based (issue #13 #4,
+     * DEC-0028): a teacher/grader lands on the attempts report; a student is
+     * deep-linked to the specific iDevice in the content.
+     */
+    public function test_grade_analysis_url_role_based(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $course = $this->getDataGenerator()->create_course();
+        /** @var \mod_exelearning_generator $generator */
+        $generator = $this->getDataGenerator()->get_plugin_generator('mod_exelearning');
+        $instance = $generator->create_instance(['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('exelearning', $instance->id);
+        $context = \context_module::instance($cm->id);
+
+        $teacher = $this->getDataGenerator()->create_and_enrol($course, 'editingteacher');
+        $student = $this->getDataGenerator()->create_and_enrol($course, 'student');
+
+        // Teacher (has viewreport) -> attempts report. Without a userid the report
+        // carries no user filter.
+        $this->setUser($teacher);
+        $teacherurl = exelearning_grade_analysis_url($instance, (int) $cm->id, 1, $context);
+        $this->assertStringContainsString('/mod/exelearning/report.php', $teacherurl->out(false));
+        $this->assertArrayNotHasKey('userid', $teacherurl->params());
+
+        // With a userid (forwarded by the gradebook "grade analysis" link), the
+        // teacher is deep-linked to that student's attempts (DEC-0028).
+        $teacheruseridurl = exelearning_grade_analysis_url($instance, (int) $cm->id, 1, $context, (int) $student->id);
+        $this->assertStringContainsString('/mod/exelearning/report.php', $teacheruseridurl->out(false));
+        $this->assertEquals($student->id, $teacheruseridurl->params()['userid']);
+
+        // Student -> the iDevice in the content (userid is ignored for students).
+        $this->setUser($student);
+        $studenturl = exelearning_grade_analysis_url($instance, (int) $cm->id, 1, $context, (int) $student->id);
+        $this->assertStringContainsString('/mod/exelearning/view.php', $studenturl->out(false));
+        $this->assertArrayNotHasKey('userid', $studenturl->params());
+        $objectid = $DB->get_field('exelearning_grade_item', 'objectid', [
+            'exelearningid' => $instance->id,
+            'itemnumber'    => 1,
+            'deleted'       => 0,
+        ]);
+        $this->assertSame($objectid, $studenturl->params()['idevice']);
     }
 }

@@ -65,6 +65,7 @@ class mod_exelearning_generator extends \testing_module_generator {
             'gradepass'        => 0,
             'grademethod'      => 0, // GRADE_HIGHEST.
             'grademodel'       => 1, // EXELEARNING_GRADEMODEL_PERITEM.
+            'gradeenabled'     => 1, // Graded activity (DEC-0029).
             'maxattempt'       => 0,
             'reviewmode'       => 1, // REVIEW_ALWAYS.
             'gradedisplaytype' => 0,
@@ -75,19 +76,31 @@ class mod_exelearning_generator extends \testing_module_generator {
             }
         }
 
-        // Resolve the fixture path.
-        if (!isset($record->packagefilepath)) {
-            $record->packagefilepath = $CFG->dirroot . '/mod/exelearning/' . self::DEFAULT_FIXTURE;
-        } else if (
-            strpos($record->packagefilepath, $CFG->dirroot) !== 0
-                && strpos($record->packagefilepath, '/') !== 0
-        ) {
-            // Treat as relative to the plugin root.
-            $record->packagefilepath = $CFG->dirroot . '/mod/exelearning/' . ltrim($record->packagefilepath, '/');
+        // A packagefilepath of false (or an explicit empty string) creates the
+        // instance with no package at all — the create-from-scratch path
+        // (issue #13 #1, DEC-0024): the teacher authors it later in the embedded
+        // editor. Otherwise resolve the fixture path (defaulting when omitted).
+        $nopackage = property_exists($record, 'packagefilepath')
+            && ($record->packagefilepath === false || $record->packagefilepath === '');
+
+        if (!$nopackage) {
+            if (!isset($record->packagefilepath)) {
+                $record->packagefilepath = $CFG->dirroot . '/mod/exelearning/' . self::DEFAULT_FIXTURE;
+            } else if (
+                strpos($record->packagefilepath, $CFG->dirroot) !== 0
+                    && strpos($record->packagefilepath, '/') !== 0
+            ) {
+                // Treat as relative to the plugin root.
+                $record->packagefilepath = $CFG->dirroot . '/mod/exelearning/' . ltrim($record->packagefilepath, '/');
+            }
+        } else {
+            // Drop the helper-only flag so it is not mistaken for a DB column.
+            unset($record->packagefilepath);
         }
 
-        // Build the draft area for the ELPX unless a draft itemid was provided.
-        if (empty($record->package)) {
+        // Build the draft area for the ELPX unless a draft itemid was provided
+        // or this is an explicit no-package (create-from-scratch) instance.
+        if (!$nopackage && empty($record->package)) {
             // Ensure we have a real user context to host the draft file.
             if (!isloggedin() || isguestuser()) {
                 $this->set_user(get_admin());
