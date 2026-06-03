@@ -76,6 +76,17 @@ class mod_exelearning_mod_form extends moodleform_mod {
             get_string('gradingheading', 'mod_exelearning')
         );
 
+        // Master grading switch (issue #13, DEC-0029): when off, the activity
+        // creates no grade items, no reports, and shows nothing in the gradebook
+        // (it behaves like a plain resource). On by default.
+        $mform->addElement(
+            'advcheckbox',
+            'gradeenabled',
+            get_string('gradeenabled', 'mod_exelearning')
+        );
+        $mform->setDefault('gradeenabled', 1);
+        $mform->addHelpButton('gradeenabled', 'gradeenabled', 'mod_exelearning');
+
         $mform->addElement(
             'text',
             'grademax',
@@ -178,6 +189,15 @@ class mod_exelearning_mod_form extends moodleform_mod {
         );
         $mform->setDefault('gradedisplaytype', GRADE_DISPLAY_TYPE_DEFAULT);
         $mform->addHelpButton('gradedisplaytype', 'gradedisplay', 'mod_exelearning');
+
+        // Disable every grade setting when the activity is not graded (DEC-0029).
+        $gradefields = [
+            'grademax', 'grademin', 'gradepass', 'grademethod',
+            'grademodel', 'maxattempt', 'reviewmode', 'gradedisplaytype',
+        ];
+        foreach ($gradefields as $gradefield) {
+            $mform->disabledIf($gradefield, 'gradeenabled', 'notchecked');
+        }
 
         // Appearance: whether to show the teacher preview/grading toggle in the
         // activity view (mod_exeweb parity). Default on.

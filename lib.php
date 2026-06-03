@@ -507,10 +507,14 @@ function exelearning_extend_settings_navigation(
     settings_navigation $settings,
     navigation_node $node
 ): void {
-    global $PAGE;
+    global $PAGE, $DB;
 
     $context = $PAGE->cm->context ?? null;
     if (!$context || !has_capability('mod/exelearning:viewreport', $context)) {
+        return;
+    }
+    // No reports node when the activity is not graded (DEC-0029).
+    if (!$DB->get_field('exelearning', 'gradeenabled', ['id' => $PAGE->cm->instance])) {
         return;
     }
 
@@ -833,6 +837,50 @@ function exelearning_inject_scorm_loader(int $contextid, int $revision): void {
 }
 
 /**
+ * Removes all gradebook items of an activity (master grading switch off, DEC-0029).
+ *
+ * Soft-deletes the plugin's grade-item mapping rows and deletes the matching Moodle
+ * grade items, including the overall item (itemnumber 0), so nothing shows in the
+ * gradebook. The attempt history (exelearning_attempt) is preserved, so re-enabling
+ * grading re-detects and recomputes from it.
+ *
+ * @param stdClass $instance The exelearning instance row.
+ * @return void
+ */
+function exelearning_remove_all_grade_items(stdClass $instance): void {
+    global $CFG, $DB;
+    require_once($CFG->libdir . '/gradelib.php');
+
+    $rows = $DB->get_records('exelearning_grade_item', ['exelearningid' => $instance->id, 'deleted' => 0]);
+    foreach ($rows as $row) {
+        $row->deleted = 1;
+        $row->timemodified = time();
+        $DB->update_record('exelearning_grade_item', $row);
+        grade_update(
+            'mod/exelearning',
+            $instance->course,
+            'mod',
+            'exelearning',
+            $instance->id,
+            (int) $row->itemnumber,
+            null,
+            ['deleted' => true]
+        );
+    }
+    // Remove the overall item (itemnumber 0) too.
+    grade_update(
+        'mod/exelearning',
+        $instance->course,
+        'mod',
+        'exelearning',
+        $instance->id,
+        0,
+        null,
+        ['deleted' => true]
+    );
+}
+
+/**
  * Detects gradable iDevices in the stored package and synchronises grade items.
  *
  * Returns the change delta against the previously synced state so callers can
@@ -860,6 +908,14 @@ function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null
         $contextid = context_module::instance($cm->id)->id;
     }
     $context = context::instance_by_id($contextid);
+
+    // Master grading switch (DEC-0029): when the activity is not graded, remove all
+    // gradebook items (soft-delete our rows + delete the Moodle grade items, overall
+    // included) and detect nothing. Attempt history (exelearning_attempt) is kept.
+    if (empty($instance->gradeenabled)) {
+        exelearning_remove_all_grade_items($instance);
+        return $delta;
+    }
 
     // Locate the ELPX in the 'package' filearea (any itemid: form=0,
     // Playground addModule=1, editor/save.php=revision).

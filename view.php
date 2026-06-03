@@ -240,7 +240,7 @@ if (!$mainfile) {
         ['exelearningid' => $exelearning->id, 'deleted' => 0],
         'itemnumber ASC'
     );
-    if (has_capability('mod/exelearning:viewreport', $context) && !empty($items)) {
+    if ($exelearning->gradeenabled && has_capability('mod/exelearning:viewreport', $context) && !empty($items)) {
         echo html_writer::start_div('alert alert-info mb-3');
         echo html_writer::tag('strong', get_string('detecteditems', 'mod_exelearning')) . ' ';
         $labels = [];
@@ -252,8 +252,8 @@ if (!$mainfile) {
     }
     // Participation summary + report link (DEC-0011 option B, Assignment-style):
     // an at-a-glance "how many have attempted" for the teacher without opening
-    // the report. Respects separate groups.
-    if (has_capability('mod/exelearning:viewreport', $context)) {
+    // the report. Respects separate groups. Skipped when the activity is not graded (DEC-0029).
+    if ($exelearning->gradeenabled && has_capability('mod/exelearning:viewreport', $context)) {
         // Users visible to this teacher (respects separate groups).
         $currentgroup = groups_get_activity_group($cm, true);
         $enrolled = get_enrolled_users(
@@ -295,8 +295,9 @@ if (!$mainfile) {
         );
         echo html_writer::end_div();
     }
-    // Attempt summary for the student (DEC-0007 phase 2).
-    if (!$canpreview) {
+    // Attempt summary for the student (DEC-0007 phase 2). Skipped when the activity
+    // is not graded (DEC-0029).
+    if ($exelearning->gradeenabled && !$canpreview) {
         $myattempts = $DB->get_records('exelearning_attempt', [
             'exelearningid' => $exelearning->id,
             'userid'        => $USER->id,

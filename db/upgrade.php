@@ -344,5 +344,26 @@ function xmldb_exelearning_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026060102, 'exelearning');
     }
 
+    // Stage 11 (2026060400): per-activity "graded" master switch (DEC-0029). When
+    // off, the activity creates no grade items / reports and behaves like a plain
+    // resource. Default 1 preserves the current (always-graded) behaviour.
+    if ($oldversion < 2026060400) {
+        $instance = new xmldb_table('exelearning');
+        $field = new xmldb_field(
+            'gradeenabled',
+            XMLDB_TYPE_INTEGER,
+            '2',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            '1',
+            'grademodel'
+        );
+        if (!$dbman->field_exists($instance, $field)) {
+            $dbman->add_field($instance, $field);
+        }
+        upgrade_mod_savepoint(true, 2026060400, 'exelearning');
+    }
+
     return true;
 }

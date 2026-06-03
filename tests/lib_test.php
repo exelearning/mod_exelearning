@@ -555,4 +555,75 @@ final class lib_test extends advanced_testcase {
         $this->assertSame('trueorfalse', $row->idevicetype);
         $this->assertSame('idevice-tf-zip', $row->objectid);
     }
+
+    /**
+     * Master grading switch off (DEC-0029): no grade items are registered even when
+     * the package has gradable iDevices, and no overall grade item exists.
+     */
+    public function test_gradeenabled_off_creates_no_grade_items(): void {
+        global $DB;
+
+        $instance = $this->create_activity(['gradeenabled' => 0]);
+
+        $this->assertSame(0, $DB->count_records(
+            'exelearning_grade_item',
+            ['exelearningid' => $instance->id, 'deleted' => 0]
+        ));
+        $overall = grade_item::fetch([
+            'itemtype'     => 'mod',
+            'itemmodule'   => 'exelearning',
+            'iteminstance' => $instance->id,
+            'itemnumber'   => 0,
+            'courseid'     => $instance->course,
+        ]);
+        $this->assertFalse($overall);
+    }
+
+    /**
+     * Toggling grading off on an activity that already has grade items soft-deletes
+     * them (deleted=1, columns removed) while preserving attempt history (DEC-0029).
+     */
+    public function test_gradeenabled_toggle_off_softdeletes_and_preserves_attempts(): void {
+        global $DB;
+
+        $instance = $this->create_activity();
+        $cm = get_coursemodule_from_instance('exelearning', $instance->id);
+        $contextid = \context_module::instance($cm->id)->id;
+        $this->assertSame(2, $DB->count_records(
+            'exelearning_grade_item',
+            ['exelearningid' => $instance->id, 'deleted' => 0]
+        ));
+
+        // Seed an attempt to prove it survives the switch-off.
+        $DB->insert_record('exelearning_attempt', (object) [
+            'exelearningid' => $instance->id,
+            'userid'        => 2,
+            'attempt'       => 1,
+            'itemnumber'    => 1,
+            'rawscore'      => 50,
+            'maxscore'      => 100,
+            'scaledscore'   => 0.5,
+            'status'        => 'completed',
+            'sessiontoken'  => 'tok',
+            'timecreated'   => time(),
+            'timemodified'  => time(),
+        ]);
+
+        // Disable grading and re-sync.
+        $DB->set_field('exelearning', 'gradeenabled', 0, ['id' => $instance->id]);
+        exelearning_sync_grade_items($instance->id, $contextid);
+
+        $this->assertSame(0, $DB->count_records(
+            'exelearning_grade_item',
+            ['exelearningid' => $instance->id, 'deleted' => 0]
+        ));
+        $this->assertGreaterThan(0, $DB->count_records(
+            'exelearning_grade_item',
+            ['exelearningid' => $instance->id, 'deleted' => 1]
+        ));
+        $this->assertSame(1, $DB->count_records(
+            'exelearning_attempt',
+            ['exelearningid' => $instance->id]
+        ));
+    }
 }

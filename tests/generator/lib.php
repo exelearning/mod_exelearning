@@ -65,6 +65,7 @@ class mod_exelearning_generator extends \testing_module_generator {
             'gradepass'        => 0,
             'grademethod'      => 0, // GRADE_HIGHEST.
             'grademodel'       => 1, // EXELEARNING_GRADEMODEL_PERITEM.
+            'gradeenabled'     => 1, // Graded activity (DEC-0029).
             'maxattempt'       => 0,
             'reviewmode'       => 1, // REVIEW_ALWAYS.
             'gradedisplaytype' => 0,
