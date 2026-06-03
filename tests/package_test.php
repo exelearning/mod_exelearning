@@ -261,4 +261,28 @@ final class package_test extends advanced_testcase {
 
         $this->assertArrayHasKey('idevice-tf-esc', $detected);
     }
+
+    /**
+     * html-type iDevices (interactive-video, dragdrop, periodic-table, beforeafter…)
+     * have no jsonProperties and carry isScorm inside the htmlView. Detection must
+     * read the htmlView too (DEC-0022 amendment, issue #13 — the "only 2 detected"
+     * bug). The flag may be nested under "scorm".
+     */
+    public function test_isscorm_in_htmlview_detected(): void {
+        $this->resetAfterTest();
+
+        $detected = $this->detect([
+            // An html-type iDevice (no jsonProperties) with isScorm nested in htmlView -> detected.
+            ['p1', 'idevice-iv-1', 'interactive-video', "<htmlView>{\"scorm\":{\"isScorm\":1}}</htmlView>\n"],
+            // An html-type iDevice with isScorm:0 in htmlView -> not detected.
+            ['p1', 'idevice-dd-0', 'dragdrop', "<htmlView>{\"isScorm\":0}</htmlView>\n"],
+            // The jsonProperties value takes precedence when present (form scored there).
+            ['p1', 'idevice-form-1', 'form', "<htmlView>no flag here</htmlView>\n", 2],
+        ]);
+
+        $this->assertCount(2, $detected);
+        $this->assertArrayHasKey('idevice-iv-1', $detected);
+        $this->assertArrayHasKey('idevice-form-1', $detected);
+        $this->assertArrayNotHasKey('idevice-dd-0', $detected);
+    }
 }

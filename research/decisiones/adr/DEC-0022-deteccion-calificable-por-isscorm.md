@@ -65,3 +65,14 @@ agnóstico al tipo, así que los tipos nuevos fluyen por la misma tubería.
   HTML-escapado, flag anidado).
 - Fixtures: `research/fixtures/elpx/actividad-evaluable.elpx` y `multipage-gradable.elpx`
   llevan ahora `isScorm` en sus iDevices calificables.
+
+## Enmienda (2026-06-03): `isScorm` también en `<htmlView>`
+
+Verificado con `todos-los-idevices.elpx` (50 iDevices): `isScorm` vive en `<jsonProperties>`
+para los iDevices json-type pero en `<htmlView>` para los html-type (interactive-video,
+dragdrop, periodic-table, beforeafter, geogebra…), que **no** tienen jsonProperties. Leer solo
+jsonProperties detectaba **2**; leyendo además el htmlView detecta **17** (los realmente
+configurados; los 28 sin `isScorm` no están configurados y se excluyen, correcto). Fix:
+`idevice_reports_score()` lee `isScorm` de jsonProperties y, si falta, del htmlView (helper
+`extract_isscorm($block, $tag)`); calificable si `> 0`. Test:
+`tests/package_test.php::test_isscorm_in_htmlview_detected`.

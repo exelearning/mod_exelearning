@@ -532,6 +532,7 @@ final class lib_test extends advanced_testcase {
             . '<odePageId>p1</odePageId>' . "\n"
             . '<odeIdeviceId>idevice-tf-zip</odeIdeviceId>' . "\n"
             . '<odeIdeviceTypeName>trueorfalse</odeIdeviceTypeName>' . "\n"
+            . '<jsonProperties>{"isScorm":1}</jsonProperties>' . "\n"
             . '</odeNavStructure>' . "\n</ode>\n";
         $stage = make_request_directory();
         file_put_contents($stage . '/content.xml', $contentxml);

@@ -195,34 +195,52 @@ class package {
     /**
      * Decides whether an iDevice was marked for assessment by its author.
      *
-     * eXeLearning v4 stores a per-iDevice `isScorm` flag inside `<jsonProperties>`:
-     * `0` = does not report a grade, `1` = auto-save score, `2` = "Send score"
-     * button. The whole eXeLearning gamification/SCORM layer gates score reporting
-     * on `isScorm > 0` (see the editor sources
-     * `public/app/common/common.js` — the `cmi.suspend_data` line builder this
+     * eXeLearning v4 stores a per-iDevice `isScorm` flag: `0` = does not report a
+     * grade, `1` = auto-save score, `2` = "Send score" button. The whole eXeLearning
+     * gamification/SCORM layer gates score reporting on `isScorm > 0` (see the editor
+     * sources `public/app/common/common.js` — the `cmi.suspend_data` line builder this
      * plugin parses in {@see \mod_exelearning\local\track} — and each iDevice's
-     * `export/*.js`), so the same flag is the single source of truth for whether
-     * an activity should own a Moodle grade item. Reading it makes detection
+     * `export/*.js`), so the same flag is the single source of truth for whether an
+     * activity should own a Moodle grade item. Reading it makes detection
      * type-agnostic (issue #13 #2 and #5; DEC-0022): any iDevice configured to be
      * scored is detected (incl. Form, Map, Interactive Video, …) and gradable-type
      * iDevices left unscored are skipped.
      *
-     * The flag is read from the `<jsonProperties>` element only (never from
-     * `<htmlView>`) to avoid matching the literal string in authored prose. The
-     * value may be nested (e.g. interactive-video stores it under `scorm`), so the
-     * search is not anchored to the top level.
+     * The flag lives in `<jsonProperties>` for json-type iDevices but in `<htmlView>`
+     * for html-type ones (interactive-video, dragdrop, periodic-table, beforeafter, …),
+     * so we read jsonProperties first and fall back to htmlView (DEC-0022 amendment;
+     * without the htmlView fallback those types were missed). The value may be nested
+     * (e.g. interactive-video stores it under `scorm`), so the match is not anchored
+     * to the top level.
      *
      * @param string $block Raw content.xml slice for one iDevice (id → next token).
      * @return bool True when the iDevice declares isScorm 1 or 2.
      */
     private function idevice_reports_score(string $block): bool {
-        if (!preg_match('~<jsonProperties>(.*?)</jsonProperties>~s', $block, $m)) {
-            return false;
+        $value = $this->extract_isscorm($block, 'jsonProperties');
+        if ($value === null) {
+            $value = $this->extract_isscorm($block, 'htmlView');
         }
-        // The jsonProperties payload is HTML-escaped JSON; decode before scanning.
-        $json = html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        // Match isScorm = 1 or 2 (number or quoted string); 0/absent means "not scored".
-        return (bool) preg_match('~"isScorm"\s*:\s*"?([1-9])~', $json);
+        return $value !== null && $value > 0;
+    }
+
+    /**
+     * Reads the `isScorm` value from one element of an iDevice content block.
+     *
+     * @param string $block Raw content.xml slice for one iDevice.
+     * @param string $tag Element to scan ('jsonProperties' or 'htmlView').
+     * @return int|null The isScorm value (0..9), or null when the element/flag is absent.
+     */
+    private function extract_isscorm(string $block, string $tag): ?int {
+        if (!preg_match('~<' . $tag . '>(.*?)</' . $tag . '>~s', $block, $m)) {
+            return null;
+        }
+        // The element payload is HTML-escaped JSON/HTML; decode before scanning.
+        $decoded = html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        if (preg_match('~"isScorm"\s*:\s*"?([0-9])~', $decoded, $mm)) {
+            return (int) $mm[1];
+        }
+        return null;
     }
 
     /**
