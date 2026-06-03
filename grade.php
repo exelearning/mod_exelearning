@@ -35,6 +35,7 @@ require_once($CFG->dirroot . '/mod/exelearning/lib.php');
 
 $id = required_param('id', PARAM_INT); // Course module id.
 $itemnumber = optional_param('itemnumber', 0, PARAM_INT); // Grade item number (0 = overall grade).
+$userid = optional_param('userid', 0, PARAM_INT); // Graded user (gradebook forwards this for "grade analysis").
 
 $cm = get_coursemodule_from_id('exelearning', $id, 0, false, MUST_EXIST);
 $course = $DB->get_record('course', ['id' => $cm->course], '*', MUST_EXIST);
@@ -43,5 +44,6 @@ $exelearning = $DB->get_record('exelearning', ['id' => $cm->instance], '*', MUST
 require_login($course, true, $cm);
 $context = context_module::instance($cm->id);
 
-// Role-based destination: teacher -> attempts report; student -> the iDevice content.
-redirect(exelearning_grade_analysis_url($exelearning, $cm->id, $itemnumber, $context));
+// Role-based destination: teacher -> that user's attempts in the report; student
+// -> the iDevice content.
+redirect(exelearning_grade_analysis_url($exelearning, $cm->id, $itemnumber, $context, $userid));

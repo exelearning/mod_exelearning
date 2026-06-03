@@ -51,12 +51,14 @@ igual que `mod_scorm` y `mod_h5pactivity`).
 
 ## Consecuencias
 
-- `report.php` solo filtra por `id` (no por `userid`): el profesor cae en el informe completo de
-  la actividad (mejora futura opcional: aceptar `userid` para resaltar al alumno).
+- `report.php` acepta `userid` (lo reenvía el enlace "grade analysis" del libro): el profesor cae
+  en los intentos de ese alumno concreto (filtra la tabla y muestra su nombre), respetando el modo
+  de grupos. Sin `userid` se ve el informe completo. (Implementado 2026-06-04.)
 - El alumno solo ve "grade analysis" en su *user report*; como `report.php` exige capacidad de
   informes, al alumno se le envía al contenido — de ahí la lógica por rol.
 
 ## Implementación
 
-`grade.php` (redirect por rol), `lib.php::exelearning_grade_analysis_url()`,
-test `tests/lib_test.php::test_grade_analysis_url_role_based`.
+`grade.php` (redirect por rol, reenvía `userid`), `lib.php::exelearning_grade_analysis_url()`
+(parámetro `userid`), `report.php` (filtro por `userid` + nombre del alumno), test
+`tests/lib_test.php::test_grade_analysis_url_role_based`.

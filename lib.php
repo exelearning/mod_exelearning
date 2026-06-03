@@ -1304,16 +1304,23 @@ function exelearning_grade_item_view_url(stdClass $exelearning, int $cmid, int $
  * @param int $cmid Course module id.
  * @param int $itemnumber Grade item number (0 = overall).
  * @param context $context Module context (for the capability check).
+ * @param int $userid Graded user, forwarded to the report so the teacher lands on
+ *                    that student's attempts (0 = no user filter).
  * @return moodle_url
  */
 function exelearning_grade_analysis_url(
     stdClass $exelearning,
     int $cmid,
     int $itemnumber,
-    context $context
+    context $context,
+    int $userid = 0
 ): moodle_url {
     if (has_capability('mod/exelearning:viewreport', $context)) {
-        return new moodle_url('/mod/exelearning/report.php', ['id' => $cmid]);
+        $params = ['id' => $cmid];
+        if ($userid > 0) {
+            $params['userid'] = $userid;
+        }
+        return new moodle_url('/mod/exelearning/report.php', $params);
     }
     return exelearning_grade_item_view_url($exelearning, $cmid, $itemnumber);
 }

@@ -647,15 +647,24 @@ final class lib_test extends advanced_testcase {
         $teacher = $this->getDataGenerator()->create_and_enrol($course, 'editingteacher');
         $student = $this->getDataGenerator()->create_and_enrol($course, 'student');
 
-        // Teacher (has viewreport) -> attempts report.
+        // Teacher (has viewreport) -> attempts report. Without a userid the report
+        // carries no user filter.
         $this->setUser($teacher);
         $teacherurl = exelearning_grade_analysis_url($instance, (int) $cm->id, 1, $context);
         $this->assertStringContainsString('/mod/exelearning/report.php', $teacherurl->out(false));
+        $this->assertArrayNotHasKey('userid', $teacherurl->params());
 
-        // Student -> the iDevice in the content.
+        // With a userid (forwarded by the gradebook "grade analysis" link), the
+        // teacher is deep-linked to that student's attempts (DEC-0028).
+        $teacheruseridurl = exelearning_grade_analysis_url($instance, (int) $cm->id, 1, $context, (int) $student->id);
+        $this->assertStringContainsString('/mod/exelearning/report.php', $teacheruseridurl->out(false));
+        $this->assertEquals($student->id, $teacheruseridurl->params()['userid']);
+
+        // Student -> the iDevice in the content (userid is ignored for students).
         $this->setUser($student);
-        $studenturl = exelearning_grade_analysis_url($instance, (int) $cm->id, 1, $context);
+        $studenturl = exelearning_grade_analysis_url($instance, (int) $cm->id, 1, $context, (int) $student->id);
         $this->assertStringContainsString('/mod/exelearning/view.php', $studenturl->out(false));
+        $this->assertArrayNotHasKey('userid', $studenturl->params());
         $objectid = $DB->get_field('exelearning_grade_item', 'objectid', [
             'exelearningid' => $instance->id,
             'itemnumber'    => 1,

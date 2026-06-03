@@ -55,7 +55,14 @@ if ($groupmode != NOGROUPS) {
     }
 }
 
-$PAGE->set_url('/mod/exelearning/report.php', ['id' => $cm->id]);
+// Optional userid: the gradebook "grade analysis" link (grade.php) forwards the
+// graded user so the teacher lands on that student's attempts (DEC-0028).
+$userid = optional_param('userid', 0, PARAM_INT);
+$baseurlparams = ['id' => $cm->id];
+if ($userid > 0) {
+    $baseurlparams['userid'] = $userid;
+}
+$PAGE->set_url('/mod/exelearning/report.php', $baseurlparams);
 $PAGE->set_title(format_string($exelearning->name) . ': ' . get_string('attemptsreport', 'mod_exelearning'));
 $PAGE->set_heading(format_string($course->fullname));
 $PAGE->set_context($context);
@@ -83,7 +90,7 @@ if (
     exelearning_recalculate_user_grades($exelearning, $deleteuser);
     $transaction->allow_commit();
     redirect(
-        new moodle_url('/mod/exelearning/report.php', ['id' => $cm->id]),
+        new moodle_url('/mod/exelearning/report.php', $baseurlparams),
         get_string('attemptdeleted', 'mod_exelearning'),
         null,
         \core\output\notification::NOTIFY_SUCCESS
@@ -100,6 +107,16 @@ $grademodel = (int) ($exelearning->grademodel ?? EXELEARNING_GRADEMODEL_PERITEM)
 
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('attemptsreport', 'mod_exelearning'));
+
+// When deep-linked from a specific grade ("grade analysis"), show whose attempts
+// these are. Guarded by the group restriction so an out-of-group student's name
+// is not revealed.
+if ($userid > 0 && ($restrictusers === null || in_array($userid, $restrictusers, true))) {
+    $filtereduser = $DB->get_record('user', ['id' => $userid]);
+    if ($filtereduser) {
+        echo $OUTPUT->heading(fullname($filtereduser), 4);
+    }
+}
 
 // Group selector: lets a teacher switch between the groups they may see. In
 // separate-groups mode the options are limited to the teacher's own groups.
@@ -119,21 +136,27 @@ foreach ($gradeitems as $gi) {
     $itemnames[(int) $gi->itemnumber] = format_string($gi->name);
 }
 
-if ($restrictusers === null) {
-    $attempts = $DB->get_records(
-        'exelearning_attempt',
-        ['exelearningid' => $exelearning->id],
-        'userid ASC, attempt ASC, itemnumber ASC'
-    );
-} else if ($restrictusers === []) {
-    // The teacher belongs to no visible group: they see no attempts.
+// Build the attempts query from the active filters: the separate-groups
+// restriction and the optional single-user filter (grade-analysis deep link).
+// $restrictusers === [] means the teacher sees no group, so no rows at all.
+if ($restrictusers === []) {
     $attempts = [];
 } else {
-    [$insql, $inparams] = $DB->get_in_or_equal($restrictusers, SQL_PARAMS_NAMED, 'ru');
+    $where = ['exelearningid = :exeid'];
+    $params = ['exeid' => $exelearning->id];
+    if ($restrictusers !== null) {
+        [$insql, $inparams] = $DB->get_in_or_equal($restrictusers, SQL_PARAMS_NAMED, 'ru');
+        $where[] = "userid $insql";
+        $params += $inparams;
+    }
+    if ($userid > 0) {
+        $where[] = 'userid = :uid';
+        $params['uid'] = $userid;
+    }
     $attempts = $DB->get_records_select(
         'exelearning_attempt',
-        "exelearningid = :exeid AND userid $insql",
-        ['exeid' => $exelearning->id] + $inparams,
+        implode(' AND ', $where),
+        $params,
         'userid ASC, attempt ASC, itemnumber ASC'
     );
 }
@@ -216,8 +239,7 @@ foreach ($attempts as $a) {
     if ($candelete) {
         if (!isset($deleteanchored[$groupkey])) {
             $deleteanchored[$groupkey] = true;
-            $delurl = new moodle_url('/mod/exelearning/report.php', [
-                'id'            => $cm->id,
+            $delurl = new moodle_url('/mod/exelearning/report.php', $baseurlparams + [
                 'deleteuser'    => $a->userid,
                 'deleteattempt' => $a->attempt,
                 'sesskey'       => sesskey(),
