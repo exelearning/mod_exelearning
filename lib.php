@@ -607,6 +607,30 @@ function exelearning_get_stored_package(int $contextid): ?\stored_file {
 }
 
 /**
+ * Whether a stored package archive is a real eXeLearning v4 package.
+ *
+ * Both `.elpx` and `.zip` are accepted on upload (DEC-0027); the genuine marker is
+ * a `content.xml` (ODE 2.0) entry at the archive root, which every eXeLearning v4
+ * export contains. Used by mod_form to reject an arbitrary .zip at submit time.
+ *
+ * @param \stored_file $file The uploaded package (.elpx or .zip).
+ * @return bool True when the archive contains content.xml at its root.
+ */
+function exelearning_package_has_content_xml(\stored_file $file): bool {
+    $packer = get_file_packer('application/zip');
+    $entries = $file->list_files($packer);
+    if (!is_array($entries)) {
+        return false;
+    }
+    foreach ($entries as $entry) {
+        if ($entry->pathname === 'content.xml') {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
  * Extracts the ELPX already stored in `package` to `content/{revision}/`.
  *
  * Kept separate from exelearning_save_and_extract_package() so it can be

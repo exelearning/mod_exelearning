@@ -463,4 +463,95 @@ final class lib_test extends advanced_testcase {
         $unknown = exelearning_grade_item_view_url($instance, (int) $cm->id, 99);
         $this->assertArrayNotHasKey('idevice', $unknown->params());
     }
+
+    /**
+     * Builds a stored ZIP file from a map of [entry name => content].
+     *
+     * @param array $entries Map of in-archive path => file content.
+     * @param string $filename Stored file name (extension drives the upload type).
+     * @return \stored_file
+     */
+    protected function make_zip_storedfile(array $entries, string $filename = 'pkg.zip'): \stored_file {
+        $stage = make_request_directory();
+        $paths = [];
+        foreach ($entries as $name => $content) {
+            $full = $stage . '/' . $name;
+            if (!is_dir(dirname($full))) {
+                mkdir(dirname($full), 0777, true);
+            }
+            file_put_contents($full, $content);
+            $paths[$name] = $full;
+        }
+        $packer = get_file_packer('application/zip');
+        $zip = make_request_directory() . '/' . $filename;
+        $packer->archive_to_pathname($paths, $zip);
+
+        $context = \context_system::instance();
+        $fs = get_file_storage();
+        $fs->delete_area_files($context->id, 'mod_exelearning', 'packagetest');
+        return $fs->create_file_from_pathname(
+            [
+                'contextid' => $context->id,
+                'component' => 'mod_exelearning',
+                'filearea'  => 'packagetest',
+                'itemid'    => 0,
+                'filepath'  => '/',
+                'filename'  => $filename,
+            ],
+            $zip
+        );
+    }
+
+    /**
+     * exelearning_package_has_content_xml() recognises a real package and rejects a
+     * plain .zip that does not contain content.xml (issue #13, DEC-0027).
+     */
+    public function test_package_has_content_xml(): void {
+        $this->resetAfterTest();
+
+        $valid = $this->make_zip_storedfile(['content.xml' => '<ode/>', 'index.html' => '<html></html>']);
+        $this->assertTrue(exelearning_package_has_content_xml($valid));
+
+        $invalid = $this->make_zip_storedfile(['index.html' => '<html></html>', 'photo.txt' => 'x']);
+        $this->assertFalse(exelearning_package_has_content_xml($invalid));
+    }
+
+    /**
+     * A .zip package that contains content.xml is extracted and its gradable
+     * iDevices detected exactly like an .elpx (issue #13, DEC-0027).
+     */
+    public function test_zip_package_detected_like_elpx(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $contentxml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
+            . '<ode xmlns="http://www.intef.es/xsd/ode" version="2.0">' . "\n"
+            . '<odeNavStructure>' . "\n"
+            . '<odePageId>p1</odePageId><pageName>Page</pageName>' . "\n"
+            . '<odePageId>p1</odePageId>' . "\n"
+            . '<odeIdeviceId>idevice-tf-zip</odeIdeviceId>' . "\n"
+            . '<odeIdeviceTypeName>trueorfalse</odeIdeviceTypeName>' . "\n"
+            . '</odeNavStructure>' . "\n</ode>\n";
+        $stage = make_request_directory();
+        file_put_contents($stage . '/content.xml', $contentxml);
+        file_put_contents($stage . '/index.html', '<html><body>x</body></html>');
+        $packer = get_file_packer('application/zip');
+        $zip = make_request_directory() . '/pkg.zip';
+        $packer->archive_to_pathname(
+            ['content.xml' => $stage . '/content.xml', 'index.html' => $stage . '/index.html'],
+            $zip
+        );
+
+        $course = $this->getDataGenerator()->create_course();
+        /** @var \mod_exelearning_generator $generator */
+        $generator = $this->getDataGenerator()->get_plugin_generator('mod_exelearning');
+        $instance = $generator->create_instance(['course' => $course->id, 'packagefilepath' => $zip]);
+
+        $rows = $DB->get_records('exelearning_grade_item', ['exelearningid' => $instance->id, 'deleted' => 0]);
+        $this->assertCount(1, $rows);
+        $row = reset($rows);
+        $this->assertSame('trueorfalse', $row->idevicetype);
+        $this->assertSame('idevice-tf-zip', $row->objectid);
+    }
 }
