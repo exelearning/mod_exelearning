@@ -60,7 +60,7 @@ class mod_exelearning_mod_form extends moodleform_mod {
                     'subdirs' => 0,
                     'maxbytes' => 0,
                     'maxfiles' => 1,
-                    'accepted_types' => ['.elpx'],
+                    'accepted_types' => ['.elpx', '.zip'],
             ]
         );
         $mform->addHelpButton('package', 'package', 'mod_exelearning');
@@ -241,6 +241,7 @@ class mod_exelearning_mod_form extends moodleform_mod {
      * @return array Map of field name => error string (empty when valid).
      */
     public function validation($data, $files) {
+        global $USER;
         $errors = parent::validation($data, $files);
 
         $grademax = (float) ($data['grademax'] ?? 100);
@@ -252,6 +253,20 @@ class mod_exelearning_mod_form extends moodleform_mod {
         }
         if ($gradepass != 0 && ($gradepass < $grademin || $gradepass > $grademax)) {
             $errors['gradepass'] = get_string('err_gradepassrange', 'mod_exelearning');
+        }
+
+        // Accept both .elpx and .zip, but the upload must be a real eXeLearning v4
+        // package, i.e. a ZIP containing content.xml (DEC-0027). This rejects an
+        // arbitrary .zip at submit time instead of creating a broken activity.
+        $draftid = (int) ($data['package'] ?? 0);
+        if ($draftid > 0) {
+            $fs = get_file_storage();
+            $usercontext = context_user::instance($USER->id);
+            $draftfiles = $fs->get_area_files($usercontext->id, 'user', 'draft', $draftid, 'id DESC', false);
+            $package = reset($draftfiles);
+            if ($package && !exelearning_package_has_content_xml($package)) {
+                $errors['package'] = get_string('err_nocontentxml', 'mod_exelearning');
+            }
         }
 
         return $errors;
