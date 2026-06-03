@@ -1292,6 +1292,33 @@ function exelearning_grade_item_view_url(stdClass $exelearning, int $cmid, int $
 }
 
 /**
+ * Builds the destination of a gradebook "grade analysis" click, by role.
+ *
+ * The gradebook column header is fixed by Moodle core to view.php and cannot be
+ * deep-linked by a plugin; the per-grade "grade analysis" link (which appears because
+ * this module ships grade.php) is the only place we can target. Teachers/graders go to
+ * the attempts report (the actual attempt behind the grade); students are deep-linked
+ * to the specific iDevice in the content (issue #13 #4, DEC-0028).
+ *
+ * @param stdClass $exelearning Instance record.
+ * @param int $cmid Course module id.
+ * @param int $itemnumber Grade item number (0 = overall).
+ * @param context $context Module context (for the capability check).
+ * @return moodle_url
+ */
+function exelearning_grade_analysis_url(
+    stdClass $exelearning,
+    int $cmid,
+    int $itemnumber,
+    context $context
+): moodle_url {
+    if (has_capability('mod/exelearning:viewreport', $context)) {
+        return new moodle_url('/mod/exelearning/report.php', ['id' => $cmid]);
+    }
+    return exelearning_grade_item_view_url($exelearning, $cmid, $itemnumber);
+}
+
+/**
  * Returns the absolute path to the index.html of the installed embedded editor.
  *
  * Wrapper for embedded_editor_source_resolver::get_index_source() (moodledata →

@@ -626,4 +626,41 @@ final class lib_test extends advanced_testcase {
             ['exelearningid' => $instance->id]
         ));
     }
+
+    /**
+     * The gradebook "grade analysis" destination is role-based (issue #13 #4,
+     * DEC-0028): a teacher/grader lands on the attempts report; a student is
+     * deep-linked to the specific iDevice in the content.
+     */
+    public function test_grade_analysis_url_role_based(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $course = $this->getDataGenerator()->create_course();
+        /** @var \mod_exelearning_generator $generator */
+        $generator = $this->getDataGenerator()->get_plugin_generator('mod_exelearning');
+        $instance = $generator->create_instance(['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('exelearning', $instance->id);
+        $context = \context_module::instance($cm->id);
+
+        $teacher = $this->getDataGenerator()->create_and_enrol($course, 'editingteacher');
+        $student = $this->getDataGenerator()->create_and_enrol($course, 'student');
+
+        // Teacher (has viewreport) -> attempts report.
+        $this->setUser($teacher);
+        $teacherurl = exelearning_grade_analysis_url($instance, (int) $cm->id, 1, $context);
+        $this->assertStringContainsString('/mod/exelearning/report.php', $teacherurl->out(false));
+
+        // Student -> the iDevice in the content.
+        $this->setUser($student);
+        $studenturl = exelearning_grade_analysis_url($instance, (int) $cm->id, 1, $context);
+        $this->assertStringContainsString('/mod/exelearning/view.php', $studenturl->out(false));
+        $objectid = $DB->get_field('exelearning_grade_item', 'objectid', [
+            'exelearningid' => $instance->id,
+            'itemnumber'    => 1,
+            'deleted'       => 0,
+        ]);
+        $this->assertSame($objectid, $studenturl->params()['idevice']);
+    }
 }

@@ -15,13 +15,15 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Gradebook redirect for mod_exelearning.
+ * Gradebook "grade analysis" redirect for mod_exelearning.
  *
- * The Moodle gradebook links every activity grade item to this script, passing
- * the clicked item's `itemnumber`. We map that itemnumber to the owning iDevice
- * and forward to the activity view, deep-linking straight to the iDevice that the
- * grade belongs to instead of the resource front page (issue #13 #4, DEC-0023).
- * Mirrors the redirect pattern of core mod_h5pactivity/grade.php.
+ * The Moodle gradebook links the per-grade "grade analysis" entry to this script,
+ * passing the clicked item's `itemnumber` (and `userid`). Shipping this file is also
+ * what makes that link appear (same as core mod_scorm / mod_h5pactivity). The
+ * destination is role-based (issue #13 #4, DEC-0023/DEC-0028): teachers/graders get
+ * the attempts report (the actual attempt behind the grade); students are deep-linked
+ * to the specific iDevice in the content. The gradebook column header itself is fixed
+ * by Moodle core to view.php and cannot be deep-linked by a plugin.
  *
  * @package    mod_exelearning
  * @copyright  2026 ATE (Área de Tecnología Educativa)
@@ -39,6 +41,7 @@ $course = $DB->get_record('course', ['id' => $cm->course], '*', MUST_EXIST);
 $exelearning = $DB->get_record('exelearning', ['id' => $cm->instance], '*', MUST_EXIST);
 
 require_login($course, true, $cm);
+$context = context_module::instance($cm->id);
 
-// Forward to the activity view, deep-linking to the iDevice that owns this grade item.
-redirect(exelearning_grade_item_view_url($exelearning, $cm->id, $itemnumber));
+// Role-based destination: teacher -> attempts report; student -> the iDevice content.
+redirect(exelearning_grade_analysis_url($exelearning, $cm->id, $itemnumber, $context));
