@@ -78,7 +78,7 @@ Cerradas: **TAREA-012 / RIE-001** investigación (DEC-0019); **TAREA-009 / RIE-0
 
 ## Restricciones inmutables
 
-- **Sólo `.elpx` v4**. NO `.elp` legacy, NO `iteexe_online`.
+- **Sólo paquete v4 ODE 2.0** (con `content.xml`), aceptado como `.elpx` **o `.zip`** (DEC-0027). NO `.elp` legacy, NO `iteexe_online`.
 - **NO** vendorar repos externos.
 - **NO** integración eXeLearning Online (DEC-0009): no tocar `editormode`,
   `exeonlinebaseuri`, `hmackey1`, `APP_SECRET`, `EXELEARNING_WEB_*`.

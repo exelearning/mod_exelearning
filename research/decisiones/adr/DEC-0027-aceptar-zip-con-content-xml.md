@@ -1,7 +1,7 @@
 ---
 id: DEC-0027
 titulo: "Aceptar también .zip (con content.xml) además de .elpx en la subida"
-estado: Propuesta
+estado: Aceptada
 fecha: 2026-06-03
 agentes:
   - erseco
@@ -56,15 +56,18 @@ validación e idéntico pipeline de extracción/sincronización.
   post-extracción + el sandbox del iframe (DEC-0019) ya existente para el contenido servido.
 - Simplifica DEC-0026 (la resolución de fuente no depende de la extensión).
 
-## Implementación (follow-up, aún no realizada)
+## Implementación
 
-- `mod_form.php`: añadir `.zip` a `accepted_types`.
-- Validación de `content.xml` en `exelearning_save_and_extract_package()` /
-  `exelearning_extract_stored_package()` (devolver/mostrar error si falta).
-- Nuevo string de error (`err_nocontentxml` o similar).
-- Tests: subir `.zip` con `content.xml` → OK (se detecta y extrae igual que un `.elpx`); subir
-  `.zip` sin `content.xml` → rechazado.
-- Actualizar la nota de `AGENTS.md`.
+- `mod_form.php`: `accepted_types => ['.elpx', '.zip']` + validación en `validation()` que
+  rechaza el envío si el archivo subido no contiene `content.xml`.
+- `lib.php`: helper `exelearning_package_has_content_xml(\stored_file): bool` (lista las
+  entradas del ZIP y busca `content.xml` en la raíz).
+- `lang/en/exelearning.php`: `err_nocontentxml` + etiqueta/ayuda de `package` actualizadas.
+- `AGENTS.md`: restricción reformulada (paquete v4 ODE 2.0, `.elpx` o `.zip`).
+- Tests (`tests/lib_test.php`): el helper acepta un ZIP con `content.xml` y rechaza uno sin él;
+  un paquete `.zip` válido se extrae y detecta igual que un `.elpx`.
+- La extracción (`exelearning_extract_stored_package`, `get_file_packer('application/zip')`) no
+  necesitó cambios: ya trataba cualquier ZIP; lo único que miraba la extensión era el
+  `filemanager`.
 
-> **Nota de estado:** ADR registrada en `main` como decisión de diseño/roadmap; la
-> implementación irá en su propio PR (independiente de los PR de importación/migración).
+> Implementado en su propio PR desde `main` (independiente de los PR de importación/migración).
