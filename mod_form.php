@@ -26,6 +26,7 @@ defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->dirroot . '/course/moodleform_mod.php');
 require_once($CFG->libdir . '/grade/constants.php');
+require_once($CFG->libdir . '/gradelib.php');
 
 /**
  * mod_exelearning module instance settings form.
@@ -41,6 +42,7 @@ class mod_exelearning_mod_form extends moodleform_mod {
      * @return void
      */
     public function definition() {
+        global $COURSE;
         $mform = $this->_form;
 
         $mform->addElement('header', 'general', get_string('general', 'form'));
@@ -153,6 +155,18 @@ class mod_exelearning_mod_form extends moodleform_mod {
         $mform->setDefault('gradedisplaytype', GRADE_DISPLAY_TYPE_DEFAULT);
         $mform->addHelpButton('gradedisplaytype', 'gradedisplay', 'mod_exelearning');
 
+        // Grade category (DEC-0034): standard "Grade category" selector, reusing
+        // core's strings. The chosen category is applied to every grade item of the
+        // activity (overall + per-iDevice) by exelearning_apply_grade_category()
+        // through grade_item::set_parent(), because grade_update() ignores categoryid.
+        $mform->addElement(
+            'select',
+            'gradecat',
+            get_string('gradecategoryonmodform', 'grades'),
+            grade_get_categories_menu($COURSE->id)
+        );
+        $mform->addHelpButton('gradecat', 'gradecategoryonmodform', 'grades');
+
         // Attempts management: how multiple student attempts are limited, combined
         // into the gradebook grade, and reviewed. Kept in its own section so the
         // grade settings above are not overcrowded (DEC-0007, DEC-0031).
@@ -206,7 +220,7 @@ class mod_exelearning_mod_form extends moodleform_mod {
         // (DEC-0029); covers the fields in both the Grading and Attempts sections.
         $gradefields = [
             'grademodel', 'grademax', 'grademin', 'gradepass', 'gradedisplaytype',
-            'maxattempt', 'grademethod', 'reviewmode',
+            'gradecat', 'maxattempt', 'grademethod', 'reviewmode',
         ];
         foreach ($gradefields as $gradefield) {
             $mform->disabledIf($gradefield, 'gradeenabled', 'notchecked');
@@ -261,6 +275,24 @@ class mod_exelearning_mod_form extends moodleform_mod {
                 $v = (float) $defaultvalues[$f];
                 $defaultvalues[$f] = ($v == (int) $v) ? (int) $v
                         : rtrim(rtrim(number_format($v, 5, '.', ''), '0'), '.');
+            }
+        }
+
+        // Reflect the real grade category in the selector. The stored gradecat is
+        // authoritative, but fall back to the overall grade item's actual category
+        // when it is unset (activity created before the gradecat column, or moved
+        // manually in the gradebook) so re-saving does not silently relocate it
+        // (DEC-0034).
+        if (empty($defaultvalues['gradecat']) && !empty($this->current->id)) {
+            $overall = grade_item::fetch([
+                'itemtype'     => 'mod',
+                'itemmodule'   => 'exelearning',
+                'iteminstance' => $this->current->id,
+                'itemnumber'   => 0,
+                'courseid'     => $this->current->course,
+            ]);
+            if ($overall) {
+                $defaultvalues['gradecat'] = $overall->categoryid;
             }
         }
     }
