@@ -9,6 +9,16 @@ siendo `status.yaml` + `tareas/backlog/`.
 
 ## Prioridad Media
 
+- [ ] TAREA-016 / DEC-0033: implementar el reemplazo visible del paquete +
+      origen por URL con sincronización (patrón mod_scorm: selector
+      `packagesource` + columna `reference` + `create_file_from_url` + gating por
+      `contenthash` + `curl_security_helper` + ajuste admin `allowexternalurl`
+      opt-in) + botón "Actualizar ahora" (Fase 1). Fase 2 opcional: `updatefreq`
+      + `db/tasks.php` + token para el REST de eXeLearning v4. El reemplazo YA
+      está soportado por `update_instance`; falta hacerlo descubrible.
+- [ ] TAREA-015 / DEC-0032: implementar la ingesta xAPI dual (listener AMD +
+      endpoint + normalizador) reutilizando la tubería existente, sin romper el
+      shim SCORM 1.2. Gated a que el PR upstream #1867 congele el contrato.
 - [ ] Auditorías de cumplimiento pendientes: licencias, privacidad y
       accesibilidad.
 - [ ] TAREA-013 / RIE-001 (M8): investigar sandboxing de JS en cliente para mitigar

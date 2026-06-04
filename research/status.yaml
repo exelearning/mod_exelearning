@@ -174,6 +174,32 @@ decisiones_bloqueantes:
       revisión. RIE-006: el objectid del iDevice se REASIGNA al importar el .elpx
       (doc upstream ids.md) → editar+guardar puede duplicar columna. Documentado;
       sin parche local por decisión (erseco).
+  DEC-0032:
+    titulo: "Ingesta dual de tracking: shim SCORM 1.2 + xAPI sobre una tubería común"
+    estado: Propuesta
+    ruta: decisiones/adr/DEC-0032-ingesta-dual-scorm-xapi.md
+    fecha: 2026-06-04
+    relacionados: [DEC-0014, DEC-0003, DEC-0007, DEC-0017, DEC-0029]
+    notas: >-
+      PR1 documental. xAPI (exe_xapi.js, upstream #1867) ingiere reutilizando la tubería
+      existente (exelearning_attempt plano + objectid→itemnumber), sin tablas
+      cabecera/detalle (respeta DEC-0007). Implementación en TAREA-015.
+  DEC-0033:
+    titulo: "Actualización de contenido: reemplazo del .elpx y origen por URL con sincronización"
+    estado: Propuesta
+    ruta: decisiones/adr/DEC-0033-actualizacion-paquete-y-origen-url.md
+    fecha: 2026-06-04
+    relacionados: [DEC-0021, DEC-0024, DEC-0027, DEC-0019]
+    notas: >-
+      P1 (reemplazo): YA soportado por exelearning_update_instance (revision++, re-extrae,
+      re-sync, warn_if_grades_stale/DEC-0021); decisión = confirmarlo + acción visible
+      'Reemplazar paquete'. P2 (origen URL): descartado el file picker URL de Moodle
+      (repository_url oculto para .zip/.elpx, sólo web_image, y copia única sin sync);
+      adoptado el patrón mod_scorm (selector packagesource + reference + create_file_from_url
+      + gating por contenthash + curl_security_helper + opt-in admin). Cadencia: botón
+      'Actualizar ahora' (lo que a mod_scorm le falta) en Fase 1; updatefreq opcional en
+      Fase 2. eXe v4 sin permalink público (export REST con Bearer JWT, sin versionado).
+      Implementación en TAREA-016.
 
 tareas:
   TAREA-001:
@@ -338,6 +364,41 @@ tareas:
       Seguimiento: confirmar que el hash no marque "changed" por re-export sin cambio
       semántico; afinar la región hasheada si hay ruido. Recálculo automático inviable
       (scoring client-side); remediación = reset manual de intentos en report.php.
+  TAREA-015:
+    fecha: 2026-06-04
+    titulo: "Implementar la ingesta xAPI dual (listener + endpoint + normalizador)"
+    estado: Pending
+    agente: pendiente
+    relacionados:
+      - DEC-0032
+      - DEC-0014
+      - DEC-0007
+      - DEC-0017
+      - DEC-0029
+      - FTE-011
+      - AN-012
+    notas: >-
+      PR2 tras el PR documental DEC-0032. Consumir los statements xAPI de exe_xapi.js
+      (upstream #1867) reutilizando track::apply_item_scores / attempts::record_item /
+      grade_update, sin romper el shim SCORM 1.2 y validando en servidor. Gated a que
+      #1867 congele el contrato.
+  TAREA-016:
+    fecha: 2026-06-04
+    titulo: "Implementar reemplazo explícito del paquete y origen por URL con sincronización"
+    estado: Pending
+    agente: pendiente
+    relacionados:
+      - DEC-0033
+      - DEC-0021
+      - DEC-0024
+      - DEC-0027
+      - DEC-0019
+    notas: >-
+      PR de implementación de DEC-0033. Fase 1: reemplazo visible ('Reemplazar paquete')
+      + origen URL estilo mod_scorm (selector packagesource + columna reference +
+      create_file_from_url + gating por contenthash + curl_security_helper + ajuste admin
+      allowexternalurl opt-in) + botón 'Actualizar ahora' + tests/backup/upgrade. Fase 2
+      (opcional): updatefreq + db/tasks.php + token para el REST de eXeLearning v4.
 riesgos:
   RIE-001:
     titulo: "XSS cross-component desde paquete eXeLearning malicioso"
