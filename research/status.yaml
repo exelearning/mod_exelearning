@@ -200,6 +200,34 @@ decisiones_bloqueantes:
       'Actualizar ahora' (lo que a mod_scorm le falta) en Fase 1; updatefreq opcional en
       Fase 2. eXe v4 sin permalink público (export REST con Bearer JWT, sin versionado).
       Implementación en TAREA-016.
+  DEC-0034:
+    titulo: "Selector de categoría de calificación (gradecat) aplicado a todos los grade items vía set_parent"
+    estado: Aceptada
+    ruta: decisiones/adr/DEC-0034-categoria-de-calificacion.md
+    fecha: 2026-06-04
+    relacionados: [DEC-0008, DEC-0029, DEC-0031, FTE-012]
+    notas: >-
+      Petición usabilidad INTEF #1: faltaba la opción "Categoría" en el formulario.
+      Columna nueva exelearning.gradecat + selector estándar (strings core
+      gradecategoryonmodform + grade_get_categories_menu) aplicado a overall y por-iDevice
+      con grade_item::set_parent (grade_update ignora categoryid, FTE-012) en
+      exelearning_apply_grade_category. Opción A (categoría plana estándar). Implementado y
+      verificado en Docker (Moodle 5.0.7).
+  DEC-0035:
+    titulo: "Coherencia profesor/alumno en peritem: excluir la nota overall oculta de la agregación"
+    estado: Aceptada
+    ruta: decisiones/adr/DEC-0035-visibilidad-notas-alumno-peritem.md
+    fecha: 2026-06-04
+    relacionados: [DEC-0008, DEC-0010, DEC-0017, DEC-0018, FTE-012]
+    notas: >-
+      Petición usabilidad INTEF #2: profesor y alumno veían items distintos y al alumno
+      "no le aparecían" las notas. Causa: el overall oculto (peritem, para
+      completionpassgrade/DEC-0010) seguía agregando y Moodle vaciaba el total del alumno
+      (grade_report_user_showtotalsifcontainhidden default 0). Fix (opción A): excluir la
+      nota overall de la agregación con grade_grade::set_excluded (exelearning_exclude_overall_grade
+      desde track.php y recalculate_user_grades) + migración en upgrade. get_hiding_affected
+      salta las excluidas → el total deja de vaciarse; finalgrade/gradepass intactos.
+      Verificado en Docker: COURSE TOTAL blanked_by_hidden=NO.
 
 tareas:
   TAREA-001:

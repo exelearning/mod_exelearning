@@ -107,6 +107,9 @@ function exelearning_add_instance($data, $mform = null) {
     if (!isset($data->teachermodevisible)) {
         $data->teachermodevisible = 0;
     }
+    if (!isset($data->gradecat)) {
+        $data->gradecat = 0;
+    }
 
     $data->id = $DB->insert_record('exelearning', $data);
 
@@ -162,6 +165,9 @@ function exelearning_update_instance($data, $mform = null) {
     }
     if (!isset($data->teachermodevisible)) {
         $data->teachermodevisible = 0;
+    }
+    if (!isset($data->gradecat)) {
+        $data->gradecat = 0;
     }
 
     $DB->update_record('exelearning', $data);
@@ -960,6 +966,9 @@ function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null
     );
 
     if ($detected === []) {
+        // Even with no gradable iDevices the hidden overall item exists; keep it
+        // under the configured grade category (DEC-0034).
+        exelearning_apply_grade_category($instance);
         return $delta;
     }
 
@@ -1098,6 +1107,10 @@ function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null
         }
     }
 
+    // Place the overall and every per-iDevice column under the configured grade
+    // category (DEC-0034); grade_update() above cannot do this itself.
+    exelearning_apply_grade_category($instance);
+
     return $delta;
 }
 
@@ -1199,6 +1212,10 @@ function exelearning_recalculate_user_grades(stdClass $instance, int $userid): v
             $base + ['itemname' => $name]
         );
     }
+
+    // Keep the hidden overall out of aggregation in PERITEM so the recomputed
+    // grade does not re-blank the student's total (DEC-0035).
+    exelearning_exclude_overall_grade($instance, $userid);
 }
 
 /**
@@ -1216,6 +1233,87 @@ function exelearning_grade_item_name(stdClass $instance, stdClass $detected): st
         return $base . ' · ' . $page . ' · ' . $type;
     }
     return $base . ' · ' . $type;
+}
+
+/**
+ * Places every grade item of the activity under the configured grade category.
+ *
+ * The grade category selector (DEC-0034) is stored on exelearning.gradecat, but
+ * grade_update() silently ignores the categoryid key (it is not in its allowed
+ * field list), so the parent category must be set with grade_item::set_parent() —
+ * the same API course/modlib.php uses for core's "Grade category" dropdown.
+ * Applied to the overall and every per-iDevice item so a re-upload that adds
+ * columns inherits the category too. gradecat=0 leaves the items where Moodle put
+ * them (the course top category). A target category that no longer exists (e.g. a
+ * cross-course restore) makes set_parent() a no-op, so items stay valid.
+ *
+ * @param stdClass $instance The exelearning instance (must carry id, course, gradecat).
+ * @return void
+ */
+function exelearning_apply_grade_category(stdClass $instance): void {
+    global $CFG;
+    require_once($CFG->libdir . '/gradelib.php');
+
+    $categoryid = (int) ($instance->gradecat ?? 0);
+    if ($categoryid <= 0) {
+        return;
+    }
+    $items = grade_item::fetch_all([
+        'itemtype'     => 'mod',
+        'itemmodule'   => 'exelearning',
+        'iteminstance' => $instance->id,
+        'courseid'     => $instance->course,
+    ]);
+    if (!$items) {
+        return;
+    }
+    foreach ($items as $item) {
+        if ((int) $item->categoryid !== $categoryid) {
+            $item->set_parent($categoryid);
+        }
+    }
+}
+
+/**
+ * Excludes the hidden overall grade (itemnumber=0) from gradebook aggregation in
+ * the per-iDevice model so it does not blank the student's totals (DEC-0035).
+ *
+ * In PERITEM mode the overall item is kept hidden only to drive core
+ * completionpassgrade (DEC-0010). A hidden item that still aggregates makes Moodle
+ * blank any total that contains it for students — grade_report_user_showtotalsifcontainhidden
+ * defaults to GRADE_REPORT_HIDE_TOTAL_IF_CONTAINS_HIDDEN — which is why the teacher
+ * (moodle/grade:viewhidden) and the student saw different grades. Marking the
+ * per-user overall grade as excluded drops it from every aggregation method and
+ * makes grade_grade::get_hiding_affected() skip it, so the student total shows
+ * again. finalgrade/gradepass are left intact, so completion is unaffected. No-op
+ * in OVERALL mode, where the overall IS the visible grade.
+ *
+ * @param stdClass $instance The exelearning instance.
+ * @param int $userid The user whose overall grade was just written.
+ * @return void
+ */
+function exelearning_exclude_overall_grade(stdClass $instance, int $userid): void {
+    global $CFG;
+    require_once($CFG->libdir . '/gradelib.php');
+
+    $grademodel = (int) ($instance->grademodel ?? EXELEARNING_GRADEMODEL_PERITEM);
+    if ($grademodel !== EXELEARNING_GRADEMODEL_PERITEM) {
+        return;
+    }
+    $overall = grade_item::fetch([
+        'itemtype'     => 'mod',
+        'itemmodule'   => 'exelearning',
+        'iteminstance' => $instance->id,
+        'itemnumber'   => 0,
+        'courseid'     => $instance->course,
+    ]);
+    if (!$overall) {
+        return;
+    }
+    $grade = grade_grade::fetch(['itemid' => $overall->id, 'userid' => $userid]);
+    if ($grade && !$grade->is_excluded()) {
+        $grade->set_excluded(true);
+    }
 }
 
 // -----------------------------------------------------------------------------

@@ -11,3 +11,4 @@ items:
   - id: 'FTE-009', titulo: 'Comparativa de estándares e-learning: SCORM vs xAPI vs cmi5 (y dónde encaja mod_exelearning)', estado: None, fecha: None, ruta: 'fuentes/tecnologia/FTE-009-comparativa-scorm-xapi-cmi5.md'
   - id: 'FTE-010', titulo: 'Comportamiento de Moodle core al editar el contenido de una actividad ya calificada (scorm/h5pactivity/quiz)', estado: None, fecha: None, ruta: 'fuentes/tecnologia/FTE-010-moodle-edicion-contenido-calificado.md'
   - id: 'FTE-011', titulo: 'Emisión xAPI en eXeLearning (exe_xapi.js, PR upstream #1867)', estado: None, fecha: None, ruta: 'fuentes/tecnologia/FTE-011-exelearning-emision-xapi.md'
+  - id: 'FTE-012', titulo: 'Moodle grade API: categoría de un grade item (set_parent), exclusión de la agregación (set_excluded) y vaciado de totales con items ocultos', estado: None, fecha: None, ruta: 'fuentes/tecnologia/FTE-012-moodle-grade-api-categoria-exclusion.md'

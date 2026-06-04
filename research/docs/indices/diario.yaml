@@ -14,4 +14,5 @@ items:
   - ruta: 'tareas/diario/2026-06-02-ci-concurrency.yaml', fecha: '2026-06-02'
   - ruta: 'tareas/diario/2026-06-02-traducciones.yaml', fecha: '2026-06-02'
   - ruta: 'tareas/diario/2026-06-04-adr-reemplazo-y-origen-url.yaml', fecha: '2026-06-04'
+  - ruta: 'tareas/diario/2026-06-04-categoria-y-visibilidad-notas.yaml', fecha: '2026-06-04'
   - ruta: 'tareas/diario/2026-06-04-xapi-dual-tracking.yaml', fecha: '2026-06-04'
