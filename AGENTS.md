@@ -37,11 +37,18 @@ Reglas operativas de investigación: [`research/AGENTS.md`](./research/AGENTS.md
 - README estilo `mod_exeweb`, dependabot, composer.json.
 
 ### Pendiente (orden sugerido)
-1. **Auditorías de cumplimiento**: licencias, privacidad y accesibilidad.
-2. **TAREA-013 / RIE-001 (M8)**: investigar sandboxing de JS en cliente (ShadowRealm, SES/
+1. **TAREA-016 / DEC-0033** _(Propuesta → impl)_: reemplazo visible del paquete + origen
+   por URL con sincronización (patrón `mod_scorm`: `packagesource` + columna `reference` +
+   `create_file_from_url` + gating por `contenthash` + `curl_security_helper` + admin
+   `allowexternalurl` opt-in) + botón "Actualizar ahora" (Fase 1); `updatefreq` + `db/tasks.php`
+   + token REST eXe v4 (Fase 2 opcional). El reemplazo YA funciona vía `update_instance`.
+2. **TAREA-015 / DEC-0032** _(Propuesta → impl)_: ingesta xAPI dual (listener AMD + endpoint +
+   normalizador) reutilizando la tubería existente; gated a que el PR upstream #1867 congele el contrato.
+3. **Auditorías de cumplimiento**: licencias, privacidad y accesibilidad.
+4. **TAREA-013 / RIE-001 (M8)**: investigar sandboxing de JS en cliente (ShadowRealm, SES/
    Compartments, Web Worker + DOM proxy, QuickJS-WASM, librerías tipo `sandboxjs`) como
    mitigación que mantiene el servido same-origin. Ver DEC-0019 (M8).
-3. _(Futuro, documentado, sin priorizar)_ **RIE-001** hardening del `.elpx`: roadmap en
+5. _(Futuro, documentado, sin priorizar)_ **RIE-001** hardening del `.elpx`: roadmap en
    DEC-0019 — Tier 1 (Permissions-Policy + CSP estricto-con-toggle + quitar
    `allow-popups-to-escape-sandbox`) → Tier 2 (bridge `postMessage` → origen opaco/subdominio).
 
@@ -69,6 +76,18 @@ Cerradas: **TAREA-012 / RIE-001** investigación (DEC-0019); **TAREA-009 / RIE-0
   `amd/src/fullscreen.js` reescrito (ES6, Fullscreen API sobre el iframe) (issue #13 #6).
 - Pendiente issue #13: **#3 importar** desde `mod_exeweb`/`mod_exescorm` → PR aparte.
 
+### Hecho en sesión 2026-06-04 (ADRs documentales, claude-opus-4-8)
+- **Ingesta dual SCORM 1.2 + xAPI** (DEC-0032, Propuesta): PR1 documental; xAPI ingiere
+  reutilizando la tubería existente (`exelearning_attempt` + `objectid→itemnumber`).
+  Implementación → TAREA-015.
+- **Actualización de contenido** (DEC-0033, Propuesta): el **reemplazo** del `.elpx` YA está
+  soportado por `exelearning_update_instance` (`revision++`, re-extrae, re-sync, aviso de notas
+  obsoletas DEC-0021). Para **origen por URL** se descarta el file picker URL de Moodle
+  (`repository_url` se oculta para `.zip/.elpx` y haría copia única sin sync) y se adopta el
+  patrón `mod_scorm` (`packagesource` + `reference` + `create_file_from_url` + `updatefreq`),
+  añadiendo un botón "Actualizar ahora" (lo que a `mod_scorm` le falta). eXe v4 no tiene
+  permalink público (export REST con Bearer JWT, sin versionado). Implementación → TAREA-016.
+
 ## Decisiones clave (ver `research/decisiones/adr/`)
 
 | ADR | Estado | Resumen |
@@ -88,9 +107,24 @@ Cerradas: **TAREA-012 / RIE-001** investigación (DEC-0019); **TAREA-009 / RIE-0
 | DEC-0013 | **Aceptada** | Editor Online vs embebido: confirma solo-embebido (DEC-0009); reapertura futura iría por opción D (enlace, sin HMAC) |
 | DEC-0014 | **Aceptada** (2026-05-29) | Soporte xAPI A+C: SCORM 1.2 vigente + diseño de referencia; sin empuje upstream (analítica LRS no prioritaria) |
 | DEC-0015 | **Aceptada** (2026-05-29) | Justificación de la multicalificación: DAFO + comparativa (exeweb/exescorm/scorm/h5p); veredicto: merece la pena con matices (deuda = shim SCORM, hoja de ruta = xAPI DEC-0014) |
+| DEC-0016 | **Aceptada** (2026-06-01) | Auditoría de seguridad multi-agente: 21 hallazgos (18 corregidos, 3 diferidos) |
+| DEC-0017 | **Aceptada** (2026-06-01) | Ruteo de calificaciones por `objectid` estable (mis-ruteo N→itemnumber, RIE-007) |
+| DEC-0018 | **Aceptada** (2026-06-01) | Recálculo del overall desde `itemscores` (cierre RIE-007) + hardening menor |
+| DEC-0019 | **Aceptada** (2026-06-02) | Aislamiento del `.elpx` (RIE-001): análisis, paridad con core y roadmap (NO implementado por decisión) |
+| DEC-0020 | **Aceptada** (2026-06-02) | Traducciones es/ca/eu/gl: reuso de hermanos + marca «~» para auto-traducción pendiente de revisión |
+| DEC-0021 | **Aceptada** (2026-06-02) | Edición de contenido calificable: semántica snapshot + aviso al profesor (estilo SCORM) |
 | DEC-0022 | **Aceptada** (2026-06-03) | Detección de calificables por `isScorm>0` (no por lista de tipos) → issue #13 #2 y #5 |
 | DEC-0023 | **Aceptada** (2026-06-03) | Deep-link del gradebook al iDevice vía `grade.php` (itemnumber→objectid→ancla) → issue #13 #4 |
 | DEC-0024 | **Aceptada** (2026-06-03) | Crear `.elpx` desde cero (paquete opcional) + pantalla completa → issue #13 #1 y #6 |
+| DEC-0025 | **Superseded** by DEC-0026 | Importar por-actividad desde `mod_exeweb`/`mod_exescorm` (motor reutilizado por DEC-0026) |
+| DEC-0026 | **Aceptada** (2026-06-03) | Migración masiva de `mod_exeweb`/`mod_exescorm` desde los Ajustes del plugin → issue #13 #3 |
+| DEC-0027 | **Aceptada** (2026-06-03) | Aceptar `.zip` (con `content.xml`) además de `.elpx` en la subida |
+| DEC-0028 | **Aceptada** (2026-06-03) | Enlaces del gradebook: análisis y destino del 'grade analysis' → issue #13 #4 |
+| DEC-0029 | **Aceptada** (2026-06-03) | Interruptor 'Calificable' por actividad (`gradeenabled`) → issue #13 |
+| DEC-0030 | **Aceptada** (2026-06-03) | Versión 'sentinela' (`9999999999`/dev) en main; la real la inyecta `make package` |
+| DEC-0031 | **Aceptada** (2026-06-03) | Separar el formulario en 'Grading' y 'Attempts management' → issue #13 |
+| DEC-0032 | **Propuesta** (2026-06-04) | Ingesta dual de tracking: shim SCORM 1.2 + xAPI (`exe_xapi.js`) sobre tubería común → TAREA-015 |
+| DEC-0033 | **Propuesta** (2026-06-04) | Actualización de contenido: reemplazo del `.elpx` + origen por URL con sincronización (patrón `mod_scorm`) → TAREA-016 |
 
 ## Restricciones inmutables
 
