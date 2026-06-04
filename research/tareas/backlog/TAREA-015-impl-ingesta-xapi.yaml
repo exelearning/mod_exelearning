@@ -1,0 +1,35 @@
+id: TAREA-015
+titulo: "Implementar la ingesta xAPI dual (listener + endpoint + normalizador) reutilizando la tubería existente"
+estado: Pending
+fecha: 2026-06-04
+agente: pendiente
+prioridad: media
+objetivo: >-
+  Consumir en mod_exelearning los statements xAPI que emite exe_xapi.js (PR upstream #1867)
+  reutilizando track::apply_item_scores / attempts::record_item / grade_update, sin romper el
+  shim SCORM 1.2 y validando todo en servidor (DEC-0032). Es el PR2 tras el PR documental.
+pasos:
+  - "Inyectar window.exeXapi (parentOrigin=origen Moodle, actor=null, registration=token) en el paquete servido, simétrico a exelearning_inject_scorm_loader."
+  - "amd/src/xapi_listener.js: aceptar sólo {type:'exe-xapi-statement'}, validar event.origin contra el origen del iframe (pluginfile), dedup por statement.id en página, POST con sesskey+cmid(+registration)."
+  - "Endpoint (classes/external/submit_xapi_statement, ajax): validar sesión/cmid/capability savetrack, ignorar actor→$USER, respetar gradeenabled (DEC-0029), mapear object.id→objectid→itemnumber (rechazo si desconocido), normalizar a itemscores y llamar a track::apply_item_scores."
+  - "Opcional: classes/xapi/handler.php (core_xapi) + eventos idevice_answered/package_completed/passed/failed para analítica."
+  - "Persistencia opcional: tabla exelearning_tracking_events (statementid UNIQUE) para auditoría/idempotencia; sin cabecera/detalle (DEC-0007)."
+  - "Tests PHPUnit + JS según los criterios; regenerar amd/build con grunt amd."
+relacionados:
+  - DEC-0032
+  - DEC-0014
+  - DEC-0007
+  - DEC-0017
+  - DEC-0029
+  - FTE-011
+  - AN-012
+criterios_aceptacion:
+  - "Un 'answered' xAPI actualiza el mismo itemnumber que el camino SCORM para el mismo iDevice."
+  - "Un 'passed'/'failed' de paquete fija overall + completion; objectid desconocido se rechaza."
+  - "El actor del cliente se ignora; la nota se atribuye a $USER."
+  - "statement.id duplicado no se procesa dos veces; el camino SCORM 1.2 sigue calificando igual."
+  - "phpcs --standard=moodle limpio; PHPDoc completo; amd/build regenerado."
+notas: >-
+  Gated a que el PR upstream #1867 congele el contrato (forma del envoltorio y parentOrigin).
+  La elección de vía de ingestión (endpoint propio vs core_xapi) se detalla en
+  docs/xapi-integration-plan.md.

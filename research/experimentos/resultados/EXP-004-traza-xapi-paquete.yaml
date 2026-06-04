@@ -1,0 +1,55 @@
+id: EXP-004
+titulo: "Traza del contrato xAPI emitido por exe_xapi.js (PR upstream #1867)"
+objetivo: >-
+  Documentar de forma reproducible qué statements xAPI emite un paquete eXeLearning
+  publicado y por qué transporte, leyendo el código fuente del PR #1867 y su suite de tests.
+estado: completado
+fecha: 2026-06-04
+hipotesis: >-
+  exe_xapi.js emite, por postMessage al host con envoltorio
+  {type:'exe-xapi-statement', statement}, un 'answered' por iDevice y
+  'completed'+'passed'/'failed' por paquete, con object.id estable por odeId/ideviceId y
+  actor anónimo (el host adjunta el alumno real).
+tecnologia:
+  - xapi
+repos_implicados:
+  - REPO-005
+commit_ref:
+  repo: exelearning/exelearning
+  sha: 59b9b9b46f20a92dd86631c173b325f6c0940274
+entorno:
+  so: macOS (Darwin 25.4.0)
+  versiones:
+    pr: "#1867 (draft, base main, rama feature/add-xapi-support)"
+setup_command: >-
+  git clone https://github.com/exelearning/exelearning &&
+  git -C exelearning checkout 59b9b9b46f20a92dd86631c173b325f6c0940274
+run_command: >-
+  sed -n '1,551p' public/app/common/xapi/exe_xapi.js ;
+  npx vitest run public/app/common/xapi/exe_xapi.test.js
+metricas:
+  verbos: 6
+  statements_por_emit: "1 answered + 2 paquete (completed + passed|failed)"
+  lifecycle: "initialized + terminated (1 vez c/u, sólo con transporte)"
+  umbral_aprobado: 50
+resultado: >-
+  Confirmada la hipótesis leyendo el código y los tests: envoltorio
+  {type:'exe-xapi-statement', statement} por postMessage a parentOrigin||'*' (exe_xapi.js:468);
+  'answered' por iDevice (object.id={baseIri}/idevice/{ideviceId}, result.score.scaled,
+  success>=5/10); 'completed'+'passed'/'failed' por paquete (umbral 50/100); actor anónimo
+  por defecto; context.registration y contextActivities.parent presentes. Corrige el error
+  de un resumen previo que afirmaba 'sin envoltorio type'.
+evidencias:
+  - "research/fuentes/tecnologia/FTE-011-exelearning-emision-xapi.md"
+  - "exelearning/exelearning:public/app/common/xapi/exe_xapi.js@59b9b9b (líneas 48-56, 276-338, 437-486)"
+  - "exelearning/exelearning:public/app/common/xapi/exe_xapi.test.js@59b9b9b (contrato codificado en asserts)"
+limitaciones:
+  - "Contrato draft: puede cambiar antes del merge de #1867."
+  - "Traza estática (lectura de código). La suite vitest no se ejecutó en este entorno; codifica el contrato en sus asserts."
+  - "Captura en vivo de postMessage dentro de Moodle pendiente para PR2 (TAREA-015)."
+relacionados:
+  - FTE-011
+  - AN-012
+  - DEC-0032
+  - DEC-0014
+  - TAREA-015

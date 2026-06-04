@@ -2,3 +2,4 @@
 items:
   - ruta: 'experimentos/resultados/EXP-001-estructura-paquete-publicado.yaml', id: 'EXP-001', titulo: 'Estructura del paquete publicado por eXeLearning (Web + SCORM 1.2)', estado: 'completado', fecha: '2026-05-28'
   - ruta: 'experimentos/resultados/EXP-002-multi-grade-items.yaml', id: 'EXP-002', titulo: 'POC multi-grade-items end-to-end con actividad-evaluable.elpx', estado: 'completado', fecha: '2026-05-28'
+  - ruta: 'experimentos/resultados/EXP-004-traza-xapi-paquete.yaml', id: 'EXP-004', titulo: 'Traza del contrato xAPI emitido por exe_xapi.js (PR upstream #1867)', estado: 'completado', fecha: '2026-06-04'
