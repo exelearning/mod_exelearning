@@ -74,7 +74,12 @@ Cerradas: **TAREA-012 / RIE-001** investigación (DEC-0019); **TAREA-009 / RIE-0
   (issue #13 #4).
 - **UI** (DEC-0024): botón "Editar con eXe" a la derecha + botón pantalla completa;
   `amd/src/fullscreen.js` reescrito (ES6, Fullscreen API sobre el iframe) (issue #13 #6).
-- Pendiente issue #13: **#3 importar** desde `mod_exeweb`/`mod_exescorm` → PR aparte.
+- **Migración masiva** (DEC-0026, reescribe DEC-0025; PR stacked): herramienta en Ajustes
+  (`admin/migrate.php`, cap `mod/exelearning:migrate`) que copia TODAS las actividades
+  `mod_exeweb`/`mod_exescorm` del sitio a nuevas actividades eXeLearning (`add_moduleinfo`),
+  con barra de progreso y avisos; no destructiva; exescorm→calificación general; idempotente
+  (tabla `exelearning_migration`). Motor `import_service::import_package` reutilizado de
+  DEC-0025 (issue #13 #3). Completa el issue #13.
 
 ### Hecho en sesión 2026-06-04 (ADRs documentales, claude-opus-4-8)
 - **Ingesta dual SCORM 1.2 + xAPI** (DEC-0032, Propuesta): PR1 documental; xAPI ingiere
@@ -117,7 +122,7 @@ Cerradas: **TAREA-012 / RIE-001** investigación (DEC-0019); **TAREA-009 / RIE-0
 | DEC-0023 | **Aceptada** (2026-06-03) | Deep-link del gradebook al iDevice vía `grade.php` (itemnumber→objectid→ancla) → issue #13 #4 |
 | DEC-0024 | **Aceptada** (2026-06-03) | Crear `.elpx` desde cero (paquete opcional) + pantalla completa → issue #13 #1 y #6 |
 | DEC-0025 | **Superseded** by DEC-0026 | Importar por-actividad desde `mod_exeweb`/`mod_exescorm` (motor reutilizado por DEC-0026) |
-| DEC-0026 | **Aceptada** (2026-06-03) | Migración masiva de `mod_exeweb`/`mod_exescorm` desde los Ajustes del plugin → issue #13 #3 |
+| DEC-0026 | **Aceptada** (2026-06-03) | Migración masiva desde Ajustes (admin, site-wide, no destructiva, progreso, exescorm→nota general) → issue #13 #3 |
 | DEC-0027 | **Aceptada** (2026-06-03) | Aceptar `.zip` (con `content.xml`) además de `.elpx` en la subida |
 | DEC-0028 | **Aceptada** (2026-06-03) | Enlaces del gradebook: análisis y destino del 'grade analysis' → issue #13 #4 |
 | DEC-0029 | **Aceptada** (2026-06-03) | Interruptor 'Calificable' por actividad (`gradeenabled`) → issue #13 |

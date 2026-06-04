@@ -365,5 +365,25 @@ function xmldb_exelearning_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026060400, 'exelearning');
     }
 
+    // Stage 12 (2026060401): migration audit/idempotency table for the sibling
+    // migration tool (issue #13 #3, DEC-0026). Maps each migrated source course
+    // module to the eXeLearning activity created from it, so re-running the tool
+    // skips already-migrated activities. Numbered above the gradeenabled stage
+    // (2026060400) so it also runs on sites already upgraded to that version.
+    if ($oldversion < 2026060401) {
+        $table = new xmldb_table('exelearning_migration');
+        if (!$dbman->table_exists($table)) {
+            $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+            $table->add_field('sourcecomponent', XMLDB_TYPE_CHAR, '64', null, XMLDB_NOTNULL, null, null);
+            $table->add_field('sourcecmid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+            $table->add_field('targetcmid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+            $table->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+            $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+            $table->add_index('sourcecomponent_sourcecmid', XMLDB_INDEX_UNIQUE, ['sourcecomponent', 'sourcecmid']);
+            $dbman->create_table($table);
+        }
+        upgrade_mod_savepoint(true, 2026060401, 'exelearning');
+    }
+
     return true;
 }

@@ -40,6 +40,19 @@ $ADMIN->add('modsettings', new admin_externalpage(
     'mod/exelearning:manageembeddededitor'
 ));
 
+// Register the site-wide migration tool only when a sibling plugin (mod_exeweb /
+// mod_exescorm) is installed, so admins can bulk-migrate their activities into
+// eXeLearning (issue #13 #3, DEC-0026). Registered outside the $fulltree guard.
+$exelearninginstalledmods = \core_component::get_plugin_list('mod');
+if (isset($exelearninginstalledmods['exeweb']) || isset($exelearninginstalledmods['exescorm'])) {
+    $ADMIN->add('modsettings', new admin_externalpage(
+        'mod_exelearning_migrate',
+        get_string('migratetitle', 'mod_exelearning'),
+        new moodle_url('/mod/exelearning/admin/migrate.php'),
+        'mod/exelearning:migrate'
+    ));
+}
+
 if ($ADMIN->fulltree) {
     // Embedded editor management (install / update / repair / uninstall).
     $settings->add(new admin_setting_heading(
