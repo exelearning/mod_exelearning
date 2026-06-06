@@ -3,6 +3,8 @@
   "preferredVersions": { "php": "8.3", "moodle": "5.0" },
   "landingPage": "/course/view.php?id=2",
   "constants": {
+    "REPO": "ateeducacion/mod_exelearning",
+    "REF":  "main",
     "ADMIN_USER":  "admin",
     "ADMIN_PASS":  "password",
     "ADMIN_EMAIL": "admin@example.com",
@@ -27,7 +29,7 @@
       "step": "installMoodlePlugin",
       "pluginType": "mod",
       "pluginName": "exelearning",
-      "url": "https://github.com/ateeducacion/mod_exelearning/archive/refs/heads/main.zip"
+      "url": "https://github.com/{{REPO}}/archive/refs/heads/{{REF}}.zip"
     },
     {
       "step": "runPhpCode",
@@ -111,7 +113,7 @@
           "itemid":   0,
           "filename": "actividad-evaluable.elpx",
           "data": {
-            "url": "https://raw.githubusercontent.com/ateeducacion/mod_exelearning/main/research/fixtures/elpx/actividad-evaluable.elpx"
+            "url": "https://raw.githubusercontent.com/{{REPO}}/{{REF}}/research/fixtures/elpx/actividad-evaluable.elpx"
           }
         }
       ]
@@ -138,7 +140,7 @@
           "itemid":   0,
           "filename": "actividad-evaluable_scorm.zip",
           "data": {
-            "url": "https://raw.githubusercontent.com/ateeducacion/mod_exelearning/main/research/fixtures/scorm/actividad-evaluable_scorm.zip"
+            "url": "https://raw.githubusercontent.com/{{REPO}}/{{REF}}/research/fixtures/scorm/actividad-evaluable_scorm.zip"
           }
         }
       ]
@@ -166,7 +168,7 @@
           "itemid":   0,
           "filename": "question-set-demo.h5p",
           "data": {
-            "url": "https://raw.githubusercontent.com/ateeducacion/mod_exelearning/main/research/fixtures/h5p/question-set-demo.h5p"
+            "url": "https://raw.githubusercontent.com/{{REPO}}/{{REF}}/research/fixtures/h5p/question-set-demo.h5p"
           }
         }
       ]
