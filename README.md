@@ -1,6 +1,6 @@
 # eXeLearning resource for Moodle
 
-[![Preview in Moodle Playground](https://raw.githubusercontent.com/ateeducacion/action-moodle-playground-pr-preview/refs/heads/main/assets/playground-preview-button.svg)](https://moodle-playground.com/?blueprint-url=https://raw.githubusercontent.com/ateeducacion/mod_exelearning/refs/heads/main/blueprint.json)
+[![Preview in Moodle Playground](https://raw.githubusercontent.com/ateeducacion/action-moodle-playground-pr-preview/refs/heads/main/assets/playground-preview-button.svg)](https://moodle-playground.com/?blueprint-url=https://raw.githubusercontent.com/ateeducacion/mod_exelearning/main/blueprint.json)
 
 > **Activity-type Moodle module to create, edit and grade eXeLearning resources
 > (`.elpx`) directly in Moodle, preserving eXeLearning's native navigation and
