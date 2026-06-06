@@ -30,7 +30,7 @@ jobs:
           PLUGIN_BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
         run: |
           plugin_url="https://github.com/${PLUGIN_REPO_OWNER}/${PLUGIN_REPO_NAME}/archive/refs/heads/${PLUGIN_BRANCH_NAME}.zip"
-          sed "s|https://github.com/exelearning/mod_exelearning/archive/refs/heads/main.zip|${plugin_url}|" blueprint.json > blueprint.pr.json
+          sed "s|https://github.com/ateeducacion/mod_exelearning/archive/refs/heads/main.zip|${plugin_url}|" blueprint.json > blueprint.pr.json
 
       - uses: ateeducacion/action-moodle-playground-pr-preview@main
         with:
@@ -38,7 +38,6 @@ jobs:
           mode: append-to-description
           github-token: ${{ secrets.GITHUB_TOKEN }}
           extra-text: >
-            ⚠️ The embedded eXeLearning editor is not included in this preview.
-            You can install it from **Modules > eXeLearning Web > Configure**
-            using the "Download & Install Editor" button.
-            All other module features (ELPX upload, viewer, preview) work normally.
+            ℹ️ The embedded eXeLearning editor auto-installs from the latest
+            GitHub release when the playground boots, so the first load may take
+            a few extra seconds. ELPX upload, viewer and preview work normally.

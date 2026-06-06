@@ -30,6 +30,11 @@
       "url": "https://github.com/ateeducacion/mod_exelearning/archive/refs/heads/main.zip"
     },
     {
+      "step": "runPhpCode",
+      "comment": "Auto-install the embedded eXeLearning editor from GitHub releases so the playground boots with a working editor (no manual admin button). Tolerates network failure. runPhpCode = raw PHP CLI, so require config.php first.",
+      "code": "define('CLI_SCRIPT', true); foreach (['/www/moodle/config.php', getcwd().'/config.php', '/var/www/html/config.php'] as $c) { if (is_file($c)) { require($c); break; } } global $CFG; require_once($CFG->dirroot.'/mod/exelearning/classes/local/embedded_editor_installer.php'); try { (new \\mod_exelearning\\local\\embedded_editor_installer())->install_latest(); } catch (\\Throwable $e) { echo 'editor install skipped: '.$e->getMessage(); }"
+    },
+    {
       "step": "setConfigs",
       "configs": [
         { "name": "editormode",   "value": "embedded",      "plugin": "exelearning" },
