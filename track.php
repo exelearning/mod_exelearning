@@ -272,6 +272,10 @@ $result = grade_update(
     ]
 );
 
+// In PERITEM the overall is hidden; exclude it from aggregation so it neither
+// double-counts nor blanks the student's total (DEC-0035). No-op in OVERALL mode.
+exelearning_exclude_overall_grade($exelearning, $USER->id);
+
 // Recalculate completion: with "require passing grade" (completionpassgrade,
 // SCORM style) Moodle marks the activity complete when the passing grade is
 // reached. Force re-evaluation after saving the grade.

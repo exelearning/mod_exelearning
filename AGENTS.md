@@ -93,6 +93,20 @@ Cerradas: **TAREA-012 / RIE-001** investigación (DEC-0019); **TAREA-009 / RIE-0
   añadiendo un botón "Actualizar ahora" (lo que a `mod_scorm` le falta). eXe v4 no tiene
   permalink público (export REST con Bearer JWT, sin versionado). Implementación → TAREA-016.
 
+### Hecho en sesión 2026-06-04 (categoría + visibilidad notas, claude-opus-4-8)
+- **Categoría de calificación** (DEC-0034, Aceptada): columna `exelearning.gradecat` +
+  selector estándar (`gradecategoryonmodform` + `grade_get_categories_menu`) aplicado a
+  TODOS los grade items vía `grade_item::set_parent` (`grade_update` ignora `categoryid`,
+  FTE-012) en `exelearning_apply_grade_category`. Petición usabilidad INTEF #1.
+- **Visibilidad de notas del alumno** (DEC-0035, Aceptada): en `peritem` el overall oculto
+  seguía agregando → Moodle vaciaba el total del alumno (default
+  `grade_report_user_showtotalsifcontainhidden=0`). Fix: excluir la nota overall de la
+  agregación con `grade_grade::set_excluded` (`exelearning_exclude_overall_grade` desde
+  `track.php` y `exelearning_recalculate_user_grades`) + migración en `upgrade.php` (stage
+  `2026060401`). `get_hiding_affected` salta las excluidas → total visible;
+  `finalgrade`/`gradepass` intactos (completion OK). Petición usabilidad INTEF #2.
+  Verificado en Docker (Moodle 5.0.7): `COURSE TOTAL blanked_by_hidden=NO`.
+
 ## Decisiones clave (ver `research/decisiones/adr/`)
 
 | ADR | Estado | Resumen |
@@ -130,6 +144,8 @@ Cerradas: **TAREA-012 / RIE-001** investigación (DEC-0019); **TAREA-009 / RIE-0
 | DEC-0031 | **Aceptada** (2026-06-03) | Separar el formulario en 'Grading' y 'Attempts management' → issue #13 |
 | DEC-0032 | **Propuesta** (2026-06-04) | Ingesta dual de tracking: shim SCORM 1.2 + xAPI (`exe_xapi.js`) sobre tubería común → TAREA-015 |
 | DEC-0033 | **Propuesta** (2026-06-04) | Actualización de contenido: reemplazo del `.elpx` + origen por URL con sincronización (patrón `mod_scorm`) → TAREA-016 |
+| DEC-0034 | **Aceptada** (2026-06-04) | Selector de categoría de calificación (`gradecat`) aplicado a todos los grade items vía `grade_item::set_parent` (`grade_update` ignora `categoryid`) → petición usabilidad INTEF #1 |
+| DEC-0035 | **Aceptada** (2026-06-04) | Coherencia profesor/alumno en `peritem`: excluir la nota overall oculta de la agregación (`grade_grade::set_excluded`) para que Moodle no vacíe el total del alumno → petición usabilidad INTEF #2 |
 
 ## Restricciones inmutables
 

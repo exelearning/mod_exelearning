@@ -365,12 +365,72 @@ function xmldb_exelearning_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026060400, 'exelearning');
     }
 
-    // Stage 12 (2026060401): migration audit/idempotency table for the sibling
+    // Stage 12 (2026060401): grade category column (DEC-0034) + back-fill the
+    // per-iDevice visibility fix (DEC-0035).
+    if ($oldversion < 2026060401) {
+        global $CFG;
+
+        // 1) Grade category selector storage. All this activity's grade items are
+        // placed under this category via grade_item::set_parent(); grade_update()
+        // ignores categoryid. 0 = leave at the course top category.
+        $instance = new xmldb_table('exelearning');
+        $field = new xmldb_field(
+            'gradecat',
+            XMLDB_TYPE_INTEGER,
+            '10',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            '0',
+            'gradesyncrev'
+        );
+        if (!$dbman->field_exists($instance, $field)) {
+            $dbman->add_field($instance, $field);
+        }
+
+        // 2) Data back-fill (DEC-0035): existing per-iDevice activities (grademodel=1)
+        // keep a hidden overall grade item (itemnumber=0) for completionpassgrade
+        // (DEC-0010). Because a hidden item that still aggregates makes Moodle blank
+        // the student total (grade_report_user_showtotalsifcontainhidden defaults to
+        // GRADE_REPORT_HIDE_TOTAL_IF_CONTAINS_HIDDEN), exclude those overall grades
+        // from aggregation. set_excluded() leaves finalgrade/gradepass intact, so
+        // completion is unaffected; get_hiding_affected() then skips the item and the
+        // student total is shown again.
+        require_once($CFG->libdir . '/gradelib.php');
+        // EXELEARNING_GRADEMODEL_PERITEM = 1 (literal here to keep upgrade.php
+        // independent of lib.php constants).
+        $periteminstances = $DB->get_records('exelearning', ['grademodel' => 1], '', 'id, course');
+        foreach ($periteminstances as $inst) {
+            $overall = \grade_item::fetch([
+                'itemtype'     => 'mod',
+                'itemmodule'   => 'exelearning',
+                'iteminstance' => $inst->id,
+                'itemnumber'   => 0,
+                'courseid'     => $inst->course,
+            ]);
+            if (!$overall) {
+                continue;
+            }
+            $grades = \grade_grade::fetch_all(['itemid' => $overall->id]);
+            if (!$grades) {
+                continue;
+            }
+            foreach ($grades as $grade) {
+                if (!$grade->is_excluded()) {
+                    $grade->set_excluded(true);
+                }
+            }
+        }
+
+        upgrade_mod_savepoint(true, 2026060401, 'exelearning');
+    }
+
+    // Stage 13 (2026060402): migration audit/idempotency table for the sibling
     // migration tool (issue #13 #3, DEC-0026). Maps each migrated source course
     // module to the eXeLearning activity created from it, so re-running the tool
-    // skips already-migrated activities. Numbered above the gradeenabled stage
-    // (2026060400) so it also runs on sites already upgraded to that version.
-    if ($oldversion < 2026060401) {
+    // skips already-migrated activities. Numbered above the grade-category stage
+    // (2026060401) so it also runs on sites already upgraded to that version.
+    if ($oldversion < 2026060402) {
         $table = new xmldb_table('exelearning_migration');
         if (!$dbman->table_exists($table)) {
             $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
@@ -382,7 +442,7 @@ function xmldb_exelearning_upgrade($oldversion) {
             $table->add_index('sourcecomponent_sourcecmid', XMLDB_INDEX_UNIQUE, ['sourcecomponent', 'sourcecmid']);
             $dbman->create_table($table);
         }
-        upgrade_mod_savepoint(true, 2026060401, 'exelearning');
+        upgrade_mod_savepoint(true, 2026060402, 'exelearning');
     }
 
     return true;
