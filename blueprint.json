@@ -32,9 +32,10 @@
       "url": "https://github.com/{{REPO}}/archive/refs/heads/{{REF}}.zip"
     },
     {
-      "step": "runPhpCode",
-      "comment": "Auto-install the embedded eXeLearning editor from GitHub releases so the playground boots with a working editor (no manual admin button). Tolerates network failure. runPhpCode = raw PHP CLI, so require config.php first.",
-      "code": "define('CLI_SCRIPT', true); foreach (['/www/moodle/config.php', getcwd().'/config.php', '/var/www/html/config.php'] as $c) { if (is_file($c)) { require($c); break; } } global $CFG; require_once($CFG->dirroot.'/mod/exelearning/classes/local/embedded_editor_installer.php'); try { (new \\mod_exelearning\\local\\embedded_editor_installer())->install_latest(); } catch (\\Throwable $e) { echo 'editor install skipped: '.$e->getMessage(); }"
+      "step": "unzip",
+      "comment": "Auto-load the eXeLearning static editor so the playground boots with a working editor, without the slow runtime PHP download. The editor is the shared release artifact, fetched once through the github-proxy (CORS) via the fast JS transport. The asset wraps everything in a 'static/' folder, so extracting into 'dist' yields 'dist/static/...', which embedded_editor_source_resolver serves through its 'bundled' precedence (moodledata -> bundled -> none). Pinned to match .editor-version for deterministic previews. embedded_editor_installer stays for production/offline installs.",
+      "destination": "/www/moodle/mod/exelearning/dist",
+      "data": { "url": "https://github-proxy.exelearning.dev/?repo=exelearning/exelearning&release=v4.0.0&asset=exelearning-static-v4.0.0.zip" }
     },
     {
       "step": "setConfigs",
