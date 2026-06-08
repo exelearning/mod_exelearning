@@ -1,36 +1,36 @@
-.git
-.github
-.gitignore
-.aider*
-.claude
-.DS_Store
-.distignore
-.editor-version
-.env
-.env.dist
-.omc
+# Exclusions for `make package` (scripts/package.sh). A path is excluded when its
+# top component or full relative path matches any pattern below.
 
-# Tooling not shipped to Moodle
+# Hidden files and directories (.git, .github, .env, .env.dist, .editor-version,
+# .DS_Store, .claude, .omc, .gitignore, .gitattributes, .eslintignore,
+# .stylelintignore, .phpcs.xml.dist, .moodle-plugin-ci.yml, ...).
+# The built editor under dist/static/ contains no dotfiles, so this is safe.
+.*
+
+# Editor source checkout, dependencies and build/dev tooling.
+# NOTE: the BUILT editor under dist/static/ IS shipped.
 exelearning/
 vendor/
 node_modules/
+scripts/
+research/
+
+# Development config files
 phpmd-rules.xml
 phpmd.xml
 Makefile
+blueprint.json
 docker-compose.yml
 Dockerfile
 composer.json
 composer.lock
 composer.phar
 
-# Repo-only documents
+# Internal documentation (README.md is shipped)
 CLAUDE.md
 AGENTS.md
-README.md
 DEVELOPMENT.md
 CHANGELOG.md
-scripts/
-research/
 
-# Release artifacts
+# Build artifacts
 mod_exelearning-*.zip
