@@ -5,3 +5,4 @@ items:
   - id: 'REPO-003', titulo: 'wp-exelearning — plugin de WordPress para insertar recursos eXeLearning', estado: None, fecha: None, ruta: 'fuentes/repositorios/REPO-003-wp-exelearning.md'
   - id: 'REPO-004', titulo: 'Moodle core — referencias relevantes para mod_exelearning', estado: None, fecha: None, ruta: 'fuentes/repositorios/REPO-004-moodle-core.md'
   - id: 'REPO-005', titulo: 'eXeLearning v4 — herramienta de autoría upstream', estado: None, fecha: None, ruta: 'fuentes/repositorios/REPO-005-exelearning-upstream.md'
+  - id: 'REPO-006', titulo: 'contenttype_exelearning — tipo de contenido del banco de contenidos para paquetes eXeLearning', estado: None, fecha: None, ruta: 'fuentes/repositorios/REPO-006-moodle-contenttype-exelearning.md'

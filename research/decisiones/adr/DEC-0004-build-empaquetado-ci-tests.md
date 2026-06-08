@@ -187,3 +187,29 @@ Evidencia: GitHub Actions PR #8, run `26771584651`, 22/22 jobs `test (...)`
 en verde, todos con `PHPUnit tests` y `Behat features` pasados. Esta revisión
 supersede la frase anterior "behat opcional/continue-on-error" dentro de esta
 misma decisión.
+
+## Actualización (2026-06-08): empaquetado git-only (`scripts/package.sh`)
+
+El `make package` heredado de `mod_exeweb`/`mod_exescorm` fallaba en **Git Bash
+(Windows)**: caía a un `scripts/package.py` que este repo nunca copió, y la ruta
+rsync rooteaba el ZIP en la carpeta equivocada `exeweb/` (debe ser `exelearning/`
+para el componente `mod_exelearning`). Issue #22, PR #23.
+
+Decisión: **divergir** de los hermanos y empaquetar usando **sólo `git`** (sin
+`zip`, `rsync`, `python` ni `php`, ninguno presente en Git Bash base). El nuevo
+`scripts/package.sh`:
+
+- monta un índice temporal con el árbol de trabajo (incluido el editor compilado
+  en `dist/static/`, que está en `.gitignore`), filtrando por `.distignore`
+  (match por componente top o ruta completa, misma semántica que el `package.py`
+  de los hermanos);
+- estampa `version.php` **en ese índice** (la copia de trabajo no se toca; sigue
+  con el sentinela de DEC-0030);
+- emite el ZIP con `git archive --format=zip --prefix=exelearning/`;
+- escribe los objetos en un store temporal, dejando el `.git` real intacto.
+
+`composer archive` se descartó (respeta `.gitignore` → se comería el editor, y
+exige composer+php). `.distignore` sigue siendo la única fuente de exclusiones,
+limpiada para no enviar config de dev/CI/playground y sí `README.md` y
+`thirdpartylibs.xml`. CI (`release.yml` en `ubuntu-latest`) no cambia: sólo llama
+a `make package`.

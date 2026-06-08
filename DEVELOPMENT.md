@@ -110,3 +110,35 @@ vendor/bin/behat --tags @mod_exelearning
 Behat needs a browser driver reachable from the container; add a Selenium
 service to the compose stack or point Behat at an external Selenium/Chrome
 instance.
+
+## Packaging a release
+
+Build a distributable ZIP with:
+
+```bash
+make build-editor               # ensure the editor exists in dist/static/ (make up also builds it)
+make package RELEASE=4.0.0
+```
+
+This produces `mod_exelearning-<RELEASE>.zip` with everything under a top-level
+`exelearning/` folder (the Moodle install directory for component
+`mod_exelearning`).
+
+Packaging (`scripts/package.sh`) uses **only `git`** &mdash; no `zip`, `rsync`,
+`python` or `php` &mdash; so it also works in Git Bash on Windows. It stages the
+working tree (including the built editor under `dist/static/`, which is
+`.gitignore`d) into a throwaway index, stamps `version.php` there (`version` =
+`YYYYMMDD00`, `release` = `<RELEASE>`; the working tree is never modified), and
+emits the ZIP via `git archive --format=zip`. Temporary git objects are written
+to a scratch store, so your real `.git` is left untouched.
+
+Exclusions are driven by `.distignore` (a path is excluded when its top
+component or full relative path matches a pattern). `README.md` and
+`thirdpartylibs.xml` are shipped; dev/CI tooling (`Makefile`, `composer.*`,
+`docker*`, `blueprint.json`, `phpmd*`, `scripts/`, `research/`, hidden files,
+internal docs) is not.
+
+> The committed `version.php` carries a sentinel (`9999999999` / `dev`,
+> [DEC-0030](./research/decisiones/adr/DEC-0030-version-sentinela-en-main.md)); the real
+> values are injected into the ZIP only. Releases are also built automatically by
+> `.github/workflows/release.yml` on a published GitHub release.
