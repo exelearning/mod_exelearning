@@ -1,12 +1,5 @@
 # Makefile for mod_exelearning Moodle plugin
 
-# Define SED_INPLACE based on the operating system
-ifeq ($(shell uname), Darwin)
-  SED_INPLACE = sed -i ''
-else
-  SED_INPLACE = sed -i
-endif
-
 # Detect the operating system and shell environment
 ifeq ($(OS),Windows_NT)
     # Initially assume Windows shell
@@ -188,31 +181,18 @@ PLUGIN_NAME = mod_exelearning
 
 # Create a distributable ZIP package
 # Usage: make package RELEASE=0.0.2
-# VERSION (YYYYMMDDXX) is auto-generated from current date
+# VERSION (YYYYMMDDXX) is auto-generated from the current date.
+# Delegates to scripts/package.sh, which uses only git ("git archive") so it
+# needs no zip/rsync/python/php and works in Git Bash on Windows. version.php is
+# stamped in a temporary index (the working tree is never modified) and the ZIP
+# is rooted at the Moodle install folder "exelearning/".
 package:
 	@if [ -z "$(RELEASE)" ]; then \
 		echo "Error: RELEASE not specified. Use 'make package RELEASE=0.0.2'"; \
 		exit 1; \
 	fi
-	$(eval DATE_VERSION := $(shell date +%Y%m%d)00)
-	@echo "Packaging release $(RELEASE) (version $(DATE_VERSION))..."
-	$(SED_INPLACE) "s/\(plugin->version[[:space:]]*=[[:space:]]*\)[0-9]*/\1$(DATE_VERSION)/" version.php
-	$(SED_INPLACE) "s/\(plugin->release[[:space:]]*=[[:space:]]*'\)[^']*/\1$(RELEASE)/" version.php
-	@echo "Creating ZIP archive: $(PLUGIN_NAME)-$(RELEASE).zip..."
-	@if command -v rsync > /dev/null 2>&1 && command -v zip > /dev/null 2>&1; then \
-		rm -rf /tmp/exeweb-package; \
-		mkdir -p /tmp/exeweb-package/exeweb; \
-		rsync -av --exclude-from=.distignore ./ /tmp/exeweb-package/exeweb/; \
-		cd /tmp/exeweb-package && zip -qr "$(CURDIR)/$(PLUGIN_NAME)-$(RELEASE).zip" exeweb; \
-		rm -rf /tmp/exeweb-package; \
-	else \
-		PYTHON=$$(python3 -c "" > /dev/null 2>&1 && echo python3 || echo python); \
-		$$PYTHON scripts/package.py $(RELEASE) $(PLUGIN_NAME); \
-	fi
-	@echo "Restoring version.php..."
-	$(SED_INPLACE) "s/\(plugin->version[[:space:]]*=[[:space:]]*\)[0-9]*/\19999999999/" version.php
-	$(SED_INPLACE) "s/\(plugin->release[[:space:]]*=[[:space:]]*'\)[^']*/\1dev/" version.php
-	@echo "Package created: $(PLUGIN_NAME)-$(RELEASE).zip"
+	@command -v git >/dev/null 2>&1 || { echo "Error: git is required to build the package."; exit 1; }
+	@bash scripts/package.sh "$(RELEASE)" "$(PLUGIN_NAME)"
 
 # -------------------------------------------------------
 
