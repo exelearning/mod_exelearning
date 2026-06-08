@@ -247,34 +247,35 @@ $scaledoverall = \mod_exelearning\local\attempts::aggregate_scaled(
 );
 $finaloverall = ($scaledoverall === null) ? $score : ($scaledoverall * $grademax);
 
-$grade = (object) [
-    'userid'    => $USER->id,
-    'rawgrade'  => $finaloverall,
-    // DEC-0008: do not expose the raw CMI string as feedback; the functional
-    // status lives in mdl_exelearning_attempt.status.
-    'feedback'  => null,
-];
-
-// Always publish the aggregated overall grade. In PERITEM mode the grade item is
-// hidden and exists only so Moodle's completionpassgrade rule can evaluate the
-// pass/fail result without adding an extra visible gradebook column (TAREA-011).
-$result = grade_update(
-    'mod/exelearning',
-    $exelearning->course,
-    'mod',
-    'exelearning',
-    $exelearning->id,
-    0,
-    $grade,
-    $itemdetailsbase + [
-            'itemname' => clean_param($exelearning->name, PARAM_NOTAGS),
-            'hidden'   => ($grademodel === EXELEARNING_GRADEMODEL_PERITEM) ? 1 : 0,
-    ]
-);
-
-// In PERITEM the overall is hidden; exclude it from aggregation so it neither
-// double-counts nor blanks the student's total (DEC-0035). No-op in OVERALL mode.
-exelearning_exclude_overall_grade($exelearning, $USER->id);
+// Publish the aggregated overall grade ONLY in OVERALL mode, where it is the
+// single visible gradebook column. In PERITEM there is no overall column
+// (DEC-0038): publishing item 0 here would recreate it. The per-iDevice grades
+// (published above) carry the gradebook; completion-by-grade targets a per-iDevice
+// item (workshop model) or OVERALL mode (DEC-0010). The overall attempt is still
+// recorded in exelearning_attempt above for the attempts report.
+$result = GRADE_UPDATE_OK;
+if ($grademodel === EXELEARNING_GRADEMODEL_OVERALL) {
+    $grade = (object) [
+        'userid'    => $USER->id,
+        'rawgrade'  => $finaloverall,
+        // DEC-0008: do not expose the raw CMI string as feedback; the functional
+        // status lives in mdl_exelearning_attempt.status.
+        'feedback'  => null,
+    ];
+    $result = grade_update(
+        'mod/exelearning',
+        $exelearning->course,
+        'mod',
+        'exelearning',
+        $exelearning->id,
+        0,
+        $grade,
+        $itemdetailsbase + [
+                'itemname' => clean_param($exelearning->name, PARAM_NOTAGS),
+                'hidden'   => 0,
+        ]
+    );
+}
 
 // Recalculate completion: with "require passing grade" (completionpassgrade,
 // SCORM style) Moodle marks the activity complete when the passing grade is

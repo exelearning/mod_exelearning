@@ -933,10 +933,14 @@ function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null
     $grademodel = (int) ($instance->grademodel ?? EXELEARNING_GRADEMODEL_PERITEM);
 
     // Canonical grade item (itemnumber=0) according to the grading model
-    // (DEC-0008). PERITEM keeps it hidden so Moodle's core
-    // completionpassgrade rule still has a pass/fail grade to evaluate
-    // (DEC-0010, validated by TAREA-011) without adding a visible overall
-    // column to the gradebook.
+    // (DEC-0008, revised by DEC-0038). The two models are now symmetric: OVERALL
+    // shows only the aggregated column, PERITEM shows only the per-iDevice
+    // columns. There is no longer a hidden overall stub in PERITEM — a hidden
+    // item still shows (greyed) to teachers with moodle/grade:viewhidden and was
+    // reported as a confusing "extra grade" (DEC-0038). Completion-by-grade keeps
+    // working the Moodle-native way: the teacher points completiongradeitemnumber
+    // at a per-iDevice item (workshop model), or uses OVERALL mode to complete on
+    // passing the activity as a whole (DEC-0010).
     if ($grademodel === EXELEARNING_GRADEMODEL_OVERALL) {
         // Overall only: the gradebook shows a single aggregated column (SCORM-style).
         // Pass hidden=0 explicitly so switching PERITEM -> OVERALL un-hides the
@@ -944,8 +948,18 @@ function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null
         // column would stay hidden from when it was the completion-only stub.
         exelearning_grade_item_update($instance, null, ['hidden' => 0]);
     } else {
-        // Per iDevice (default): keep the overall hidden for completion only.
-        exelearning_grade_item_update($instance, null, ['hidden' => 1]);
+        // Per iDevice (default): no overall column at all. Delete any overall left
+        // over from a previous sync or from the legacy hidden-stub model (DEC-0038).
+        grade_update(
+            'mod/exelearning',
+            $instance->course,
+            'mod',
+            'exelearning',
+            $instance->id,
+            0,
+            null,
+            ['deleted' => true]
+        );
     }
 
     // Detection.
@@ -966,8 +980,9 @@ function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null
     );
 
     if ($detected === []) {
-        // Even with no gradable iDevices the hidden overall item exists; keep it
-        // under the configured grade category (DEC-0034).
+        // No gradable iDevices: PERITEM has no grade items at all, OVERALL keeps
+        // its single aggregated column. Place whatever exists under the configured
+        // grade category (DEC-0034); a no-op when there are no items.
         exelearning_apply_grade_category($instance);
         return $delta;
     }
@@ -1183,10 +1198,11 @@ function exelearning_recalculate_user_grades(stdClass $instance, int $userid): v
     }
 
     foreach ($items as $itemnumber => $name) {
+        unset($base['hidden']);
+        // PERITEM has no overall column (DEC-0038): never (re)publish item 0 there,
+        // which would recreate it. OVERALL has no per-iDevice columns.
         if ($itemnumber === 0 && $grademodel !== EXELEARNING_GRADEMODEL_OVERALL) {
-            $base['hidden'] = 1;
-        } else {
-            unset($base['hidden']);
+            continue;
         }
         if ($itemnumber > 0 && $grademodel === EXELEARNING_GRADEMODEL_OVERALL) {
             continue;
@@ -1212,10 +1228,6 @@ function exelearning_recalculate_user_grades(stdClass $instance, int $userid): v
             $base + ['itemname' => $name]
         );
     }
-
-    // Keep the hidden overall out of aggregation in PERITEM so the recomputed
-    // grade does not re-blank the student's total (DEC-0035).
-    exelearning_exclude_overall_grade($instance, $userid);
 }
 
 /**
@@ -1274,47 +1286,11 @@ function exelearning_apply_grade_category(stdClass $instance): void {
     }
 }
 
-/**
- * Excludes the hidden overall grade (itemnumber=0) from gradebook aggregation in
- * the per-iDevice model so it does not blank the student's totals (DEC-0035).
- *
- * In PERITEM mode the overall item is kept hidden only to drive core
- * completionpassgrade (DEC-0010). A hidden item that still aggregates makes Moodle
- * blank any total that contains it for students — grade_report_user_showtotalsifcontainhidden
- * defaults to GRADE_REPORT_HIDE_TOTAL_IF_CONTAINS_HIDDEN — which is why the teacher
- * (moodle/grade:viewhidden) and the student saw different grades. Marking the
- * per-user overall grade as excluded drops it from every aggregation method and
- * makes grade_grade::get_hiding_affected() skip it, so the student total shows
- * again. finalgrade/gradepass are left intact, so completion is unaffected. No-op
- * in OVERALL mode, where the overall IS the visible grade.
- *
- * @param stdClass $instance The exelearning instance.
- * @param int $userid The user whose overall grade was just written.
- * @return void
- */
-function exelearning_exclude_overall_grade(stdClass $instance, int $userid): void {
-    global $CFG;
-    require_once($CFG->libdir . '/gradelib.php');
-
-    $grademodel = (int) ($instance->grademodel ?? EXELEARNING_GRADEMODEL_PERITEM);
-    if ($grademodel !== EXELEARNING_GRADEMODEL_PERITEM) {
-        return;
-    }
-    $overall = grade_item::fetch([
-        'itemtype'     => 'mod',
-        'itemmodule'   => 'exelearning',
-        'iteminstance' => $instance->id,
-        'itemnumber'   => 0,
-        'courseid'     => $instance->course,
-    ]);
-    if (!$overall) {
-        return;
-    }
-    $grade = grade_grade::fetch(['itemid' => $overall->id, 'userid' => $userid]);
-    if ($grade && !$grade->is_excluded()) {
-        $grade->set_excluded(true);
-    }
-}
+// Note: exelearning_exclude_overall_grade() (DEC-0035) was removed in DEC-0038.
+// It excluded the hidden overall (itemnumber=0) from aggregation so it would not
+// blank the student's total. PERITEM no longer creates an overall item at all, so
+// there is nothing to exclude and the root cause (a hidden item that aggregates)
+// is gone.
 
 // -----------------------------------------------------------------------------
 // Embedded eXeLearning editor support (ported from mod_exeweb).

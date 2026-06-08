@@ -90,35 +90,34 @@ final class grademodel_test extends advanced_testcase {
     }
 
     /**
-     * PERITEM model (the default): per-iDevice columns exist and the overall
-     * itemnumber=0 is hidden, retained only for Moodle completionpassgrade.
+     * PERITEM model (the default): per-iDevice columns exist and there is NO
+     * overall column at all (DEC-0038). The per-iDevice items are visible and so
+     * usable as completiongradeitemnumber targets (workshop model).
      */
-    public function test_peritem_creates_per_idevice_columns_hidden_overall(): void {
+    public function test_peritem_creates_per_idevice_columns_no_overall(): void {
         $instance = $this->create_activity(['grademodel' => EXELEARNING_GRADEMODEL_PERITEM]);
 
-        // Per-iDevice columns are present and feed the course total directly.
-        $this->assertInstanceOf(grade_item::class, $this->fetch_item($instance, 1));
+        // Per-iDevice columns are present, visible, and feed the course total.
+        $idevice1 = $this->fetch_item($instance, 1);
+        $this->assertInstanceOf(grade_item::class, $idevice1);
+        $this->assertFalse((bool) $idevice1->hidden);
         $this->assertInstanceOf(grade_item::class, $this->fetch_item($instance, 2));
 
-        // The overall is hidden under the per-iDevice model: it supports
-        // completionpassgrade without appearing as a normal gradebook column.
-        $overall = $this->fetch_item($instance, 0);
-        $this->assertInstanceOf(grade_item::class, $overall);
-        $this->assertTrue((bool) $overall->hidden);
+        // The overall itemnumber=0 does not exist under the per-iDevice model:
+        // no hidden "extra grade" column shown to teachers (DEC-0038).
+        $this->assertFalse($this->fetch_item($instance, 0));
     }
 
     /**
      * The generator default (no grademodel given) is PERITEM: per-iDevice
-     * columns present, hidden completion-only overall present.
+     * columns present, no overall column.
      */
     public function test_default_model_is_peritem(): void {
         $instance = $this->create_activity();
 
         $this->assertSame(EXELEARNING_GRADEMODEL_PERITEM, (int) $instance->grademodel);
         $this->assertInstanceOf(grade_item::class, $this->fetch_item($instance, 1));
-        $overall = $this->fetch_item($instance, 0);
-        $this->assertInstanceOf(grade_item::class, $overall);
-        $this->assertTrue((bool) $overall->hidden);
+        $this->assertFalse($this->fetch_item($instance, 0));
     }
 
     /**
@@ -128,12 +127,10 @@ final class grademodel_test extends advanced_testcase {
     public function test_switch_peritem_to_overall_swaps_columns(): void {
         $instance = $this->create_activity(['grademodel' => EXELEARNING_GRADEMODEL_PERITEM]);
 
-        // Per-iDevice columns are present under PERITEM; overall is hidden.
+        // Per-iDevice columns are present under PERITEM; no overall column.
         $this->assertInstanceOf(grade_item::class, $this->fetch_item($instance, 1));
         $this->assertInstanceOf(grade_item::class, $this->fetch_item($instance, 2));
-        $overall = $this->fetch_item($instance, 0);
-        $this->assertInstanceOf(grade_item::class, $overall);
-        $this->assertTrue((bool) $overall->hidden);
+        $this->assertFalse($this->fetch_item($instance, 0));
 
         $data = $this->update_payload($instance, ['grademodel' => EXELEARNING_GRADEMODEL_OVERALL]);
         $this->assertTrue(exelearning_update_instance($data));
@@ -147,8 +144,8 @@ final class grademodel_test extends advanced_testcase {
     }
 
     /**
-     * Switching OVERALL → PERITEM on update hides the overall column and
-     * exposes the per-iDevice columns.
+     * Switching OVERALL → PERITEM on update removes the overall column entirely
+     * (DEC-0038) and exposes the per-iDevice columns.
      */
     public function test_switch_overall_to_peritem_swaps_columns(): void {
         $instance = $this->create_activity(['grademodel' => EXELEARNING_GRADEMODEL_OVERALL]);
@@ -158,10 +155,8 @@ final class grademodel_test extends advanced_testcase {
         $data = $this->update_payload($instance, ['grademodel' => EXELEARNING_GRADEMODEL_PERITEM]);
         $this->assertTrue(exelearning_update_instance($data));
 
-        // The overall (itemnumber=0) column is hidden; per-iDevice ones appear.
-        $overall = $this->fetch_item($instance, 0);
-        $this->assertInstanceOf(grade_item::class, $overall);
-        $this->assertTrue((bool) $overall->hidden);
+        // The overall (itemnumber=0) column is gone; per-iDevice ones appear.
+        $this->assertFalse($this->fetch_item($instance, 0));
         $this->assertInstanceOf(grade_item::class, $this->fetch_item($instance, 1));
         $this->assertInstanceOf(grade_item::class, $this->fetch_item($instance, 2));
     }
@@ -178,6 +173,27 @@ final class grademodel_test extends advanced_testcase {
         $overall = $this->fetch_item($instance, 0);
         $this->assertInstanceOf(grade_item::class, $overall);
         $this->assertEqualsWithDelta(50.0, (float) $overall->gradepass, 0.0001);
+    }
+
+    /**
+     * Workshop-style completion (DEC-0038): in PERITEM a per-iDevice grade item is
+     * a valid completiongradeitemnumber target — it exists, is visible and carries
+     * a grademax so Moodle can evaluate "require (passing) grade" against it. The
+     * overall (item 0) is not needed for completion in this model.
+     */
+    public function test_peritem_idevice_is_valid_completion_target(): void {
+        $instance = $this->create_activity([
+            'grademodel' => EXELEARNING_GRADEMODEL_PERITEM,
+            'grademax'   => 100,
+        ]);
+
+        $idevice1 = $this->fetch_item($instance, 1);
+        $this->assertInstanceOf(grade_item::class, $idevice1);
+        $this->assertFalse((bool) $idevice1->hidden);
+        $this->assertGreaterThan(0.0, (float) $idevice1->grademax);
+
+        // No overall column exists to fall back on.
+        $this->assertFalse($this->fetch_item($instance, 0));
     }
 
     /**
