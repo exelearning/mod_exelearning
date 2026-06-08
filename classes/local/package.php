@@ -206,22 +206,42 @@ class package {
      * scored is detected (incl. Form, Map, Interactive Video, …) and gradable-type
      * iDevices left unscored are skipped.
      *
-     * The flag lives in `<jsonProperties>` for json-type iDevices but in `<htmlView>`
-     * for html-type ones (interactive-video, dragdrop, periodic-table, beforeafter, …),
-     * so we read jsonProperties first and fall back to htmlView (DEC-0022 amendment;
-     * without the htmlView fallback those types were missed). The value may be nested
-     * (e.g. interactive-video stores it under `scorm`), so the match is not anchored
-     * to the top level.
+     * The flag is stored in one of THREE places depending on the iDevice family,
+     * so detection reads all of them and treats the iDevice as scored when ANY
+     * source reports isScorm > 0 (taking the maximum avoids a plain `0` shadowing
+     * an encrypted `1`):
+     *   1. `<jsonProperties>` — json-type iDevices (trueorfalse, form, map,
+     *      scrambled-list, …). Plain JSON.
+     *   2. `<htmlView>` plain — some html-type iDevices store the flag in their
+     *      rendered HTML (interactive-video, dragdrop, periodic-table, beforeafter,
+     *      flipcards, relate, trivial, mathematicaloperations). The value may be
+     *      nested (e.g. interactive-video stores it under `scorm`), so the match is
+     *      not anchored to the top level (DEC-0022 amendment).
+     *   3. `<htmlView>` encrypted `*-DataGame` div — the "exe-game" family
+     *      (guess, discover, identify, classify, quick-questions*, az-quiz-game,
+     *      crossword, word-search, padlock, challenge, select-media-files,
+     *      complete, sort, mathproblems, …) keeps its whole config — including
+     *      isScorm — obfuscated inside a hidden `*-DataGame` div, so the plain
+     *      regex never saw it (this was the "only 12 of 30 detected" bug, issue
+     *      #13 comment; DEC-0037 amendment). {@see self::extract_isscorm_datagame()}.
      *
      * @param string $block Raw content.xml slice for one iDevice (id → next token).
-     * @return bool True when the iDevice declares isScorm 1 or 2.
+     * @return bool True when the iDevice declares isScorm 1 or 2 in any source.
      */
     private function idevice_reports_score(string $block): bool {
-        $value = $this->extract_isscorm($block, 'jsonProperties');
-        if ($value === null) {
-            $value = $this->extract_isscorm($block, 'htmlView');
+        $max = null;
+        foreach (
+            [
+                $this->extract_isscorm($block, 'jsonProperties'),
+                $this->extract_isscorm($block, 'htmlView'),
+                $this->extract_isscorm_datagame($block),
+            ] as $value
+        ) {
+            if ($value !== null && ($max === null || $value > $max)) {
+                $max = $value;
+            }
         }
-        return $value !== null && $value > 0;
+        return $max !== null && $max > 0;
     }
 
     /**
@@ -241,6 +261,88 @@ class package {
             return (int) $mm[1];
         }
         return null;
+    }
+
+    /**
+     * Reads `isScorm` from the encrypted `*-DataGame` div(s) inside the htmlView.
+     *
+     * The "exe-game" iDevice family (guess, discover, identify, classify,
+     * quick-questions*, az-quiz-game, crossword, word-search, padlock, challenge,
+     * select-media-files, complete, sort, mathproblems, …) does not expose its
+     * scoring config in plain text: the whole game JSON, including the `isScorm`
+     * flag, is obfuscated inside a hidden `<div class="…-DataGame …">` within the
+     * rendered htmlView. Each iDevice's `export/*.js` reverses it at runtime via
+     * eXeLearning's `decrypt()` (see `libs/common.js`): `unescape()` followed by an
+     * XOR with the fixed key 146 (0x92). We replicate that to read the flag so
+     * these iDevices register a Moodle grade item like the plain-text family
+     * (issue #13 "only 12 of 30 detected"; DEC-0037, amends DEC-0022).
+     *
+     * The div content is `escape()` output (no `<`), so the non-greedy `</div>`
+     * terminator is safe. A block may hold more than one DataGame div, so the
+     * maximum flag wins.
+     *
+     * @param string $block Raw content.xml slice for one iDevice.
+     * @return int|null The decrypted isScorm value, or null when absent/undecodable.
+     */
+    private function extract_isscorm_datagame(string $block): ?int {
+        if (!preg_match('~<htmlView>(.*?)</htmlView>~s', $block, $m)) {
+            return null;
+        }
+        $html = html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        if (!preg_match_all('~class="[^"]*DataGame[^"]*"[^>]*>(.*?)</div>~s', $html, $divs)) {
+            return null;
+        }
+        $max = null;
+        foreach ($divs[1] as $encoded) {
+            $json = $this->decrypt_datagame(trim($encoded));
+            if (preg_match('~"isScorm"\s*:\s*"?([0-9])~', $json, $mm)) {
+                $value = (int) $mm[1];
+                if ($max === null || $value > $max) {
+                    $max = $value;
+                }
+            }
+        }
+        return $max;
+    }
+
+    /**
+     * Decrypts an eXeLearning `DataGame` payload back to its JSON source.
+     *
+     * Mirrors eXeLearning's `decrypt()` (`libs/common.js`): apply a JavaScript
+     * `unescape()` to recover the code points, then XOR each one with the fixed
+     * key 146 (0x92). `unescape()` understands both `%XX` (one byte) and `%uXXXX`
+     * (one code unit), so both are handled; any literal character left by
+     * `escape()` is plain ASCII and maps to its byte value.
+     *
+     * @param string $encoded The `escape()`-encoded, XOR-obfuscated div content.
+     * @return string The decrypted UTF-8 string (expected to be the game JSON).
+     */
+    private function decrypt_datagame(string $encoded): string {
+        $out = '';
+        $len = strlen($encoded);
+        $i = 0;
+        while ($i < $len) {
+            $codepoint = null;
+            if ($encoded[$i] === '%' && $i + 1 < $len) {
+                if (
+                    $encoded[$i + 1] === 'u' && $i + 6 <= $len
+                    && ctype_xdigit(substr($encoded, $i + 2, 4))
+                ) {
+                    $codepoint = hexdec(substr($encoded, $i + 2, 4));
+                    $i += 6;
+                } else if ($i + 3 <= $len && ctype_xdigit(substr($encoded, $i + 1, 2))) {
+                    $codepoint = hexdec(substr($encoded, $i + 1, 2));
+                    $i += 3;
+                }
+            }
+            if ($codepoint === null) {
+                // The escape() output leaves only safe ASCII literals, so a raw byte is its code point.
+                $codepoint = ord($encoded[$i]);
+                $i++;
+            }
+            $out .= \core_text::code2utf8(146 ^ (int) $codepoint);
+        }
+        return $out;
     }
 
     /**

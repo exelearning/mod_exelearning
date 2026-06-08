@@ -36,3 +36,4 @@ items:
   - id: 'DEC-0034', titulo: 'Selector de categoría de calificación por actividad (gradecat) aplicado a todos los grade items vía set_parent', estado: 'Aceptada', fecha: '2026-06-04', ruta: 'decisiones/adr/DEC-0034-categoria-de-calificacion.md'
   - id: 'DEC-0035', titulo: 'Coherencia profesor/alumno en peritem: excluir la nota overall oculta de la agregación para no vaciar el total del alumno', estado: 'Aceptada', fecha: '2026-06-04', ruta: 'decisiones/adr/DEC-0035-visibilidad-notas-alumno-peritem.md'
   - id: 'DEC-0036', titulo: 'Mantener contenttype_exelearning como plugin separado de mod_exelearning (no fusionar)', estado: 'Aceptada', fecha: '2026-06-08', ruta: 'decisiones/adr/DEC-0036-contenttype-exelearning-plugin-separado.md'
+  - id: 'DEC-0037', titulo: 'Detección de isScorm también en el DataGame cifrado (issue #13: solo 12 de 30)', estado: 'Aceptada', fecha: '2026-06-08', ruta: 'decisiones/adr/DEC-0037-deteccion-isscorm-en-datagame-cifrado.md'
