@@ -336,7 +336,7 @@ class package {
                 }
             }
             if ($codepoint === null) {
-                // escape() leaves only safe ASCII literals, so a raw byte is its code point.
+                // The escape() output leaves only safe ASCII literals, so a raw byte is its code point.
                 $codepoint = ord($encoded[$i]);
                 $i++;
             }

@@ -338,12 +338,12 @@ final class package_test extends advanced_testcase {
         $this->resetAfterTest();
 
         $detected = $this->detect([
-            // guess + discover marked for assessment inside the encrypted DataGame.
+            // Guess + discover marked for assessment inside the encrypted DataGame.
             ['p1', 'idevice-guess-enc', 'guess',
                 $this->encrypted_datagame_htmlview('{"typeGame":"Adivina","isScorm":1}', 'adivina-DataGame')],
             ['p1', 'idevice-discover-enc', 'discover',
                 $this->encrypted_datagame_htmlview('{"typeGame":"Descubre","isScorm":1}', 'descubre-DataGame')],
-            // puzzle present but left unscored (isScorm 0) -> must stay out.
+            // Puzzle present but left unscored (isScorm 0) -> must stay out.
             ['p2', 'idevice-puzzle-0', 'puzzle',
                 $this->encrypted_datagame_htmlview('{"typeGame":"Puzzle","isScorm":0}', 'puzzle-DataGame')],
         ]);
