@@ -531,3 +531,20 @@ riesgos:
       - DEC-0012
       - FTE-010
       - TAREA-014
+  RIE-013:
+    titulo: "Duplicación de la lógica de extracción/sandbox .elpx entre mod_exelearning y contenttype_exelearning"
+    severidad: baja
+    probabilidad: media
+    estado: aceptado
+    mitigacion: >-
+      mod_exelearning (actividad) y contenttype_exelearning (banco de contenidos, REPO-006) son
+      plugins separados por necesidad arquitectónica (DEC-0036, FTE-013) y replican la misma
+      extracción de ZIP .elpx y la misma política sandbox del iframe sin compartir código
+      (mirroring intencional). Riesgo de deriva si una corrige un fallo de seguridad/render y la
+      otra no. ACEPTADO: duplicación menor y acotada; mitigación futura OPCIONAL = extraer una
+      librería .elpx común (parser/extracción/sandbox) consumida por ambos plugins (seguimiento
+      D3a de DEC-0036). No se aborda ahora por no acoplar ciclos de release (STABLE vs ALPHA).
+    relacionados:
+      - DEC-0036
+      - REPO-006
+      - FTE-013
