@@ -298,6 +298,10 @@ if (is_file($fixtures['exelearning']) && !$moduleexists('exelearning', $config['
             'intro'       => 'Cuestionario demo con dos iDevices calificables (trueorfalse + guess).',
             'introformat' => FORMAT_HTML,
             'package'     => $makedraft($fixtures['exelearning']),
+            // Overall model so "require passing grade" completion (DEC-0010) has a
+            // visible aggregated grade to evaluate. PERITEM has no overall column
+            // (DEC-0038), so whole-activity pass/fail completion lives here.
+            'grademodel'  => EXELEARNING_GRADEMODEL_OVERALL,
             'grademax'    => 100,
             'grademin'    => 0,
             'gradepass'   => 50,
