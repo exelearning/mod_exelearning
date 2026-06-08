@@ -49,6 +49,19 @@ respaldan. El detalle vive en cada DEC; aquí solo el mapa para no perderse entr
 - **Aceptar `.zip`** (con `content.xml`) además de `.elpx`, que también simplifica el uso normal:
   **DEC-0027** (PR #16, ya mergeado a `main`).
 
+## Seguimiento (2026-06-08): bug "solo 12 de 30" — DataGame cifrado
+
+Un usuario reporta que **no todas las actividades evaluables pasan al libro** (issue #13,
+[comentario](https://github.com/ateeducacion/mod_exelearning/issues/13#issuecomment-4648392513)):
+en `superelpx` (30 iDevices, casi todos `isScorm:1`) solo se detectaban **12**. Causa: la familia
+"exe-game" (guess, discover, identify, classify, quick-questions, az-quiz-game, crossword,
+word-search, padlock, challenge, select-media-files, complete, sort, mathproblems…) guarda su
+config —incluido `isScorm`— **cifrada** en un div oculto `*-DataGame` (`escape()` + XOR 146;
+`libs/common.js::decrypt`), invisible al regex de DEC-0022. Fix en **[[DEC-0037]]**: descifrar el
+DataGame como tercera fuente del flag → **12→28** en `superelpx` (los 2 fuera, `puzzle` y
+`hidden-image`, tienen `isScorm:0` real). Amplía los puntos #2/#5: la detección por `isScorm`
+ahora cubre también la familia con config ofuscada.
+
 ## Estado (2026-06-04)
 
 - **PR #14** — núcleo (puntos 1, 2, 4, 5, 6 + refinamientos). Rama `feature/issue-13-core`,
@@ -62,4 +75,4 @@ respaldan. El detalle vive en cada DEC; aquí solo el mapa para no perderse entr
 ## Enlaces
 
 [[DEC-0022]] · [[DEC-0023]] · [[DEC-0024]] · [[DEC-0026]] · [[DEC-0027]] · [[DEC-0028]] ·
-[[DEC-0029]] · [[DEC-0030]] · [[DEC-0031]]
+[[DEC-0029]] · [[DEC-0030]] · [[DEC-0031]] · [[DEC-0037]]

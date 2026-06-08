@@ -285,4 +285,94 @@ final class package_test extends advanced_testcase {
         $this->assertArrayHasKey('idevice-form-1', $detected);
         $this->assertArrayNotHasKey('idevice-dd-0', $detected);
     }
+
+    /**
+     * Encrypts a JSON string the way eXeLearning's `encrypt()` does
+     * (`libs/common.js`): XOR each code point with the fixed key 146 (0x92), then
+     * `escape()` it. To keep the test helper simple every code point is percent
+     * encoded (`%XX`, or `%uXXXX` when the XOR pushes it past 0xFF) — JavaScript's
+     * `unescape()`, which the parser replicates, decodes both forms, so the result
+     * round-trips exactly like a real `*-DataGame` payload.
+     *
+     * @param string $json The plaintext game JSON.
+     * @return string The encrypted, escaped payload.
+     */
+    private function encrypt_datagame(string $json): string {
+        $out = '';
+        $len = mb_strlen($json, 'UTF-8');
+        for ($i = 0; $i < $len; $i++) {
+            $codepoint = mb_ord(mb_substr($json, $i, 1, 'UTF-8'), 'UTF-8');
+            $xored = 146 ^ $codepoint;
+            if ($xored > 0xFF) {
+                $out .= '%u' . str_pad(strtoupper(dechex($xored)), 4, '0', STR_PAD_LEFT);
+            } else {
+                $out .= '%' . str_pad(strtoupper(dechex($xored)), 2, '0', STR_PAD_LEFT);
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Builds the HTML-escaped `<htmlView>` an exe-game iDevice carries: a hidden
+     * `*-DataGame` div whose content is the encrypted game JSON, exactly as real
+     * v4 packages serialise it (the div markup is entity-escaped inside htmlView).
+     *
+     * @param string $json The plaintext game JSON.
+     * @param string $cssclass The DataGame css class (e.g. 'adivina-DataGame').
+     * @return string The body string to feed as the iDevice's content block.
+     */
+    private function encrypted_datagame_htmlview(string $json, string $cssclass): string {
+        $div = '<div class="' . $cssclass . ' js-hidden">' . $this->encrypt_datagame($json) . '</div>';
+        return '<htmlView>' . htmlspecialchars($div, ENT_QUOTES | ENT_HTML5) . "</htmlView>\n";
+    }
+
+    /**
+     * The "exe-game" family (guess, discover, identify, classify, quick-questions,
+     * …) stores its whole config — including isScorm — encrypted inside a hidden
+     * `*-DataGame` div in the htmlView, with empty jsonProperties and no plain
+     * isScorm anywhere. Detection must decrypt that div (eXeLearning's `decrypt()`:
+     * unescape + XOR 146) and honour the flag, while still skipping an iDevice
+     * whose decrypted flag is 0 (issue #13 "only 12 of 30 detected"; DEC-0037).
+     */
+    public function test_isscorm_in_encrypted_datagame_detected(): void {
+        $this->resetAfterTest();
+
+        $detected = $this->detect([
+            // Guess + discover marked for assessment inside the encrypted DataGame.
+            ['p1', 'idevice-guess-enc', 'guess',
+                $this->encrypted_datagame_htmlview('{"typeGame":"Adivina","isScorm":1}', 'adivina-DataGame')],
+            ['p1', 'idevice-discover-enc', 'discover',
+                $this->encrypted_datagame_htmlview('{"typeGame":"Descubre","isScorm":1}', 'descubre-DataGame')],
+            // Puzzle present but left unscored (isScorm 0) -> must stay out.
+            ['p2', 'idevice-puzzle-0', 'puzzle',
+                $this->encrypted_datagame_htmlview('{"typeGame":"Puzzle","isScorm":0}', 'puzzle-DataGame')],
+        ]);
+
+        $this->assertCount(2, $detected);
+        $this->assertArrayHasKey('idevice-guess-enc', $detected);
+        $this->assertArrayHasKey('idevice-discover-enc', $detected);
+        $this->assertArrayNotHasKey('idevice-puzzle-0', $detected);
+    }
+
+    /**
+     * Real game JSON routinely contains characters above U+00FF (smart quotes,
+     * the ellipsis …), which `escape()` emits as `%uXXXX` rather than `%XX`. The
+     * decrypter must handle that form too, otherwise the whole payload — and its
+     * isScorm flag — is lost (this is why hidden-image/mathproblems decoded as
+     * errors before the fix).
+     */
+    public function test_encrypted_datagame_unicode_unescape_detected(): void {
+        $this->resetAfterTest();
+
+        $json = '{"typeGame":"Clasifica","instructions":"<p>Arrastra cada elemento…</p>","isScorm":1}';
+        // Sanity-check the helper actually exercises the %uXXXX branch.
+        $this->assertStringContainsString('%u', $this->encrypt_datagame($json));
+
+        $detected = $this->detect([
+            ['p1', 'idevice-classify-enc', 'classify',
+                $this->encrypted_datagame_htmlview($json, 'clasifica-DataGame')],
+        ]);
+
+        $this->assertArrayHasKey('idevice-classify-enc', $detected);
+    }
 }

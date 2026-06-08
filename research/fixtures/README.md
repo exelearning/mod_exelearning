@@ -34,6 +34,35 @@ Fecha de la copia: **2026-05-28**.
 | `really-simple-test-project.elpx` | 1.2 MB | Sample canónico de pruebas: 6 páginas en árbol, solo iDevices `text`. |
 | `contenido-prueba-estilos-cata.elpx` | 2.1 MB | Sample real de mayor tamaño: 56 páginas, 7 tipos de iDevice (`text`, `udl-content`, `scrambled-list`, `rubric`, `interactive-video`, `form`, `download-source-file`). Provisto por el usuario el 2026-05-18. Bueno para probar estilos, catalogación, paginación, search box y `scrambled-list` (potencialmente calificable). |
 | `actividad-evaluable.elpx` | 633 KB | **Sample canónico para EXP-002 (multi-grade-items)**: 1 página "Test 1" con **2 iDevices calificables** (`trueorfalse` + `guess`). IDs estables observados: `idevice-1779989968114-sevb8qqdy` y `idevice-1779990014981-upsl0qps2`. Generado por el usuario con eXeLearning v4 el 2026-05-28 — fuente directa para validar el flujo "1 paquete → 2 grade items". |
+| `actividad-evaluable_2.elpx` | 632 KB | **Fixture del bug "DataGame cifrado" (DEC-0037)**: `trueorfalse` (config en texto plano → detectado siempre) + `discover` (config cifrada en `*-DataGame` → **antes ignorado, ahora detectado**). Esperado: **2/2** calificables. Provisto por el usuario 2026-06-08. |
+| `actividad-evaluable_3.elpx` | 952 KB | Igual familia: `trueorfalse`, `guess`, `form` (plano) + `discover`, `identify`, `classify` (cifrados) + 2 `text` no calificables. Esperado: **6/8** (antes 3/8). |
+| `actividad-evaluable4.elpx` | 722 KB | 2×`trueorfalse` + 2×`guess` (plano) + 2×`discover` (cifrado). Esperado: **6/6** (antes 4/6). |
+
+#### `superelpx.elpx` — paquete exhaustivo del bug 12/30 (issue #13, DEC-0037)
+
+`superelpx.elpx` (≈16 MB; es un **export web completo** con `html/`+`idevices/`+
+`libs/`, no solo el `content.xml` — se conserva entero a petición del usuario,
+aunque el plugin **solo lee `content.xml`**). Contiene **30 iDevices, uno de cada
+tipo**, casi todos marcados como calificables (`isScorm:1`).
+
+- **Antes del fix**: el plugin detectaba **12/30** (map, form, interactive-video,
+  trueorfalse, trivial, beforeafter, dragdrop, flipcards, relate, scrambled-list,
+  mathematicaloperations, periodic-table) — los que guardan `isScorm` en texto
+  plano (`jsonProperties` o `htmlView`).
+- **Después del fix (DEC-0037)**: detecta **28/30**. Los 16 nuevos guardaban su
+  config — incluido `isScorm` — **cifrada** en el div oculto `*-DataGame`
+  (`escape()` + XOR 146; ver `libs/common.js::decrypt`). Los 2 que siguen fuera
+  (`puzzle`, `hidden-image`) tienen `isScorm:0` real → correctamente excluidos.
+
+Reproducción rápida del conteo (sin Moodle):
+
+```bash
+# Descifra cada DataGame (unescape + XOR 146) y cuenta isScorm>0 sobre content.xml.
+# Es la misma lógica que classes/local/package.php::extract_isscorm_datagame().
+```
+
+`libs/common.js::decrypt` (cita upstream): `unescape(str)` y luego
+`String.fromCharCode(146 ^ str.charCodeAt(pos))` por carácter.
 
 ### `web-export/really-simple_web/` — export "sitio web estático" del proyecto anterior
 
