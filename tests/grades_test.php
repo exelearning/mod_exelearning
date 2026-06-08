@@ -29,14 +29,14 @@ require_once($CFG->libdir . '/gradelib.php');
 
 /**
  * Unit tests for the grade category selector (DEC-0034) and the per-iDevice
- * student-visibility fix (DEC-0035).
+ * gradebook model with no overall column (DEC-0038, supersedes DEC-0035).
  *
  * @package    mod_exelearning
  * @category   test
  * @copyright  2026 ATE (Área de Tecnología Educativa)
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @covers     ::exelearning_apply_grade_category
- * @covers     ::exelearning_exclude_overall_grade
+ * @covers     ::exelearning_recalculate_user_grades
  */
 final class grades_test extends advanced_testcase {
     /**
@@ -110,8 +110,9 @@ final class grades_test extends advanced_testcase {
             'gradecat'   => $category->id,
         ]);
 
-        // Overall (0) + the two gradable iDevices (1, 2) must sit under the category.
-        foreach ([0, 1, 2] as $itemnumber) {
+        // The two gradable iDevices (1, 2) must sit under the category. PERITEM
+        // has no overall item (DEC-0038).
+        foreach ([1, 2] as $itemnumber) {
             $item = $this->fetch_item($instance, $itemnumber);
             $this->assertInstanceOf(grade_item::class, $item);
             $this->assertEquals(
@@ -142,7 +143,7 @@ final class grades_test extends advanced_testcase {
         $data = $this->update_payload($instance, ['gradecat' => $cat2->id]);
         $this->assertTrue(exelearning_update_instance($data));
 
-        foreach ([0, 1, 2] as $itemnumber) {
+        foreach ([1, 2] as $itemnumber) {
             $this->assertEquals(
                 (int) $cat2->id,
                 (int) $this->fetch_item($instance, $itemnumber)->categoryid,
@@ -152,43 +153,39 @@ final class grades_test extends advanced_testcase {
     }
 
     /**
-     * In PERITEM the hidden overall grade is excluded from aggregation so Moodle
-     * does not blank the student's total, while the per-iDevice grade stays
-     * included (DEC-0035).
+     * In PERITEM there is no overall grade item at all (DEC-0038): the root cause
+     * of the DEC-0035 problem (a hidden item that aggregates and blanks the
+     * student's total) is gone. The per-iDevice grades are published, included in
+     * aggregation, and the student's course total is computed from them.
      */
-    public function test_peritem_overall_grade_excluded_from_aggregation(): void {
+    public function test_peritem_has_no_overall_grade_item(): void {
         $instance = $this->create_activity(['grademodel' => EXELEARNING_GRADEMODEL_PERITEM]);
 
         $course = get_course($instance->course);
         $student = $this->getDataGenerator()->create_user();
         $this->getDataGenerator()->enrol_user($student->id, $course->id, 'student');
 
-        // Overall (0) + both per-iDevice (1, 2) attempts so recalc writes each grade.
-        attempts::record_item($instance->id, $student->id, 1, 0, 8, 10, 'completed', 's1');
+        // Per-iDevice (1, 2) attempts so recalc writes each grade.
         attempts::record_item($instance->id, $student->id, 1, 1, 7, 10, 'completed', 's1');
         attempts::record_item($instance->id, $student->id, 1, 2, 9, 10, 'completed', 's1');
 
         exelearning_recalculate_user_grades($instance, $student->id);
 
-        $overallgrade = grade_grade::fetch([
-            'itemid' => $this->fetch_item($instance, 0)->id,
-            'userid' => $student->id,
-        ]);
-        $this->assertInstanceOf(grade_grade::class, $overallgrade);
-        $this->assertTrue(
-            $overallgrade->is_excluded(),
-            'The hidden overall grade must be excluded from aggregation in PERITEM'
-        );
+        // No overall grade item exists in PERITEM.
+        $this->assertFalse($this->fetch_item($instance, 0));
 
+        // The per-iDevice grade is published (grade_get_grades forces a regrade).
+        $grades = grade_get_grades($instance->course, 'mod', 'exelearning', $instance->id, $student->id);
+        $this->assertEqualsWithDelta(70.0, (float) $grades->items[1]->grades[$student->id]->grade, 0.0001);
+
+        // The per-iDevice grade is included in aggregation (not excluded): there is
+        // no hidden overall to blank the student's total anymore (DEC-0038).
         $peritemgrade = grade_grade::fetch([
             'itemid' => $this->fetch_item($instance, 1)->id,
             'userid' => $student->id,
         ]);
         $this->assertInstanceOf(grade_grade::class, $peritemgrade);
-        $this->assertFalse(
-            $peritemgrade->is_excluded(),
-            'Per-iDevice grades must remain included so the student sees a total'
-        );
+        $this->assertFalse((bool) $peritemgrade->is_excluded());
     }
 
     /**

@@ -13,3 +13,4 @@ items:
   - id: 'FTE-011', titulo: 'Emisión xAPI en eXeLearning (exe_xapi.js, PR upstream #1867)', estado: None, fecha: None, ruta: 'fuentes/tecnologia/FTE-011-exelearning-emision-xapi.md'
   - id: 'FTE-012', titulo: 'Moodle grade API: categoría de un grade item (set_parent), exclusión de la agregación (set_excluded) y vaciado de totales con items ocultos', estado: None, fecha: None, ruta: 'fuentes/tecnologia/FTE-012-moodle-grade-api-categoria-exclusion.md'
   - id: 'FTE-013', titulo: 'Moodle: tipos de plugin, frankenstyle, subplugins, dependencias y empaquetado', estado: None, fecha: None, ruta: 'fuentes/tecnologia/FTE-013-moodle-tipos-plugin-empaquetado.md'
+  - id: 'FTE-014', titulo: 'Moodle: selección del grade item para la finalización por nota (completiongradeitemnumber, modelo workshop)', estado: None, fecha: None, ruta: 'fuentes/tecnologia/FTE-014-moodle-completion-grade-item-selection.md'

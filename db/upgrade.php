@@ -445,5 +445,35 @@ function xmldb_exelearning_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026060402, 'exelearning');
     }
 
+    // Stage 14 (2026060800): drop the hidden overall grade item in per-iDevice
+    // mode (DEC-0038, supersedes the DEC-0035 exclusion above). The hidden overall
+    // (itemnumber=0) still showed as a greyed "extra grade" column to teachers
+    // (moodle/grade:viewhidden) and was reported as confusing. PERITEM now shows
+    // only the per-iDevice columns; completion-by-grade targets a per-iDevice item
+    // (workshop model) or uses OVERALL mode. Delete the leftover overall items so
+    // existing activities match the new model without waiting for a re-sync.
+    if ($oldversion < 2026060800) {
+        global $CFG;
+        require_once($CFG->libdir . '/gradelib.php');
+
+        // EXELEARNING_GRADEMODEL_PERITEM = 1 (literal: keep upgrade.php independent
+        // of lib.php constants).
+        $periteminstances = $DB->get_records('exelearning', ['grademodel' => 1], '', 'id, course');
+        foreach ($periteminstances as $inst) {
+            grade_update(
+                'mod/exelearning',
+                $inst->course,
+                'mod',
+                'exelearning',
+                $inst->id,
+                0,
+                null,
+                ['deleted' => true]
+            );
+        }
+
+        upgrade_mod_savepoint(true, 2026060800, 'exelearning');
+    }
+
     return true;
 }
