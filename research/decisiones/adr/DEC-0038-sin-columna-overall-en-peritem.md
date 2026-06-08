@@ -111,8 +111,11 @@ la causa de raíz** y hace innecesario ese parche.
 - **D4.** La finalización «estilo SCORM = aprobar» (DEC-0010) pasa a vivir en el modo
   OVERALL (overall visible con `gradepass`) o sobre un iDevice concreto vía
   `completiongradeitemnumber`. La demo (`blueprint.json`, `scripts/setup_demo.php`)
-  pasa la actividad evaluable a `grademodel=OVERALL` para que la finalización siga
-  siendo demostrable.
+  **se mantiene en `peritem`** (para mostrar las dos columnas por-iDevice, que es lo
+  que este DEC busca) y apunta la finalización al **iDevice 1**
+  (`completionusegrade=1`, `completiongradeitemnumber=1`), demostrando el modelo
+  workshop. El modo OVERALL queda como la vía para «completar al aprobar la actividad
+  entera».
 
 ## Consecuencias
 
@@ -127,9 +130,10 @@ la causa de raíz** y hace innecesario ese parche.
 
 **Negativas / coste**
 - «Completar al aprobar la actividad entera» dentro de `peritem` ya no es directo:
-  hay que usar el modo OVERALL o apuntar la finalización a un iDevice. Revisa el
-  combo `peritem + completionpassgrade-sobre-overall` validado en DEC-0010/TAREA-011;
-  la demo se actualiza en consecuencia.
+  hay que usar el modo OVERALL o apuntar la finalización a un iDevice (que carece de
+  `gradepass` propio, así que en `peritem` la demo usa `completionusegrade` —«exigir
+  nota»— sobre el iDevice 1, no `completionpassgrade`). Revisa el combo
+  `peritem + completionpassgrade-sobre-overall` validado en DEC-0010/TAREA-011.
 - Una actividad `peritem` sin iDevices calificables queda sin grade items (antes tenía
   el overall oculto). Es coherente con «no hay nada que calificar».
 

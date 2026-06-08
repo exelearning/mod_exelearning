@@ -298,19 +298,28 @@ if (is_file($fixtures['exelearning']) && !$moduleexists('exelearning', $config['
             'intro'       => 'Cuestionario demo con dos iDevices calificables (trueorfalse + guess).',
             'introformat' => FORMAT_HTML,
             'package'     => $makedraft($fixtures['exelearning']),
-            // Overall model so "require passing grade" completion (DEC-0010) has a
-            // visible aggregated grade to evaluate. PERITEM has no overall column
-            // (DEC-0038), so whole-activity pass/fail completion lives here.
-            'grademodel'  => EXELEARNING_GRADEMODEL_OVERALL,
+            // PERITEM (default): the gradebook shows one column per gradable iDevice
+            // and no overall column (DEC-0038). Completion targets a per-iDevice item
+            // instead of an aggregate overall (workshop model); see the override
+            // below. "Pass the whole activity to complete" lives in OVERALL mode.
             'grademax'    => 100,
             'grademin'    => 0,
-            'gradepass'   => 50,
             'grademethod' => \mod_exelearning\local\attempts::GRADE_HIGHEST,
             'gradedisplaytype' => 0,
             'cmidnumber'  => '',
             'groupmode'   => NOGROUPS,
             'groupingid'  => 0,
-        ], $completionpass);
+        ], [
+            // Complete on receiving a grade for the first gradable iDevice. PERITEM
+            // has no overall item (DEC-0038), so completion points at iDevice 1
+            // (completiongradeitemnumber=1) using Moodle's native selector.
+            'completion'                => COMPLETION_TRACKING_AUTOMATIC,
+            'completionview'            => 0,
+            'completionusegrade'        => 1,
+            'completionpassgrade'       => 0,
+            'completiongradeitemnumber' => 1,
+            'completionexpected'        => 0,
+        ]);
         $cm = add_moduleinfo($data, $course);
         cli_writeln('  · mod_exelearning creado (cmid=' . $cm->coursemodule . ').');
     } catch (\Throwable $e) {

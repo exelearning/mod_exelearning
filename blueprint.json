@@ -104,11 +104,10 @@
       "intro":   "Cuestionario demo con dos iDevices calificables (trueorfalse + guess).",
       "revision": 1,
       "display":  1,
-      "grademodel": 0,
-      "gradepass": 50,
       "completion": 2,
       "completionusegrade": 1,
-      "completionpassgrade": 1,
+      "completionpassgrade": 0,
+      "completiongradeitemnumber": 1,
       "files": [
         {
           "filearea": "package",
