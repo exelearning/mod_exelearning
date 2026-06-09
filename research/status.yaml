@@ -228,6 +228,23 @@ decisiones_bloqueantes:
       desde track.php y recalculate_user_grades) + migración en upgrade. get_hiding_affected
       salta las excluidas → el total deja de vaciarse; finalgrade/gradepass intactos.
       Verificado en Docker: COURSE TOTAL blanked_by_hidden=NO.
+  DEC-0042:
+    titulo: "Parchear al servir el guard de guardado de form/scrambled-list (embebedor-side de exelearning#1925)"
+    estado: Aceptada
+    ruta: decisiones/adr/DEC-0042-parche-save-guard-form-scrambled.md
+    fecha: 2026-06-09
+    relacionados: [DEC-0037, DEC-0022, DEC-0017]
+    notas: >-
+      Issue #13 (2º bug): form y scrambled-list guardan 0 porque condicionan su
+      sendScore() a body.exe-scorm (los otros 16 evaluables guardan por isScorm>0). El
+      plugin sirve un export web (sin esa clase). Auditados los 51 iDevices: solo esos
+      dos acoplan el SAVE a exe-scorm. Se descartó inyectar exe-scorm (enciende el ciclo
+      SCO loadPage/unloadPage → doble-commit + lesson_status/session_time per-página, y
+      la CSS de presentación SCORM; mismatch arquitectónico). Decisión: aplicar
+      embebedor-side el cambio de #1925 — quitar el guard exe-scorm de form.js:741 y
+      scrambled-list.js:551 al extraer (exelearning_patch_idevice_save_guards en lib.php),
+      str_replace idempotente que degrada a no-op. Verificado: Formulario persiste 100%
+      con body web-site (sin exe-scorm), sin regresiones.
 
 tareas:
   TAREA-001:

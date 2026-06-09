@@ -736,6 +736,13 @@ function exelearning_extract_stored_package(int $contextid, int $revision): void
     // load at page-load time, that check passes and the iDevice recognises the
     // SCORM environment.
     exelearning_inject_scorm_loader($context->id, (int) $data->revision);
+
+    // 7) Make the two iDevices that gate their score-save on the `exe-scorm` body
+    // class also save in this web-export embedding (issue #13). All other gradable
+    // iDevices save on `isScorm > 0` alone; only `form` and `scrambled-list` add a
+    // `body.hasClass('exe-scorm')` condition, which is absent here (we serve a web
+    // export). We drop that condition from their save guard at serve time.
+    exelearning_patch_idevice_save_guards($context->id, (int) $data->revision);
 }
 
 /**
@@ -839,6 +846,78 @@ function exelearning_inject_scorm_loader(int $contextid, int $revision): void {
         ];
         $file->delete();
         $fs->create_file_from_string($record, $newhtml);
+    }
+}
+
+/**
+ * Drop the `body.exe-scorm` condition from the score-save guard of the `form` and
+ * `scrambled-list` iDevices in the extracted package (issue #13).
+ *
+ * eXeLearning's `exe-scorm` body class is its "running as a SCORM export" switch.
+ * The web/elpx export we serve does not carry it, and 49 of 51 iDevices either do
+ * not touch it or only use it to load the SCORM wrapper (which we already inject).
+ * Only `form` and `scrambled-list` put `body.hasClass('exe-scorm')` in front of
+ * their `sendScore()` call, so they never persist their score here — their
+ * cmi.suspend_data entry stays at the seeded 0 (the gradebook shows 0).
+ *
+ * Rather than add `exe-scorm` to the body (which would also switch on the SCO page
+ * lifecycle and the SCORM presentation CSS), we apply the same one-line change
+ * upstream describes (exelearning/exelearning#1925) at serve time, only to these
+ * two save guards, so they behave like every other gradable iDevice (save on
+ * `isScorm > 0`). The patch targets the unique `data.isScorm` variant of the guard
+ * (the init-time guards use `ldata.isScorm`), is idempotent (the matched string is
+ * removed), and degrades safely: if a future producer reformats the guard the
+ * replace is a no-op and behaviour reverts to today's. See research ADR DEC-0042.
+ *
+ * @param int $contextid
+ * @param int $revision
+ */
+function exelearning_patch_idevice_save_guards(int $contextid, int $revision): void {
+    $fs = get_file_storage();
+    // Map of iDevice JS filename => [ exact save-guard string => replacement ].
+    $patches = [
+        'form.js' => [
+            '$(\'body\').hasClass(\'exe-scorm\') && data.isScorm > 0' => 'data.isScorm > 0',
+        ],
+        'scrambled-list.js' => [
+            'document.body.classList.contains(\'exe-scorm\') && data.isScorm > 0' => 'data.isScorm > 0',
+        ],
+    ];
+    $files = $fs->get_area_files(
+        $contextid,
+        'mod_exelearning',
+        'content',
+        $revision,
+        'filepath, filename',
+        false
+    );
+    foreach ($files as $file) {
+        if ($file->is_directory()) {
+            continue;
+        }
+        $name = $file->get_filename();
+        if (!isset($patches[$name])) {
+            continue;
+        }
+        $content = $file->get_content();
+        $newcontent = $content;
+        foreach ($patches[$name] as $search => $replace) {
+            if (strpos($newcontent, $search) !== false) {
+                $newcontent = str_replace($search, $replace, $newcontent);
+            }
+        }
+        if ($newcontent === $content) {
+            continue;
+        }
+        $file->delete();
+        $fs->create_file_from_string([
+            'contextid' => $contextid,
+            'component' => 'mod_exelearning',
+            'filearea'  => 'content',
+            'itemid'    => $revision,
+            'filepath'  => $file->get_filepath(),
+            'filename'  => $name,
+        ], $newcontent);
     }
 }
 

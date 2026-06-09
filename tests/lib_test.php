@@ -296,6 +296,118 @@ final class lib_test extends advanced_testcase {
     }
 
     /**
+     * The serve-time guard patch (issue #13 / DEC-0042) removes the
+     * `body.exe-scorm` condition from the form/scrambled-list SAVE guard so they
+     * save on `isScorm > 0` like every other gradable iDevice, leaves the
+     * init-time guard (the `ldata.isScorm` variant) and unrelated files untouched,
+     * and is idempotent.
+     *
+     * @covers ::exelearning_patch_idevice_save_guards
+     */
+    public function test_patch_idevice_save_guards(): void {
+        $instance = $this->create_activity();
+        $cm = get_coursemodule_from_instance('exelearning', $instance->id);
+        $contextid = \context_module::instance($cm->id)->id;
+        $revision = (int) $instance->revision;
+        $fs = get_file_storage();
+
+        $write = function (string $path, string $name, string $content)
+ use ($fs, $contextid, $revision): void {
+            $fs->create_file_from_string([
+                'contextid' => $contextid,
+                'component' => 'mod_exelearning',
+                'filearea'  => 'content',
+                'itemid'    => $revision,
+                'filepath'  => $path,
+                'filename'  => $name,
+            ], $content);
+        };
+        $read = fn(string $path, string $name): string =>
+            $fs->get_file($contextid, 'mod_exelearning', 'content', $revision, $path, $name)
+            ->get_content();
+
+        $formsave = "if (\$('body').hasClass('exe-scorm') && data.isScorm > 0) {";
+        $forminit = "if (\$('body').hasClass('exe-scorm') && ldata.isScorm > 0) {";
+        $scrsave  = "if (document.body.classList.contains('exe-scorm') && data.isScorm > 0) {";
+        $write('/idevices/form/', 'form.js', "a;\n{$formsave}\n  send();\n}\n{$forminit}\n  label();\n}\n");
+        $write('/idevices/scrambled-list/', 'scrambled-list.js', "b;\n{$scrsave}\n  send();\n  return;\n}\n");
+
+        exelearning_patch_idevice_save_guards($contextid, $revision);
+
+        $form = $read('/idevices/form/', 'form.js');
+        $scr  = $read('/idevices/scrambled-list/', 'scrambled-list.js');
+        // SAVE guard: the exe-scorm condition is gone, leaving the bare isScorm check.
+        $this->assertStringContainsString('if (data.isScorm > 0) {', $form);
+        $this->assertStringNotContainsString("hasClass('exe-scorm') && data.isScorm", $form);
+        $this->assertStringNotContainsString("contains('exe-scorm') && data.isScorm", $scr);
+        // INIT guard (ldata.isScorm) is left untouched.
+        $this->assertStringContainsString($forminit, $form);
+
+        // Idempotent: a second run is a no-op (the guard is already gone).
+        exelearning_patch_idevice_save_guards($contextid, $revision);
+        $this->assertStringContainsString('if (data.isScorm > 0) {', $read('/idevices/form/', 'form.js'));
+    }
+
+    /**
+     * Future-proofing canary (issue #13 / DEC-0042): after extracting a package
+     * with many iDevice types, NO served iDevice JS may still gate its score-save
+     * on `body.exe-scorm`. The patch strips the two known offenders (form,
+     * scrambled-list); if a future eXeLearning release ships another iDevice with
+     * the same coupling — or the patch stops matching — this test fails, telling
+     * the maintainer to add that guard to exelearning_patch_idevice_save_guards().
+     *
+     * Coverage is limited to the iDevice types present in the fixture (superelpx,
+     * ~30 of the 51 iDevices, including form + scrambled-list); the plugin only
+     * ever sees the iDevices an uploaded package actually contains.
+     *
+     * @covers ::exelearning_patch_idevice_save_guards
+     */
+    public function test_no_idevice_keeps_an_exe_scorm_save_guard(): void {
+        $instance = $this->create_activity(
+            ['packagefilepath' => 'research/fixtures/elpx/superelpx.elpx']
+        );
+        $cm = get_coursemodule_from_instance('exelearning', $instance->id);
+        $contextid = \context_module::instance($cm->id)->id;
+        $revision = (int) $instance->revision;
+        $fs = get_file_storage();
+
+        // The save-guard signature: `body.exe-scorm` AND the per-attempt
+        // `data.isScorm` check in one condition. The init-time guards use
+        // `ldata.isScorm` (not `data`), so they do not match and are left alone.
+        $signature = '~(hasClass\(\'exe-scorm\'\)|contains\(\'exe-scorm\'\))\s*&&\s*data\.isScorm\s*>\s*0~';
+
+        $offenders = [];
+        $files = $fs->get_area_files(
+            $contextid,
+            'mod_exelearning',
+            'content',
+            $revision,
+            'filepath, filename',
+            false
+        );
+        foreach ($files as $file) {
+            if ($file->is_directory()) {
+                continue;
+            }
+            $full = $file->get_filepath() . $file->get_filename();
+            if (!preg_match('~/idevices/.+\.js$~', $full)) {
+                continue;
+            }
+            if (preg_match($signature, $file->get_content())) {
+                $offenders[] = $full;
+            }
+        }
+
+        $this->assertSame(
+            [],
+            $offenders,
+            'An iDevice still gates its score-save on body.exe-scorm after extraction. '
+                . 'Add its save guard to exelearning_patch_idevice_save_guards() '
+                . '(issue #13 / DEC-0042): ' . implode(', ', $offenders)
+        );
+    }
+
+    /**
      * The first sync stores a contenthash for each gradable iDevice and reports
      * them all as "added" (a fresh activity has no prior state).
      */
