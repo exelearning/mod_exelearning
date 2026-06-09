@@ -35,6 +35,192 @@ namespace mod_exelearning\local;
  */
 class track {
     /**
+     * Ingests a SCORM tracking payload: records the attempt, routes per-iDevice
+     * scores and updates the gradebook + completion. Shared by the web `track.php`
+     * endpoint (sesskey-authenticated) and the `save_track` web service (token
+     * authenticated for the mobile app), so the scoring pipeline — and its
+     * server-side safeguards — live in one tested place.
+     *
+     * The caller is responsible for authentication, capability and context checks;
+     * this method trusts neither the client's overall score (it recomputes it from
+     * the per-iDevice objectid map when one is supplied, DEC-0018) nor the client's
+     * itemnumbers (scores are routed by stable objectid, DEC-0017, and an objectid
+     * the package does not expose is ignored). Scores are clamped to the instance
+     * grade range and the attempt cap (maxattempt) is enforced.
+     *
+     * @param \stdClass $exe       The exelearning instance record.
+     * @param \stdClass $course    The course record (for completion).
+     * @param \stdClass $cm        The course_module record (for completion).
+     * @param int       $userid    The grading user.
+     * @param array     $payload   Decoded payload: {cmi:{...}, session?:string, itemscores?:array}.
+     * @param bool      $ispreview When true, acknowledge the score without grading (DEC-0006).
+     * @return array Result map: always has 'ok'. May add noop|mode|error|attempt|rawscore|status|peritem.
+     */
+    public static function ingest(
+        \stdClass $exe,
+        \stdClass $course,
+        \stdClass $cm,
+        int $userid,
+        array $payload,
+        bool $ispreview
+    ): array {
+        global $CFG, $DB;
+        require_once($CFG->libdir . '/gradelib.php');
+        require_once($CFG->libdir . '/completionlib.php');
+
+        $cmi = (isset($payload['cmi']) && is_array($payload['cmi'])) ? $payload['cmi'] : [];
+        // Page-load session token (DEC-0007): groups auto-commits into one attempt.
+        $sessiontoken = isset($payload['session'])
+                ? substr(clean_param((string) $payload['session'], PARAM_ALPHANUMEXT), 0, 255) : '';
+        $rawscore = $cmi['cmi.core.score.raw'] ?? $cmi['cmi.score.raw'] ?? null;
+        $maxscore = $cmi['cmi.core.score.max'] ?? $cmi['cmi.score.max'] ?? null;
+        $status   = $cmi['cmi.core.lesson_status'] ?? $cmi['cmi.completion_status'] ?? null;
+
+        if ($rawscore === null || $rawscore === '') {
+            // Nothing to persist yet; just acknowledge.
+            return ['ok' => true, 'noop' => true];
+        }
+
+        $grademax = (float) ($exe->grademax ?? 100);
+        $grademin = (float) ($exe->grademin ?? 0);
+
+        // Normalise to the grade item scale, then clamp so an out-of-range CMI value
+        // cannot be persisted as the attempt rawscore.
+        $score = (float) $rawscore;
+        if ($maxscore !== null && (float) $maxscore > 0) {
+            $score = ($score / (float) $maxscore) * $grademax;
+        }
+        $score = max($grademin, min($grademax, $score));
+
+        // Preview mode: do NOT update the gradebook; only acknowledge (DEC-0006).
+        if ($ispreview) {
+            return ['ok' => true, 'mode' => 'preview', 'rawscore' => $score, 'status' => $status];
+        }
+
+        // Per-iDevice routing: prefer the stable objectid map (DEC-0017); fall back
+        // to the page-local index from cmi.suspend_data only when none is supplied.
+        $itemscores = (isset($payload['itemscores']) && is_array($payload['itemscores']))
+                ? $payload['itemscores'] : [];
+        if (count($itemscores) > 1000) {
+            // A well-formed package emits one entry per gradable iDevice; a map far
+            // larger than any real package is malformed/abusive — drop it.
+            debugging(
+                'mod_exelearning: itemscores map exceeded the sane size cap and was ignored.',
+                DEBUG_DEVELOPER
+            );
+            $itemscores = [];
+        }
+        $suspend = $cmi['cmi.suspend_data'] ?? '';
+        $peritem = is_string($suspend) ? self::parse_suspend_data($suspend) : [];
+        if (is_string($suspend) && $suspend !== '' && $peritem === [] && $itemscores === []) {
+            debugging(
+                'mod_exelearning: cmi.suspend_data was non-empty but no per-iDevice '
+                    . 'results could be parsed from it.',
+                DEBUG_DEVELOPER
+            );
+        }
+
+        $grademethod = (int) ($exe->grademethod ?? attempts::GRADE_HIGHEST);
+        $grademodel = (int) ($exe->grademodel ?? EXELEARNING_GRADEMODEL_PERITEM);
+        $itemdetailsbase = [
+            'gradetype' => GRADE_TYPE_VALUE,
+            'grademax'  => $exe->grademax ?? 100,
+            'grademin'  => $exe->grademin ?? 0,
+            'display'   => (int) ($exe->gradedisplaytype ?? GRADE_DISPLAY_TYPE_DEFAULT),
+        ];
+
+        // Resolve the attempt number (one per page load / session).
+        $attempt = attempts::resolve_attempt_number($exe->id, $userid, $sessiontoken);
+
+        // Attempt limit (DEC-0007 phase 2): a fresh session over the cap is rejected.
+        $maxattempt = (int) ($exe->maxattempt ?? 0);
+        if ($maxattempt > 0) {
+            $sessionknown = ($sessiontoken !== '') && $DB->record_exists(
+                'exelearning_attempt',
+                ['exelearningid' => $exe->id, 'userid' => $userid, 'sessiontoken' => $sessiontoken]
+            );
+            $priorcount = attempts::count_user_attempts($exe->id, $userid);
+            if (!$sessionknown && $priorcount >= $maxattempt) {
+                return [
+                    'ok'         => false,
+                    'error'      => 'maxattemptsreached',
+                    'attempts'   => $priorcount,
+                    'maxattempt' => $maxattempt,
+                ];
+            }
+        }
+
+        // 1) Attempts + aggregated grade per iDevice (itemnumber > 0).
+        $persaved = [];
+        if ($itemscores !== []) {
+            $persaved = self::apply_item_scores($exe, $userid, $attempt, $itemscores, $sessiontoken);
+        } else if ($peritem) {
+            $persaved = self::apply_legacy_peritem($exe, $userid, $attempt, $peritem, $sessiontoken);
+        }
+
+        // 2) Overall (itemnumber=0): recompute from the per-iDevice scores when an
+        // objectid map was supplied (DEC-0018), never trusting the client overall.
+        if ($itemscores !== []) {
+            $overallpct = self::recompute_overall_pct($itemscores);
+            if ($overallpct !== null) {
+                $recomputed = max($grademin, min($grademax, ($overallpct / 100.0) * $grademax));
+                if (abs($recomputed - $score) > 0.01) {
+                    debugging(
+                        'mod_exelearning: overall recomputed from itemscores (' . $recomputed
+                            . ') diverges from cmi.core.score.raw (' . $score
+                            . '); using the recomputed value (DEC-0018).',
+                        DEBUG_DEVELOPER
+                    );
+                }
+                $score = $recomputed;
+            }
+        }
+        $overallstatus = in_array($status, ['passed', 'failed', 'completed', 'incomplete'], true)
+                ? $status : 'completed';
+        attempts::record_item($exe->id, $userid, $attempt, 0, $score, $grademax, $overallstatus, $sessiontoken);
+        $scaledoverall = attempts::aggregate_scaled($exe->id, $userid, 0, $grademethod);
+        $finaloverall = ($scaledoverall === null) ? $score : ($scaledoverall * $grademax);
+
+        // Publish the aggregated overall grade ONLY in OVERALL mode (DEC-0038): in
+        // PERITEM the per-iDevice grades carry the gradebook.
+        $result = GRADE_UPDATE_OK;
+        if ($grademodel === EXELEARNING_GRADEMODEL_OVERALL) {
+            $grade = (object) [
+                'userid'   => $userid,
+                'rawgrade' => $finaloverall,
+                'feedback' => null,
+            ];
+            $result = grade_update(
+                'mod/exelearning',
+                $exe->course,
+                'mod',
+                'exelearning',
+                $exe->id,
+                0,
+                $grade,
+                $itemdetailsbase + [
+                    'itemname' => clean_param($exe->name, PARAM_NOTAGS),
+                    'hidden'   => 0,
+                ]
+            );
+        }
+
+        // Recalculate completion (completionpassgrade, SCORM style).
+        $completion = new \completion_info($course);
+        if ($completion->is_enabled($cm)) {
+            $completion->update_state($cm, COMPLETION_UNKNOWN, $userid);
+        }
+
+        return [
+            'ok'       => $result === GRADE_UPDATE_OK,
+            'attempt'  => $attempt,
+            'rawscore' => $finaloverall,
+            'status'   => $status,
+            'peritem'  => $persaved,
+        ];
+    }
+
+    /**
      * Decodes an eXeLearning v4 `cmi.suspend_data` string into per-index results.
      *
      * The producer (`public/app/common/common.js`) serialises one entry per scored
