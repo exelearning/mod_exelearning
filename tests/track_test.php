@@ -301,4 +301,121 @@ final class track_test extends advanced_testcase {
         $this->assertEqualsWithDelta(60.5, $parsed[1]['scorepct'], 0.0001);
         $this->assertEqualsWithDelta(12.5, $parsed[1]['weighted'], 0.0001);
     }
+
+    /**
+     * Loads the course and cm records for an instance (ingest() needs both for the
+     * completion update).
+     *
+     * @param \stdClass $instance
+     * @return array{0: \stdClass, 1: \stdClass} [course, cm]
+     */
+    protected function course_and_cm(\stdClass $instance): array {
+        global $DB;
+        $cm = get_coursemodule_from_instance('exelearning', $instance->id, 0, false, MUST_EXIST);
+        $course = $DB->get_record('course', ['id' => $cm->course], '*', MUST_EXIST);
+        return [$course, $cm];
+    }
+
+    /**
+     * ingest() is the shared orchestration used by both the web track.php endpoint
+     * and the save_track web service: it records the attempt, routes per-iDevice
+     * scores by objectid and recomputes the overall server-side.
+     */
+    public function test_ingest_peritem_records_attempt_and_publishes_grades(): void {
+        [$instance, $student] = $this->create_activity_with_student();
+        [$course, $cm] = $this->course_and_cm($instance);
+        $obj1 = $this->objectid_for($instance, 1);
+        $obj2 = $this->objectid_for($instance, 2);
+
+        $payload = [
+            'session' => 'sessIngest',
+            'cmi' => [
+                'cmi.core.score.raw' => '0',
+                'cmi.core.score.max' => '100',
+                'cmi.core.lesson_status' => 'completed',
+            ],
+            'itemscores' => [
+                $obj1 => ['scorepct' => 80.0, 'weighted' => 100.0, 'title' => 'a'],
+                $obj2 => ['scorepct' => 40.0, 'weighted' => 100.0, 'title' => 'b'],
+            ],
+        ];
+
+        $result = track::ingest($instance, $course, $cm, $student->id, $payload, false);
+
+        // The server-side overall (60) diverges from the client's cmi.core.score.raw
+        // of 0, so the divergence is logged (DEC-0018) — proving the client overall
+        // is never trusted.
+        $this->assertDebuggingCalled();
+        $this->assertTrue($result['ok']);
+        $this->assertSame(1, $result['attempt']);
+        $this->assertEqualsWithDelta(80.0, $result['peritem'][1], 0.0001);
+        $this->assertEqualsWithDelta(40.0, $result['peritem'][2], 0.0001);
+        // Overall recomputed server-side from the item scores (mean of 80 and 40),
+        // not taken from the client cmi.core.score.raw of 0.
+        $this->assertEqualsWithDelta(60.0, $result['rawscore'], 0.0001);
+        // Published per-iDevice gradebook columns match.
+        $this->assertEqualsWithDelta(80.0, $this->published_grade($instance, $student->id, 1), 0.0001);
+        $this->assertEqualsWithDelta(40.0, $this->published_grade($instance, $student->id, 2), 0.0001);
+    }
+
+    /**
+     * A payload with no score is a no-op acknowledgement (nothing recorded).
+     */
+    public function test_ingest_noop_when_no_score(): void {
+        global $DB;
+        [$instance, $student] = $this->create_activity_with_student();
+        [$course, $cm] = $this->course_and_cm($instance);
+
+        $result = track::ingest($instance, $course, $cm, $student->id, ['cmi' => []], false);
+
+        $this->assertTrue($result['ok']);
+        $this->assertTrue($result['noop']);
+        $this->assertSame(0, $DB->count_records('exelearning_attempt', [
+            'exelearningid' => $instance->id, 'userid' => $student->id,
+        ]));
+    }
+
+    /**
+     * Preview mode acknowledges the score without touching the gradebook (DEC-0006).
+     */
+    public function test_ingest_preview_does_not_grade(): void {
+        global $DB;
+        [$instance, $student] = $this->create_activity_with_student();
+        [$course, $cm] = $this->course_and_cm($instance);
+
+        $result = track::ingest($instance, $course, $cm, $student->id, [
+            'cmi' => ['cmi.core.score.raw' => '90', 'cmi.core.score.max' => '100'],
+        ], true);
+
+        $this->assertSame('preview', $result['mode']);
+        $this->assertSame(0, $DB->count_records('exelearning_attempt', [
+            'exelearningid' => $instance->id, 'userid' => $student->id,
+        ]));
+        $this->assertNull($this->published_grade($instance, $student->id, 1));
+    }
+
+    /**
+     * ingest() enforces maxattempt: once the cap is reached a fresh session is
+     * rejected instead of opening a new attempt.
+     */
+    public function test_ingest_respects_maxattempt(): void {
+        [$instance, $student] = $this->create_activity_with_student(['maxattempt' => 1]);
+        [$course, $cm] = $this->course_and_cm($instance);
+        $obj1 = $this->objectid_for($instance, 1);
+
+        $payload = fn(string $session) => [
+            'session' => $session,
+            'cmi' => ['cmi.core.score.raw' => '50', 'cmi.core.score.max' => '100'],
+            'itemscores' => [$obj1 => ['scorepct' => 50.0, 'weighted' => 100.0, 'title' => 'a']],
+        ];
+
+        // First session uses up the single allowed attempt.
+        $first = track::ingest($instance, $course, $cm, $student->id, $payload('s1'), false);
+        $this->assertTrue($first['ok']);
+
+        // A second, different session is over the cap and is rejected.
+        $second = track::ingest($instance, $course, $cm, $student->id, $payload('s2'), false);
+        $this->assertFalse($second['ok']);
+        $this->assertSame('maxattemptsreached', $second['error']);
+    }
 }

@@ -17,7 +17,10 @@ The "common internal model" the dual layer needs **already exists** and is reuse
   (DEC-0007; the original header+detail design was evaluated and rejected — DEC-0007:176-186).
 - `exelearning_grade_item` — stable `objectid → itemnumber` map (DEC-0017).
 - `classes/local/track.php` + `attempts.php` — routing, overall recompute (DEC-0018),
-  attempt recording, `grademethod` aggregation, `grade_update()`.
+  attempt recording, `grademethod` aggregation, `grade_update()`. The orchestration is the
+  single shared entry point `track::ingest()` (DEC-0040): the web `track.php` and the mobile
+  `save_track` web service already call it, so a future xAPI source would be a **third**
+  caller of the same pipeline, not a parallel one.
 
 xAPI therefore does **not** add a new neutral layer or header+detail tables. At most it adds
 **one** optional audit/dedup table (`exelearning_tracking_events`, `statementid` UNIQUE).
@@ -65,9 +68,9 @@ to the SCORM endpoint today):
 | Concern | Reused (today) | New (PR2) |
 |---|---|---|
 | Internal model | `exelearning_attempt`, `exelearning_grade_item` | — (optional `exelearning_tracking_events` for audit/idempotency) |
-| Routing / grading | `track::apply_item_scores`, `attempts::*`, `grade_update` | a thin `statement → itemscores` normalizer |
-| Client capture | `view.php` SCORM shim | `amd/src/xapi_listener.js`; host injects `window.exeXapi` |
-| Server entry | `track.php` (SCORM) | xAPI endpoint (custom external or `core_xapi`) |
+| Routing / grading | `track::ingest()` (→ `apply_item_scores`, `recompute_overall_pct`, `attempts::*`, `grade_update`) | a thin `statement → itemscores` normalizer |
+| Client capture | `view.php` SCORM shim; mobile app | `amd/src/xapi_listener.js`; host injects `window.exeXapi` |
+| Server entry | `track.php` (SCORM web) + `save_track` WS (mobile), both via `track::ingest()` | xAPI endpoint (custom external or `core_xapi`) |
 | Events | `course_module_viewed` | optional `core_xapi` handler + iDevice/package events |
 
 ## Scope

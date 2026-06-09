@@ -228,6 +228,49 @@ decisiones_bloqueantes:
       desde track.php y recalculate_user_grades) + migración en upgrade. get_hiding_affected
       salta las excluidas → el total deja de vaciarse; finalgrade/gradepass intactos.
       Verificado en Docker: COURSE TOTAL blanked_by_hidden=NO.
+  DEC-0039:
+    titulo: "Parser de content.xml híbrido (DOM para estructura + descifrado/hash conservados)"
+    estado: Aceptada
+    ruta: decisiones/adr/DEC-0039-parser-content-xml-hibrido-dom.md
+    fecha: 2026-06-09
+    relacionados: [DEC-0022, DEC-0037, REPO-004, REPO-005]
+    notas: >-
+      El parser regex (package.php) se refactoriza a híbrido: DOMDocument recorre la
+      estructura por local-name() (robusto a namespaces/entidades/CDATA/orden de atributos)
+      y se reutilizan sin cambios el descifrado DataGame/isScorm y el contenthash sobre las
+      cadenas decodificadas; fallback al escáner regex con log si el XML está malformado. La
+      premisa "evitar libxml en backports" era falsa (dom/xml/xmlreader son required en
+      4.5-5.2, admin/environment.xml). Los fixtures reales cazaron un bug crítico: los .elpx
+      declaran <!DOCTYPE ode SYSTEM "content.dtd"> → se acepta el DTD externo (LIBXML_NONET
+      sin DTDLOAD/NOENT) y solo se rechazan entidades internas (billion-laughs). El
+      contenthash se recalcula una vez (aviso DEC-0021 informativo). 22 tests verde.
+  DEC-0040:
+    titulo: "API externa / móvil (servicios MOODLE_OFFICIAL_MOBILE_SERVICE + save_track)"
+    estado: Aceptada
+    ruta: decisiones/adr/DEC-0040-mobile-external-api.md
+    fecha: 2026-06-09
+    relacionados: [DEC-0017, DEC-0018, REPO-001, REPO-002, REPO-004]
+    notas: >-
+      mod_exelearning no exponía servicios móviles (solo 2 funciones admin del editor). Se
+      añaden 6 funciones en MOODLE_OFFICIAL_MOBILE_SERVICE (get_exelearnings_by_courses,
+      view_exelearning, get_exelearning_access_information, get_user_attempts, get_user_grades,
+      save_track) siguiendo patrones de mod_scorm/mod_exeweb (external_warnings,
+      util::validate_courses, helper_for_get_mods_by_courses). save_track reutiliza la tubería
+      compartida track::ingest() (extraída de track.php): rutea por objectid (ignora
+      desconocidos), recalcula el overall server-side y filtra itemscores a objectids
+      registrados (cierra una brecha de integridad detectada por los tests). 14 tests de API.
+  DEC-0041:
+    titulo: "Eventos selectivos de trazabilidad (sin ruido de tracking)"
+    estado: Aceptada
+    ruta: decisiones/adr/DEC-0041-eventos-selectivos.md
+    fecha: 2026-06-09
+    relacionados: [DEC-0007, REPO-001, REPO-002]
+    notas: >-
+      De 1 evento a 4: se añaden attempt_deleted (borrado de intento, TEACHING),
+      report_viewed (acceso del docente al informe, TEACHING) y
+      course_module_instance_list_viewed (index.php). Descartados por ruido/bajo valor: un
+      evento por commit de tracking (autocommit 500ms inundaría el log), editor abierto/
+      actualizado y export docente. Tests events_test.php. Suite completa 99/99 verde.
   DEC-0042:
     titulo: "Parchear al servir el guard de guardado de form/scrambled-list (embebedor-side de exelearning#1925)"
     estado: Aceptada

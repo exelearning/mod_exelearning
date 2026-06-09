@@ -375,4 +375,340 @@ final class package_test extends advanced_testcase {
 
         $this->assertArrayHasKey('idevice-classify-enc', $detected);
     }
+
+    /**
+     * Detects a list of gradable iDevices from a raw content.xml string.
+     *
+     * @param string $xml Raw content.xml.
+     * @return array<string,\stdClass> Detected iDevices keyed by objectid.
+     */
+    private function detect_raw(string $xml): array {
+        $file = $this->make_package_file($xml);
+        $byid = [];
+        foreach ((new package($file))->detect_gradable_idevices() as $item) {
+            $byid[$item->objectid] = $item;
+        }
+        return $byid;
+    }
+
+    /**
+     * A manifest that namespaces every tag with an explicit prefix must still be
+     * parsed: detection keys on the element local name, not on the literal
+     * `<odeIdeviceId>` byte sequence the previous regex scanner required. This is
+     * the headline robustness win of the XML-based parser (the encargo's
+     * "namespaces" risk).
+     */
+    public function test_namespaced_prefix_idevices_detected(): void {
+        $this->resetAfterTest();
+
+        $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
+            . '<ex:ode xmlns:ex="http://www.intef.es/xsd/ode" version="2.0">' . "\n"
+            . '<ex:odeNavStructure>' . "\n"
+            . '<ex:odePageId>p1</ex:odePageId><ex:pageName>Intro</ex:pageName>' . "\n"
+            . '<ex:odePageId>p1</ex:odePageId>' . "\n"
+            . '<ex:odeIdeviceId>idevice-tf-1</ex:odeIdeviceId>' . "\n"
+            . '<ex:odeIdeviceTypeName>trueorfalse</ex:odeIdeviceTypeName>' . "\n"
+            . '<ex:jsonProperties>{"isScorm":1}</ex:jsonProperties>' . "\n"
+            . '<ex:answer>true</ex:answer>' . "\n"
+            . '<ex:odePageId>p2</ex:odePageId>' . "\n"
+            . '<ex:odeIdeviceId>idevice-text-1</ex:odeIdeviceId>' . "\n"
+            . '<ex:odeIdeviceTypeName>text</ex:odeIdeviceTypeName>' . "\n"
+            . '<ex:jsonProperties>{"isScorm":0}</ex:jsonProperties>' . "\n"
+            . '</ex:odeNavStructure>' . "\n"
+            . '</ex:ode>' . "\n";
+
+        $detected = $this->detect_raw($xml);
+
+        $this->assertCount(1, $detected);
+        $this->assertArrayHasKey('idevice-tf-1', $detected);
+        $this->assertSame('trueorfalse', $detected['idevice-tf-1']->idevicetype);
+        $this->assertSame('Intro', $detected['idevice-tf-1']->pagename);
+    }
+
+    /**
+     * Malformed content.xml must not fail silently: the libxml parse errors are
+     * reported to the developer log, and detection degrades gracefully (the
+     * legacy token scan still recovers the iDevices it can) rather than throwing.
+     */
+    public function test_invalid_xml_is_reported_and_degrades_gracefully(): void {
+        $this->resetAfterTest();
+
+        // Unclosed <ode>/<odeNavStructure> — not well-formed, but the iDevice
+        // tokens are intact, so the fallback scan can still recover them.
+        $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
+            . '<ode xmlns="http://www.intef.es/xsd/ode" version="2.0">' . "\n"
+            . '<odeNavStructure>' . "\n"
+            . '<odePageId>p1</odePageId><pageName>Intro</pageName>' . "\n"
+            . '<odePageId>p1</odePageId>' . "\n"
+            . '<odeIdeviceId>idevice-tf-1</odeIdeviceId>' . "\n"
+            . '<odeIdeviceTypeName>trueorfalse</odeIdeviceTypeName>' . "\n"
+            . '<jsonProperties>{"isScorm":1}</jsonProperties>' . "\n"
+            . '<answer>true</answer>' . "\n";
+            // Intentionally not closed.
+
+        $detected = $this->detect_raw($xml);
+
+        $this->assertDebuggingCalled();
+        $this->assertArrayHasKey('idevice-tf-1', $detected);
+    }
+
+    /**
+     * A document that declares its own internal entities (the billion-laughs
+     * vector) is rejected by the strict parser and reported, then degrades to the
+     * byte-level fallback — which cannot expand entities — so detection stays safe.
+     */
+    public function test_internal_entities_are_rejected_and_degrade_safely(): void {
+        $this->resetAfterTest();
+
+        $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
+            . '<!DOCTYPE ode [ <!ENTITY lol "aaaa"> <!ENTITY lol2 "&lol;&lol;&lol;"> ]>' . "\n"
+            . '<ode xmlns="http://www.intef.es/xsd/ode" version="2.0">' . "\n"
+            . '<odeNavStructure>' . "\n"
+            . '<odePageId>p1</odePageId><pageName>Intro</pageName>' . "\n"
+            . '<odePageId>p1</odePageId>' . "\n"
+            . '<odeIdeviceId>idevice-tf-1</odeIdeviceId>' . "\n"
+            . '<odeIdeviceTypeName>trueorfalse</odeIdeviceTypeName>' . "\n"
+            . '<jsonProperties>{"isScorm":1}</jsonProperties>' . "\n"
+            . '</odeNavStructure>' . "\n</ode>\n";
+
+        $detected = $this->detect_raw($xml);
+
+        $this->assertDebuggingCalled();
+        // The legacy byte-level scan still recovers the iDevice (no entity expansion).
+        $this->assertArrayHasKey('idevice-tf-1', $detected);
+    }
+
+    /**
+     * Real packages declare an external DTD in the prolog
+     * (`<!DOCTYPE ode SYSTEM "content.dtd">`); it must be accepted (libxml never
+     * fetches it) and must not trigger a spurious warning.
+     */
+    public function test_external_dtd_doctype_is_accepted(): void {
+        $this->resetAfterTest();
+
+        $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
+            . '<!DOCTYPE ode SYSTEM "content.dtd">' . "\n"
+            . '<ode xmlns="http://www.intef.es/xsd/ode" version="2.0">' . "\n"
+            . '<odeNavStructure>' . "\n"
+            . '<odePageId>p1</odePageId><pageName>Intro</pageName>' . "\n"
+            . '<odePageId>p1</odePageId>' . "\n"
+            . '<odeIdeviceId>idevice-tf-1</odeIdeviceId>' . "\n"
+            . '<odeIdeviceTypeName>trueorfalse</odeIdeviceTypeName>' . "\n"
+            . '<jsonProperties>{"isScorm":1}</jsonProperties>' . "\n"
+            . '</odeNavStructure>' . "\n</ode>\n";
+
+        $detected = $this->detect_raw($xml);
+
+        $this->assertArrayHasKey('idevice-tf-1', $detected);
+    }
+
+    /**
+     * Loads a real content.xml extracted from a shipped `.elpx` fixture.
+     *
+     * @param string $name Fixture base name under tests/fixtures (without extension).
+     * @return string
+     */
+    private function load_fixture_xml(string $name): string {
+        $path = __DIR__ . '/fixtures/' . $name . '.content.xml';
+        $this->assertFileExists($path);
+        return (string) file_get_contents($path);
+    }
+
+    /**
+     * Regression on a real multi-page `.elpx`: one trueorfalse (scored via
+     * jsonProperties) and one guess (scored via the encrypted DataGame div) on two
+     * different pages. Proves the XML parser keeps same-type-different-page
+     * iDevices distinct and decrypts a real DataGame payload.
+     */
+    public function test_real_multipage_fixture_detects_two_on_distinct_pages(): void {
+        $this->resetAfterTest();
+
+        $detected = $this->detect_raw($this->load_fixture_xml('real-multipage'));
+
+        $this->assertCount(2, $detected);
+        $types = array_map(fn($i) => $i->idevicetype, array_values($detected));
+        sort($types);
+        $this->assertSame(['guess', 'trueorfalse'], $types);
+        // Two distinct pages -> two distinct pageids.
+        $pageids = array_unique(array_map(fn($i) => $i->pageid, array_values($detected)));
+        $this->assertCount(2, $pageids);
+        foreach ($detected as $item) {
+            $this->assertMatchesRegularExpression('/^[0-9a-f]{40}$/', $item->contenthash);
+            $this->assertNotSame('', $item->objectid);
+        }
+    }
+
+    /**
+     * Regression on a real `.elpx` whose gradable set mixes a jsonProperties flag
+     * (trueorfalse) and an encrypted DataGame flag (guess) on the same page.
+     */
+    public function test_real_datagame_fixture_detects_encrypted_and_plain(): void {
+        $this->resetAfterTest();
+
+        $detected = $this->detect_raw($this->load_fixture_xml('real-datagame'));
+
+        $this->assertCount(2, $detected);
+        $types = array_map(fn($i) => $i->idevicetype, array_values($detected));
+        sort($types);
+        $this->assertSame(['guess', 'trueorfalse'], $types);
+    }
+
+    /**
+     * The XML parser and the legacy regex fallback must agree on the detected
+     * objectid set for real, well-formed packages: this proves the DOM rewrite did
+     * not change behaviour on the formats that ship today.
+     */
+    public function test_dom_and_regex_agree_on_real_packages(): void {
+        $this->resetAfterTest();
+
+        foreach (['real-multipage', 'real-datagame'] as $name) {
+            $xml = $this->load_fixture_xml($name);
+            $file = $this->make_package_file($xml);
+            $pkg = new package($file);
+
+            $ref = new \ReflectionClass($pkg);
+            $loaddom = $ref->getMethod('load_dom');
+            $loaddom->setAccessible(true);
+            $fromdom = $ref->getMethod('detect_from_dom');
+            $fromdom->setAccessible(true);
+            $fromregex = $ref->getMethod('detect_gradable_idevices_regex');
+            $fromregex->setAccessible(true);
+
+            $dom = $loaddom->invoke($pkg, $xml);
+            $this->assertInstanceOf(\DOMDocument::class, $dom);
+            $domids = array_map(fn($i) => $i->objectid, $fromdom->invoke($pkg, $dom));
+            $regexids = array_map(fn($i) => $i->objectid, $fromregex->invoke($pkg, $xml));
+            sort($domids);
+            sort($regexids);
+
+            $this->assertSame($regexids, $domids, "DOM and regex disagree on {$name}");
+        }
+    }
+
+    /**
+     * Attribute order and quote style on the elements must not affect detection:
+     * the XML parser normalises them, unlike a byte-level scan.
+     */
+    public function test_attributes_varied_order_and_quotes_ignored(): void {
+        $this->resetAfterTest();
+
+        $xml = "<?xml version='1.0' encoding=\"UTF-8\"?>\n"
+            . "<ode version='2.0' xmlns=\"http://www.intef.es/xsd/ode\" data-extra='x'>\n"
+            . "<odeNavStructure id=\"n1\" data-flag='1'>\n"
+            . '<odePageId>p1</odePageId><pageName>Intro</pageName>' . "\n"
+            . '<odePageId>p1</odePageId>' . "\n"
+            . '<odeIdeviceId>idevice-tf-1</odeIdeviceId>' . "\n"
+            . '<odeIdeviceTypeName>trueorfalse</odeIdeviceTypeName>' . "\n"
+            . '<jsonProperties>{"isScorm":1}</jsonProperties>' . "\n"
+            . '</odeNavStructure>' . "\n</ode>\n";
+
+        $detected = $this->detect_raw($xml);
+
+        $this->assertCount(1, $detected);
+        $this->assertArrayHasKey('idevice-tf-1', $detected);
+    }
+
+    /**
+     * XML entities in text are decoded by the parser: a page name with an escaped
+     * ampersand comes back as the real character, not the raw entity.
+     */
+    public function test_entities_in_pagename_are_decoded(): void {
+        $this->resetAfterTest();
+
+        $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
+            . '<ode xmlns="http://www.intef.es/xsd/ode" version="2.0">' . "\n"
+            . '<odeNavStructure>' . "\n"
+            . '<odePageId>p1</odePageId><pageName>Tom &amp; Jerry</pageName>' . "\n"
+            . '<odePageId>p1</odePageId>' . "\n"
+            . '<odeIdeviceId>idevice-tf-1</odeIdeviceId>' . "\n"
+            . '<odeIdeviceTypeName>trueorfalse</odeIdeviceTypeName>' . "\n"
+            . '<jsonProperties>{"isScorm":1}</jsonProperties>' . "\n"
+            . '</odeNavStructure>' . "\n</ode>\n";
+
+        $detected = $this->detect_raw($xml);
+
+        $this->assertSame('Tom & Jerry', $detected['idevice-tf-1']->pagename);
+    }
+
+    /**
+     * A multi-line CDATA jsonProperties payload (as real packages emit) is read
+     * correctly: the CDATA section is unwrapped by the parser before the flag scan.
+     */
+    public function test_cdata_multiline_payload_detected(): void {
+        $this->resetAfterTest();
+
+        $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
+            . '<ode xmlns="http://www.intef.es/xsd/ode" version="2.0">' . "\n"
+            . '<odeNavStructure>' . "\n"
+            . '<odePageId>p1</odePageId><pageName>Intro</pageName>' . "\n"
+            . '<odePageId>p1</odePageId>' . "\n"
+            . '<odeIdeviceId>idevice-tf-1</odeIdeviceId>' . "\n"
+            . '<odeIdeviceTypeName>trueorfalse</odeIdeviceTypeName>' . "\n"
+            . "<jsonProperties><![CDATA[\n{\n  \"question\": \"<p>2+2?</p>\",\n  \"isScorm\": 1\n}\n]]></jsonProperties>\n"
+            . '</odeNavStructure>' . "\n</ode>\n";
+
+        $detected = $this->detect_raw($xml);
+
+        $this->assertArrayHasKey('idevice-tf-1', $detected);
+    }
+
+    /**
+     * A package whose archive has no content.xml yields no gradable iDevices
+     * (and does not error).
+     */
+    public function test_missing_content_xml_returns_empty(): void {
+        $this->resetAfterTest();
+
+        $tmp = make_request_directory();
+        file_put_contents($tmp . '/readme.txt', 'no manifest here');
+        $packer = get_file_packer('application/zip');
+        $zippath = make_request_directory() . '/pkg.elpx';
+        $packer->archive_to_pathname(['readme.txt' => $tmp . '/readme.txt'], $zippath);
+
+        $context = \context_system::instance();
+        $fs = get_file_storage();
+        $file = $fs->create_file_from_pathname([
+            'contextid' => $context->id, 'component' => 'mod_exelearning', 'filearea' => 'package',
+            'itemid' => 0, 'filepath' => '/', 'filename' => 'nocontent.elpx',
+        ], $zippath);
+
+        $this->assertSame([], (new package($file))->detect_gradable_idevices());
+    }
+
+    /**
+     * A corrupt (non-zip) package yields no gradable iDevices and does not throw.
+     */
+    public function test_corrupt_package_returns_empty(): void {
+        $this->resetAfterTest();
+
+        $context = \context_system::instance();
+        $fs = get_file_storage();
+        $file = $fs->create_file_from_string([
+            'contextid' => $context->id, 'component' => 'mod_exelearning', 'filearea' => 'package',
+            'itemid' => 0, 'filepath' => '/', 'filename' => 'corrupt.elpx',
+        ], 'this is not a zip archive at all');
+
+        $result = (new package($file))->detect_gradable_idevices();
+        // Moodle's zip packer reports "Not a zip archive." for the bad file.
+        $this->assertDebuggingCalled();
+        $this->assertSame([], $result);
+    }
+
+    /**
+     * A reasonably large manifest (hundreds of gradable iDevices) is parsed fully:
+     * the DOM parser handles real-world package sizes without truncation.
+     */
+    public function test_large_manifest_detected(): void {
+        $this->resetAfterTest();
+
+        $rows = [];
+        for ($i = 1; $i <= 250; $i++) {
+            $rows[] = ["page{$i}", "idevice-{$i}", 'trueorfalse', "<answer>{$i}</answer>\n", 1];
+        }
+        $detected = $this->detect($rows);
+
+        $this->assertCount(250, $detected);
+        $this->assertArrayHasKey('idevice-1', $detected);
+        $this->assertArrayHasKey('idevice-250', $detected);
+    }
 }
