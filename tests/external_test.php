@@ -99,7 +99,7 @@ final class external_test extends advanced_testcase {
         $result = external_api::clean_returnvalue(view_exelearning::execute_returns(), $result);
 
         $this->assertTrue($result['status']);
-        $events = array_filter($sink->get_events(), function($e) {
+        $events = array_filter($sink->get_events(), function ($e) {
             return $e instanceof \mod_exelearning\event\course_module_viewed;
         });
         $this->assertCount(1, $events);
@@ -314,7 +314,14 @@ final class external_test extends advanced_testcase {
      */
     protected function record_overall_attempt(int $userid, int $attempt, float $scaled, string $status): void {
         \mod_exelearning\local\attempts::record_item(
-            $this->instance->id, $userid, $attempt, 0, $scaled * 100, 100.0, $status, 'seed' . $attempt
+            $this->instance->id,
+            $userid,
+            $attempt,
+            0,
+            $scaled * 100,
+            100.0,
+            $status,
+            'seed' . $attempt
         );
     }
 
@@ -344,9 +351,7 @@ final class external_test extends advanced_testcase {
      * @return float|null
      */
     protected function published_grade(int $itemnumber): ?float {
-        $grades = grade_get_grades(
-            $this->instance->course, 'mod', 'exelearning', $this->instance->id, $this->student->id
-        );
+        $grades = grade_get_grades($this->instance->course, 'mod', 'exelearning', $this->instance->id, $this->student->id);
         if (!isset($grades->items[$itemnumber]->grades[$this->student->id])) {
             return null;
         }
