@@ -38,3 +38,6 @@ items:
   - id: 'DEC-0036', titulo: 'Mantener contenttype_exelearning como plugin separado de mod_exelearning (no fusionar)', estado: 'Aceptada', fecha: '2026-06-08', ruta: 'decisiones/adr/DEC-0036-contenttype-exelearning-plugin-separado.md'
   - id: 'DEC-0037', titulo: 'Detección de isScorm también en el DataGame cifrado (issue #13: solo 12 de 30)', estado: 'Aceptada', fecha: '2026-06-08', ruta: 'decisiones/adr/DEC-0037-deteccion-isscorm-en-datagame-cifrado.md'
   - id: 'DEC-0038', titulo: 'Sin columna overall en peritem: el libro muestra solo las columnas por-iDevice (modelo workshop para la finalización)', estado: 'Aceptada', fecha: '2026-06-08', ruta: 'decisiones/adr/DEC-0038-sin-columna-overall-en-peritem.md'
+  - id: 'DEC-0039', titulo: 'Parser de content.xml híbrido (DOM para estructura + descifrado/hash conservados)', estado: 'Aceptada', fecha: '2026-06-09', ruta: 'decisiones/adr/DEC-0039-parser-content-xml-hibrido-dom.md'
+  - id: 'DEC-0040', titulo: 'API externa / móvil (servicios MOODLE_OFFICIAL_MOBILE_SERVICE + save_track)', estado: 'Aceptada', fecha: '2026-06-09', ruta: 'decisiones/adr/DEC-0040-mobile-external-api.md'
+  - id: 'DEC-0041', titulo: 'Eventos selectivos de trazabilidad (sin ruido de tracking)', estado: 'Aceptada', fecha: '2026-06-09', ruta: 'decisiones/adr/DEC-0041-eventos-selectivos.md'

@@ -7,6 +7,7 @@ agentes:
   - erseco
   - claude-code
 fuentes:
+  - REPO-001
   - REPO-002
 relacionados:
   - DEC-0007

@@ -102,6 +102,22 @@ Cerradas: **TAREA-012 / RIE-001** investigación (DEC-0019); **TAREA-009 / RIE-0
   `finalgrade`/`gradepass` intactos (completion OK). Petición usabilidad INTEF #2.
   Verificado en Docker (Moodle 5.0.7): `COURSE TOTAL blanked_by_hidden=NO`.
 
+### Hecho en sesión 2026-06-09 (parser híbrido + Mobile API + eventos, claude-opus-4-8)
+- **Parser `content.xml` híbrido** (DEC-0039): `classes/local/package.php` pasa a
+  `DOMDocument` por `local-name()` para la estructura (robusto a namespaces/entidades/
+  CDATA/orden de atributos); se reutilizan intactos `extract_isscorm`/`decrypt_datagame`/
+  `hash_idevice_block`; fallback al escáner regex (`detect_gradable_idevices_regex`) con
+  log si el XML está malformado. **Bug crítico cazado por fixtures reales**: los `.elpx`
+  declaran `<!DOCTYPE ode SYSTEM "content.dtd">` → se acepta el DTD externo (`LIBXML_NONET`
+  sin `DTDLOAD`/`NOENT`) y solo se rechazan entidades **internas**. 22 tests.
+- **Mobile/External API** (DEC-0040): 6 funciones en `classes/external/` registradas en
+  `MOODLE_OFFICIAL_MOBILE_SERVICE`; `save_track` reusa la nueva `track::ingest()`
+  (extraída de `track.php`) con salvaguardas server-side (objectid routing, recálculo
+  overall, filtro de `itemscores` a objectids registrados). 14 tests.
+- **Eventos** (DEC-0041): `attempt_deleted` + `report_viewed` + `course_module_instance_list_viewed`.
+- **Test roundtrip backup/restore** (P2). Suite completa **99/99 verde**, `phpcs --standard=moodle` 0/0.
+- `version.php` intacto (centinela DEC-0030). README con sección "Web services (Mobile API)".
+
 ## Decisiones clave (ver `research/decisiones/adr/`)
 
 | ADR | Estado | Resumen |
@@ -141,6 +157,12 @@ Cerradas: **TAREA-012 / RIE-001** investigación (DEC-0019); **TAREA-009 / RIE-0
 | DEC-0033 | **Propuesta** (2026-06-04) | Actualización de contenido: reemplazo del `.elpx` + origen por URL con sincronización (patrón `mod_scorm`) → TAREA-016 |
 | DEC-0034 | **Aceptada** (2026-06-04) | Selector de categoría de calificación (`gradecat`) aplicado a todos los grade items vía `grade_item::set_parent` (`grade_update` ignora `categoryid`) → petición usabilidad INTEF #1 |
 | DEC-0035 | **Aceptada** (2026-06-04) | Coherencia profesor/alumno en `peritem`: excluir la nota overall oculta de la agregación (`grade_grade::set_excluded`) para que Moodle no vacíe el total del alumno → petición usabilidad INTEF #2 |
+| DEC-0036 | **Aceptada** (2026-06-08) | `contenttype_exelearning` (banco de contenidos, REPO-006) como plugin separado; mirroring intencional de extracción/sandbox `.elpx` (RIE-013) |
+| DEC-0037 | **Aceptada** (2026-06-08) | Detección de `isScorm` también en el div `*-DataGame` cifrado (`unescape` + XOR 146) → issue #13 "solo 12 de 30 detectados" |
+| DEC-0038 | **Aceptada** (2026-06-08) | Sin columna overall oculta en `peritem`: completion estilo workshop sobre un item por-iDevice (supersede de DEC-0035) |
+| DEC-0039 | **Aceptada** (2026-06-09) | Parser `content.xml` híbrido: `DOMDocument` por `local-name()` para la estructura + descifrado/hash conservados + fallback regex; acepta `<!DOCTYPE SYSTEM>` externo, rechaza entidades internas |
+| DEC-0040 | **Aceptada** (2026-06-09) | API externa/móvil: 6 funciones en `MOODLE_OFFICIAL_MOBILE_SERVICE` (incl. `save_track` reusando `track::ingest()` con salvaguardas server-side) |
+| DEC-0041 | **Aceptada** (2026-06-09) | Eventos selectivos: `attempt_deleted` + `report_viewed` + `course_module_instance_list_viewed` (sin evento por commit de tracking, sería ruido) |
 
 ## Restricciones inmutables
 

@@ -16,3 +16,4 @@ items:
   - ruta: 'tareas/diario/2026-06-04-adr-reemplazo-y-origen-url.yaml', fecha: '2026-06-04'
   - ruta: 'tareas/diario/2026-06-04-categoria-y-visibilidad-notas.yaml', fecha: '2026-06-04'
   - ruta: 'tareas/diario/2026-06-04-xapi-dual-tracking.yaml', fecha: '2026-06-04'
+  - ruta: 'tareas/diario/2026-06-09-parser-hibrido-mobile-api-eventos.yaml', fecha: '2026-06-09'
