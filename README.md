@@ -190,6 +190,30 @@ Grading runtime uses a SCORM 1.2 bridge: a small `window.API` shim installed by
 wrapper and forwards them to `track.php`, which calls Moodle's `grade_update()`.
 xAPI support via `core_xapi` is on the roadmap.
 
+## Web services (Mobile API)
+
+The plugin exposes external functions for the official Moodle App and other
+external clients, all registered under `MOODLE_OFFICIAL_MOBILE_SERVICE` and
+enforcing context, login and capabilities in code
+([DEC-0040](./research/decisiones/adr/DEC-0040-mobile-external-api.md)):
+
+| Function | Type | Capability | Purpose |
+|---|---|---|---|
+| `mod_exelearning_get_exelearnings_by_courses` | read | `mod/exelearning:view` | List instances in courses (warnings for inaccessible ones; `packageurl` only for teachers). |
+| `mod_exelearning_view_exelearning` | write | `mod/exelearning:view` | Log a view (event + completion). |
+| `mod_exelearning_get_exelearning_access_information` | read | — | The user's `can*` capability flags. |
+| `mod_exelearning_get_user_attempts` | read | `mod/exelearning:view` (own); `:viewreport` (others) | A user's attempts. |
+| `mod_exelearning_get_user_grades` | read | `mod/exelearning:view` (own); `:viewreport` (others) | A user's per-iDevice grades. |
+| `mod_exelearning_save_track` | write | `mod/exelearning:savetrack` | Submit per-iDevice scores for the current user. |
+
+**Limits / security.** `save_track` reuses the same server-side pipeline as
+`track.php`: scores are routed by stable iDevice `objectid` (unknown objectids are
+ignored), the overall grade is recomputed server-side from the per-iDevice scores
+(the client overall is never trusted), scores are clamped to the grade range and the
+attempt cap is enforced. Tracking is SCORM 1.2 (score per iDevice + overall); xAPI
+ingestion is on the roadmap. The navigable package content itself is served via
+`pluginfile`, not through a web service.
+
 ## Roadmap
 
 See `research/decisiones/adr/` for the full set of ADRs. Highlights:

@@ -110,6 +110,18 @@ class track {
             );
             $itemscores = [];
         }
+        // Only scores for registered, non-deleted gradable iDevices may influence the
+        // grade. apply_item_scores() already ignores unknown objectids, but the
+        // overall recompute below operates on the whole map, so filter here too — a
+        // client must not be able to skew the overall by injecting extra objectids.
+        if ($itemscores !== []) {
+            $registered = array_flip(array_map('strval', self::registered_objectids($exe)));
+            $itemscores = array_filter(
+                $itemscores,
+                fn($key) => isset($registered[(string) $key]),
+                ARRAY_FILTER_USE_KEY
+            );
+        }
         $suspend = $cmi['cmi.suspend_data'] ?? '';
         $peritem = is_string($suspend) ? self::parse_suspend_data($suspend) : [];
         if (is_string($suspend) && $suspend !== '' && $peritem === [] && $itemscores === []) {
@@ -442,6 +454,23 @@ class track {
             );
         }
         return $persaved;
+    }
+
+    /**
+     * Returns the stable objectids of the instance's registered (non-deleted)
+     * gradable iDevices, used to reject scores for unknown objectids.
+     *
+     * @param \stdClass $exe The exelearning instance record.
+     * @return string[] Registered objectids.
+     */
+    private static function registered_objectids(\stdClass $exe): array {
+        global $DB;
+        return $DB->get_fieldset_select(
+            'exelearning_grade_item',
+            'objectid',
+            'exelearningid = ? AND deleted = 0',
+            [$exe->id]
+        );
     }
 
     /**

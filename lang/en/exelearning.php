@@ -90,6 +90,7 @@ $string['embeddednotinstalledcontactadmin'] = 'The embedded editor files are not
 $string['err_grademinmax'] = 'The minimum grade cannot be greater than the maximum grade.';
 $string['err_gradepassrange'] = 'The grade to pass must be between the minimum and maximum grade.';
 $string['err_nocontentxml'] = 'The uploaded file is not a valid eXeLearning package: it must be an .elpx or a .zip whose archive contains content.xml.';
+$string['error_maxattemptsreached'] = 'You have reached the maximum number of attempts for this activity.';
 $string['exelearning:addinstance']           = 'Add a new eXeLearning resource';
 $string['exelearning:deleteattempt']         = 'Delete student attempts';
 $string['exelearning:manageembeddededitor']  = 'Manage the embedded eXeLearning editor settings';
