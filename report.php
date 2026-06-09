@@ -89,6 +89,12 @@ if (
     ]);
     exelearning_recalculate_user_grades($exelearning, $deleteuser);
     $transaction->allow_commit();
+    \mod_exelearning\event\attempt_deleted::create([
+        'context'       => $context,
+        'objectid'      => $exelearning->id,
+        'relateduserid' => $deleteuser,
+        'other'         => ['attemptid' => $deleteattempt],
+    ])->trigger();
     redirect(
         new moodle_url('/mod/exelearning/report.php', $baseurlparams),
         get_string('attemptdeleted', 'mod_exelearning'),
@@ -104,6 +110,13 @@ $candelete = has_capability('mod/exelearning:deleteattempt', $context);
 // are hidden. The internal history (exelearning_attempt) keeps recording both,
 // so this only affects presentation, not the data nor the grade recalculation.
 $grademodel = (int) ($exelearning->grademodel ?? EXELEARNING_GRADEMODEL_PERITEM);
+
+// Log the report view (a delete request redirects above, so this fires once per
+// actual view, not on the delete POST).
+\mod_exelearning\event\report_viewed::create([
+    'context'  => $context,
+    'objectid' => $exelearning->id,
+])->trigger();
 
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('attemptsreport', 'mod_exelearning'));
