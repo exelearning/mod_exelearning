@@ -287,6 +287,45 @@ final class package_test extends advanced_testcase {
     }
 
     /**
+     * GeoGebra does not serialise the score-saving marker as an `isScorm` JSON
+     * property. Its export runtime treats the `auto-geogebra-scorm` CSS class as
+     * the scored marker, adds the SCORM save button, registers the activity, and
+     * builds runtime options with `isScorm: 2` (issue #29; DEC-0043).
+     */
+    public function test_geogebra_scorm_class_detected(): void {
+        $this->resetAfterTest();
+
+        $detected = $this->detect([
+            [
+                'p1',
+                'idevice-geogebra-scored',
+                'geogebra-activity',
+                '<htmlView><![CDATA['
+                    . '<div class="auto-geogebra auto-geogebra-VgHhQXCC auto-geogebra-scorm '
+                    . 'auto-geogebra-ideviceid-idevice-geogebra-scored auto-geogebra-weight-100">'
+                    . '<span class="scorm-button-text"> (Save score)</span>'
+                    . '</div>'
+                    . ']]></htmlView>' . "\n",
+            ],
+            [
+                'p1',
+                'idevice-geogebra-unscored',
+                'geogebra-activity',
+                '<htmlView><![CDATA['
+                    . '<div class="auto-geogebra auto-geogebra-VgHhQXCC '
+                    . 'auto-geogebra-ideviceid-idevice-geogebra-unscored">'
+                    . '</div>'
+                    . ']]></htmlView>' . "\n",
+            ],
+        ]);
+
+        $this->assertCount(1, $detected);
+        $this->assertArrayHasKey('idevice-geogebra-scored', $detected);
+        $this->assertArrayNotHasKey('idevice-geogebra-unscored', $detected);
+        $this->assertSame('geogebra-activity', $detected['idevice-geogebra-scored']->idevicetype);
+    }
+
+    /**
      * Encrypts a JSON string the way eXeLearning's `encrypt()` does
      * (`libs/common.js`): XOR each code point with the fixed key 146 (0x92), then
      * `escape()` it. To keep the test helper simple every code point is percent
@@ -551,6 +590,24 @@ final class package_test extends advanced_testcase {
         $types = array_map(fn($i) => $i->idevicetype, array_values($detected));
         sort($types);
         $this->assertSame(['guess', 'trueorfalse'], $types);
+    }
+
+    /**
+     * Regression on the real package attached to issue #29: Video interactivo,
+     * Verdadero/Falso and Quiz adaptativo expose `isScorm`, while GeoGebra exposes
+     * only the `auto-geogebra-scorm` HTML class. All four must create grade items.
+     */
+    public function test_real_geogebra_fixture_detects_all_scored_idevices(): void {
+        $this->resetAfterTest();
+
+        $detected = $this->detect_raw($this->load_fixture_xml('real-geogebra'));
+
+        $this->assertCount(4, $detected);
+        $types = array_map(fn($i) => $i->idevicetype, array_values($detected));
+        sort($types);
+        $this->assertSame(['adaptative-quiz', 'geogebra-activity', 'interactive-video', 'trueorfalse'], $types);
+        $this->assertArrayHasKey('idevice-1781071454245-o703gzzbq', $detected);
+        $this->assertSame('geogebra-activity', $detected['idevice-1781071454245-o703gzzbq']->idevicetype);
     }
 
     /**
