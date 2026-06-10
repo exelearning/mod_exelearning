@@ -44,10 +44,14 @@ final class mod_form_test extends advanced_testcase {
     protected function build_form(\stdClass $instance, \stdClass $course): \mod_exelearning_mod_form {
         global $PAGE;
         $cm = get_coursemodule_from_instance('exelearning', $instance->id);
+        // Argument 2 of moodleform_mod is the section NUMBER (resolved via
+        // get_section_info()), not the cm->section id — passing the id makes the
+        // section lookup return null and construction fatals on $section->visible.
+        $sectionnum = (int) get_fast_modinfo($course)->get_cm($cm->id)->sectionnum;
         $PAGE->set_course($course);
         // The moodleform_mod base treats $current->id as the instance id (per core mod_form tests).
         $current = (object) ['instance' => $instance->id, 'id' => $instance->id, 'course' => $course->id];
-        return new \mod_exelearning_mod_form($current, $cm->section, $cm, $course);
+        return new \mod_exelearning_mod_form($current, $sectionnum, $cm, $course);
     }
 
     /**
