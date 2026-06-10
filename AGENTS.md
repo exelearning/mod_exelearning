@@ -163,6 +163,9 @@ Cerradas: **TAREA-012 / RIE-001** investigación (DEC-0019); **TAREA-009 / RIE-0
 | DEC-0039 | **Aceptada** (2026-06-09) | Parser `content.xml` híbrido: `DOMDocument` por `local-name()` para la estructura + descifrado/hash conservados + fallback regex; acepta `<!DOCTYPE SYSTEM>` externo, rechaza entidades internas |
 | DEC-0040 | **Aceptada** (2026-06-09) | API externa/móvil: 6 funciones en `MOODLE_OFFICIAL_MOBILE_SERVICE` (incl. `save_track` reusando `track::ingest()` con salvaguardas server-side) |
 | DEC-0041 | **Aceptada** (2026-06-09) | Eventos selectivos: `attempt_deleted` + `report_viewed` + `course_module_instance_list_viewed` (sin evento por commit de tracking, sería ruido) |
+| DEC-0042 | **Aceptada** (2026-06-09) | Parchear al servir el guard de guardado de `form`/`scrambled-list` (quitar `body.exe-scorm`) → issue #13 "form/scrambled reportan 0" |
+| DEC-0043 | **Propuesta** (2026-06-10) | Transformación del paquete en tiempo de servido (`content_transformer` + `pluginfile`): elimina la reescritura del HTML en extracción (deuda nº1 del informe); diferida, salida definitiva es xAPI DEC-0032 |
+| DEC-0044 | **Aceptada** (2026-06-10) | Auditoría de bugs críticos (workflow multi-agente, 9 confirmados + 2 rechazados): B1 destrucción de paquete, B2/B2b pérdida de notas + `update_grades`, B3 items fantasma, B5 clamp DML, B6 `save_track` 0-score, B7 finalización por nota, B8 XSS informe; BETA tras críticos |
 
 ## Restricciones inmutables
 
@@ -218,7 +221,7 @@ Cerradas: **TAREA-012 / RIE-001** investigación (DEC-0019); **TAREA-009 / RIE-0
 
 ```
 mod_exelearning/
-├── lib.php                    # API pública + sync_grade_items + inject_scorm_loader
+├── lib.php                    # API pública + sync_grade_items + update_grades + inject_scorm_loader
 ├── view.php                   # iframe + SCORM 1.2 shim (autocommit 500ms)
 ├── track.php                  # AJAX endpoint (sesskey + mode preview/grading)
 ├── mod_form.php
