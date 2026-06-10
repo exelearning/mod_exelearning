@@ -15,7 +15,7 @@ relacionados:
   - DEC-0034
   - DEC-0038
   - DEC-0040
-  - DEC-0043
+  - DEC-0045
 herramienta_ia:
   interfaz: claude-code
   modelo: claude-fable-5
@@ -39,7 +39,7 @@ uno de los confirmados (B1) es **pérdida de datos irrecuperable**, se decidió
 Verificación previa: varias carencias que el informe marcó "no verificadas" (Privacy
 API, Capability API, External API, matriz CI) **ya estaban resueltas** y no requirieron
 código; el auditor no pudo abrir esos ficheros. La deuda nº1 del informe (reescritura
-del HTML del paquete) es real y se aborda por separado en [[DEC-0043]] (diferida).
+del HTML del paquete) es real y se aborda por separado en [[DEC-0045]] (diferida).
 
 ## Hallazgos confirmados y correcciones
 
