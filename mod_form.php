@@ -257,12 +257,22 @@ class mod_exelearning_mod_form extends moodleform_mod {
         $draftitemid = file_get_submitted_draft_itemid('package');
         if (!empty($this->current->id)) {
             $context = context_module::instance($this->current->coursemodule);
+            // Seed the filemanager draft from the package's ACTUAL itemid, not a
+            // hardcoded 0 (B1, DEC-0044). The embedded editor (editor/save.php)
+            // stores the saved .elpx at itemid=revision and deletes itemid 0, so
+            // reading only itemid 0 produced an empty draft; a later settings save
+            // then wiped the stored package and left the activity unrecoverable.
+            // exelearning_get_stored_package() locates the file at any itemid.
+            $packageitemid = 0;
+            if ($stored = exelearning_get_stored_package($context->id)) {
+                $packageitemid = $stored->get_itemid();
+            }
             file_prepare_draft_area(
                 $draftitemid,
                 $context->id,
                 'mod_exelearning',
                 'package',
-                0,
+                $packageitemid,
                 ['subdirs' => 0, 'maxfiles' => 1]
             );
         }

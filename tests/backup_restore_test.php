@@ -132,4 +132,39 @@ final class backup_restore_test extends advanced_testcase {
         ]);
         $this->assertCount(2, $attempts);
     }
+
+    /**
+     * A deliberately ungraded activity (gradeenabled=0, DEC-0029) must stay
+     * ungraded after a backup/restore. The master grading switch and the grade
+     * category were missing from the backup field list, so the restored copy fell
+     * back to the install.xml default (gradeenabled=1) and re-created gradebook
+     * columns on first view (B4, DEC-0044).
+     */
+    public function test_backup_restore_preserves_gradeenabled_off(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $course = $this->getDataGenerator()->create_course();
+        $instance = $this->getDataGenerator()
+            ->get_plugin_generator('mod_exelearning')
+            ->create_instance(['course' => $course->id, 'gradeenabled' => 0]);
+
+        // An ungraded activity registers no grade items.
+        $this->assertSame(0, $DB->count_records(
+            'exelearning_grade_item',
+            ['exelearningid' => $instance->id, 'deleted' => 0]
+        ));
+
+        $newcourseid = $this->backup_and_restore($course);
+
+        $restored = $DB->get_record('exelearning', ['course' => $newcourseid], '*', MUST_EXIST);
+        // The switch survives: the copy stays ungraded instead of silently
+        // re-enabling grading from the install.xml default.
+        $this->assertSame(0, (int) $restored->gradeenabled);
+        $this->assertSame(0, $DB->count_records(
+            'exelearning_grade_item',
+            ['exelearningid' => $restored->id, 'deleted' => 0]
+        ));
+    }
 }
