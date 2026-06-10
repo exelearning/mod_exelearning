@@ -1,5 +1,5 @@
 ---
-id: DEC-0043
+id: DEC-0045
 titulo: "Transformación del paquete en tiempo de servido (eliminar la reescritura del HTML en extracción)"
 estado: Propuesta
 fecha: 2026-06-10
