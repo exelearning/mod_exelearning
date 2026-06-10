@@ -264,6 +264,29 @@ final class external_test extends advanced_testcase {
         $this->assertEqualsWithDelta(0.5, (float) $overall->scaledscore, 0.0001);
     }
 
+    public function test_save_track_status_only_commit_is_noop(): void {
+        global $DB;
+        $this->setUser($this->student);
+
+        // A status-only commit (scoreraw omitted): the student opened and closed the
+        // activity without answering. It must be a no-op, not a recorded 0-score
+        // attempt that drags the grade down and burns a maxattempt slot (B6,
+        // DEC-0044). The web track.php path no-ops the same payload.
+        $result = save_track::execute($this->instance->id, [
+            'session' => 'mobileEmpty',
+            'status'  => 'incomplete',
+        ]);
+        $result = external_api::clean_returnvalue(save_track::execute_returns(), $result);
+
+        $this->assertSame(0, $result['attempt']);
+        $this->assertSame(0, $DB->count_records('exelearning_attempt', [
+            'exelearningid' => $this->instance->id,
+            'userid'        => $this->student->id,
+        ]));
+        $this->assertNull($this->published_grade(1));
+        $this->assertNull($this->published_grade(2));
+    }
+
     public function test_save_track_requires_savetrack_capability(): void {
         // Strip savetrack from the student role in this context.
         $studentrole = $this->getDataGenerator()->create_role();
