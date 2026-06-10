@@ -364,6 +364,28 @@ function exelearning_grade_item_update($exelearning, $grades = null, array $item
     global $CFG;
     require_once($CFG->libdir . '/gradelib.php');
 
+    // The overall (itemnumber=0) gradebook column only exists in OVERALL mode for a
+    // graded activity (DEC-0008, DEC-0038). Core's grade_update_mod_grades() calls
+    // this function UNCONDITIONALLY (before exelearning_update_grades()) on every
+    // regrade — cron needsupdate, course reset "remove all grades", grade-item
+    // unlock, user-undelete history recovery — so without this guard a PERITEM or
+    // ungraded activity would get a phantom overall column that inflates the course
+    // total (B2b follow-up, DEC-0044). When the overall must not exist, delete any
+    // stray one instead of creating it.
+    $grademodel = (int) ($exelearning->grademodel ?? EXELEARNING_GRADEMODEL_PERITEM);
+    if (empty($exelearning->gradeenabled) || $grademodel !== EXELEARNING_GRADEMODEL_OVERALL) {
+        return grade_update(
+            'mod/exelearning',
+            $exelearning->course,
+            'mod',
+            'exelearning',
+            $exelearning->id,
+            0,
+            null,
+            ['deleted' => true]
+        );
+    }
+
     $item = [
         'itemname'  => clean_param($exelearning->name, PARAM_NOTAGS),
         'gradetype' => GRADE_TYPE_VALUE,

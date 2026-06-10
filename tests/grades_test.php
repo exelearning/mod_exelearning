@@ -323,6 +323,38 @@ final class grades_test extends advanced_testcase {
     }
 
     /**
+     * Core's grade_update_mod_grades() calls exelearning_grade_item_update($instance)
+     * unconditionally before exelearning_update_grades() on every regrade. In PERITEM
+     * there is no overall column (DEC-0038), so neither the direct call nor the core
+     * regrade path may create a phantom overall (itemnumber 0) that would inflate the
+     * course total (B2b follow-up, DEC-0044).
+     *
+     * @covers ::exelearning_grade_item_update
+     */
+    public function test_core_regrade_creates_no_overall_in_peritem(): void {
+        $instance = $this->create_activity(['grademodel' => EXELEARNING_GRADEMODEL_PERITEM]);
+        $this->assertFalse($this->fetch_item($instance, 0));
+
+        // The primitive core invokes first.
+        exelearning_grade_item_update($instance);
+        $this->assertFalse(
+            $this->fetch_item($instance, 0),
+            'grade_item_update must not create a phantom overall column in PERITEM'
+        );
+
+        // The full core regrade path (grade_item_update + update_grades).
+        $modinstance = (object) (array) $instance;
+        $modinstance->modname = 'exelearning';
+        grade_update_mod_grades($modinstance, 0);
+        $this->assertFalse(
+            $this->fetch_item($instance, 0),
+            'A core regrade must not create a phantom overall column in PERITEM'
+        );
+        // The per-iDevice columns are untouched.
+        $this->assertInstanceOf(grade_item::class, $this->fetch_item($instance, 1));
+    }
+
+    /**
      * Resetting the course gradebook must not spawn phantom grade items. Looping
      * 0..MAX(itemnumber) and calling grade_update(['reset']) blindly inserted a
      * bare unnamed column for every itemnumber without a live grade item — in

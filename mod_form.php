@@ -334,13 +334,19 @@ class mod_exelearning_mod_form extends moodleform_mod {
         ) {
             $itemnumber = (int) $selected;
             $grademodel = (int) ($data['grademodel'] ?? EXELEARNING_GRADEMODEL_PERITEM);
+            // A real gradebook column exists for the overall (0) only in OVERALL
+            // mode, and for a per-iDevice item only in PERITEM mode — OVERALL
+            // deletes the per-iDevice Moodle columns (DEC-0038), so completion must
+            // not target one there even though its exelearning_grade_item row is kept
+            // for the report.
             $registered = ($itemnumber === 0)
                 ? ($grademodel === EXELEARNING_GRADEMODEL_OVERALL)
-                : $DB->record_exists('exelearning_grade_item', [
-                    'exelearningid' => (int) ($this->current->id ?? 0),
-                    'itemnumber'    => $itemnumber,
-                    'deleted'       => 0,
-                ]);
+                : ($grademodel === EXELEARNING_GRADEMODEL_PERITEM
+                    && $DB->record_exists('exelearning_grade_item', [
+                        'exelearningid' => (int) ($this->current->id ?? 0),
+                        'itemnumber'    => $itemnumber,
+                        'deleted'       => 0,
+                    ]));
             if ($registered) {
                 unset($errors['completionpassgrade']);
             }

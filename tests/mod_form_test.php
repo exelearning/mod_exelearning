@@ -69,9 +69,14 @@ final class mod_form_test extends advanced_testcase {
             'course'     => $course->id,
             'grademodel' => EXELEARNING_GRADEMODEL_PERITEM,
         ]);
+        $cm = get_coursemodule_from_instance('exelearning', $instance->id);
         $form = $this->build_form($instance, $course);
 
         $base = [
+            // Identity fields core's moodleform_mod::validation() reads unguarded.
+            'modulename'          => 'exelearning',
+            'instance'            => $instance->id,
+            'coursemodule'        => $cm->id,
             'name'                => $instance->name,
             'gradeenabled'        => 1,
             'grademodel'          => EXELEARNING_GRADEMODEL_PERITEM,
