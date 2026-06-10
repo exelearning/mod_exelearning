@@ -51,7 +51,19 @@ class save_track extends external_api {
             'exelearningid' => new external_value(PARAM_INT, 'exelearning instance id'),
             'track' => new external_single_structure([
                 'session'  => new external_value(PARAM_ALPHANUMEXT, 'Page-load session token', VALUE_DEFAULT, ''),
-                'scoreraw' => new external_value(PARAM_FLOAT, 'Overall raw score', VALUE_DEFAULT, 0),
+                // Nullable on purpose (B6, DEC-0044): omitting scoreraw means a
+                // status-only / empty commit, which must NOT be recorded as a real
+                // 0-score attempt. A default of 0 silently turned every score-less
+                // commit into a genuine 0 that dragged GRADE_LAST/AVERAGE down and
+                // burnt a maxattempt slot — the web track.php path correctly no-ops
+                // the same payload.
+                'scoreraw' => new external_value(
+                    PARAM_FLOAT,
+                    'Overall raw score (omit for a status-only commit)',
+                    VALUE_DEFAULT,
+                    null,
+                    NULL_ALLOWED
+                ),
                 'scoremax' => new external_value(PARAM_FLOAT, 'Overall maximum score', VALUE_DEFAULT, 100),
                 'status'   => new external_value(PARAM_ALPHA, 'Lesson status (completed|passed|failed)', VALUE_DEFAULT, ''),
                 'itemscores' => new external_multiple_structure(
@@ -106,13 +118,18 @@ class save_track extends external_api {
                 'title'    => '',
             ];
         }
+        // Only a real score submission carries cmi.core.score.raw. When scoreraw is
+        // omitted (null) the commit is status-only and must hit track::ingest()'s
+        // no-op guard instead of being persisted as a spurious 0-score attempt
+        // (B6, DEC-0044).
+        $cmi = ['cmi.core.lesson_status' => $t['status']];
+        if ($t['scoreraw'] !== null) {
+            $cmi['cmi.core.score.raw'] = $t['scoreraw'];
+            $cmi['cmi.core.score.max'] = $t['scoremax'];
+        }
         $payload = [
             'session' => $t['session'],
-            'cmi' => [
-                'cmi.core.score.raw'     => $t['scoreraw'],
-                'cmi.core.score.max'     => $t['scoremax'],
-                'cmi.core.lesson_status' => $t['status'],
-            ],
+            'cmi' => $cmi,
             'itemscores' => $itemscores,
         ];
 

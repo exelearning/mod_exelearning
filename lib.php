@@ -137,11 +137,16 @@ function exelearning_update_instance($data, $mform = null) {
 
     $data->id = $data->instance;
     $data->timemodified = time();
-    $data->revision = (int) ($DB->get_field(
+    // Snapshot the pre-update grading model/method so we can tell a pure grading
+    // change (re-aggregate valid attempts) from a package re-upload (DEC-0021
+    // snapshot-and-warn) after the record is written (B2, DEC-0044).
+    $oldrow = $DB->get_record(
         'exelearning',
-        'revision',
-        ['id' => $data->id]
-    ) ?: 0) + 1;
+        ['id' => $data->id],
+        'revision, grademodel, grademethod',
+        MUST_EXIST
+    );
+    $data->revision = (int) ($oldrow->revision ?: 0) + 1;
     if (!isset($data->grademax)) {
         $data->grademax = 100;
     }
@@ -175,6 +180,21 @@ function exelearning_update_instance($data, $mform = null) {
     exelearning_save_and_extract_package($data);
     $contextid = context_module::instance($data->coursemodule)->id;
     $delta = exelearning_sync_grade_items($data->id, $contextid);
+
+    // A pure grading model/method change leaves the stored attempts valid, but
+    // exelearning_sync_grade_items() deletes and recreates the gradebook columns
+    // empty (PERITEM<->OVERALL) or keeps them aggregated with the old method — so
+    // the published grades would vanish or go stale until students resubmit.
+    // Re-publish them from the attempt history (B2, DEC-0044). A package re-upload
+    // (content change) is deliberately NOT recomputed here: it keeps DEC-0021
+    // snapshot-and-warn semantics via exelearning_warn_if_grades_stale() below.
+    if (
+        (int) $data->grademodel !== (int) $oldrow->grademodel
+        || (int) $data->grademethod !== (int) $oldrow->grademethod
+    ) {
+        exelearning_update_grades($data, 0);
+    }
+
     // Re-uploading a package over an activity that already has attempts may add,
     // remove or re-score gradable iDevices; warn that old grades are not
     // recomputed (DEC-0021). The notice renders on the post-form redirect.
@@ -299,19 +319,31 @@ function exelearning_reset_gradebook($courseid, $type = '') {
 
     $instances = $DB->get_records('exelearning', ['course' => $courseid], '', 'id');
     foreach ($instances as $instance) {
-        $maxnum = (int) $DB->get_field_sql(
-            "SELECT COALESCE(MAX(itemnumber),0) FROM {exelearning_grade_item}
-                 WHERE exelearningid = ?",
-            [$instance->id]
-        );
-        for ($n = 0; $n <= $maxnum; $n++) {
+        // Reset only the grade items that actually exist in the gradebook. Looping
+        // 0..MAX(itemnumber) and calling grade_update(['reset']) blindly used to
+        // INSERT a bare, unnamed 100-point grade item for every itemnumber without
+        // a live column — core grade_update() short-circuits a missing item only
+        // for 'deleted', not 'reset'. In PERITEM the overall (0) never exists, in
+        // OVERALL no per-iDevice item exists, and soft-deleted iDevices still raise
+        // MAX(itemnumber), so a course reset spawned phantom columns that inflated
+        // the course total (B3, DEC-0044).
+        $items = grade_item::fetch_all([
+            'itemtype'     => 'mod',
+            'itemmodule'   => 'exelearning',
+            'iteminstance' => $instance->id,
+            'courseid'     => $courseid,
+        ]);
+        if (!$items) {
+            continue;
+        }
+        foreach ($items as $item) {
             grade_update(
                 'mod/exelearning',
                 $courseid,
                 'mod',
                 'exelearning',
                 $instance->id,
-                $n,
+                (int) $item->itemnumber,
                 null,
                 ['reset' => true]
             );
@@ -331,6 +363,28 @@ function exelearning_reset_gradebook($courseid, $type = '') {
 function exelearning_grade_item_update($exelearning, $grades = null, array $itemdetails = []) {
     global $CFG;
     require_once($CFG->libdir . '/gradelib.php');
+
+    // The overall (itemnumber=0) gradebook column only exists in OVERALL mode for a
+    // graded activity (DEC-0008, DEC-0038). Core's grade_update_mod_grades() calls
+    // this function UNCONDITIONALLY (before exelearning_update_grades()) on every
+    // regrade — cron needsupdate, course reset "remove all grades", grade-item
+    // unlock, user-undelete history recovery — so without this guard a PERITEM or
+    // ungraded activity would get a phantom overall column that inflates the course
+    // total (B2b follow-up, DEC-0044). When the overall must not exist, delete any
+    // stray one instead of creating it.
+    $grademodel = (int) ($exelearning->grademodel ?? EXELEARNING_GRADEMODEL_PERITEM);
+    if (empty($exelearning->gradeenabled) || $grademodel !== EXELEARNING_GRADEMODEL_OVERALL) {
+        return grade_update(
+            'mod/exelearning',
+            $exelearning->course,
+            'mod',
+            'exelearning',
+            $exelearning->id,
+            0,
+            null,
+            ['deleted' => true]
+        );
+    }
 
     $item = [
         'itemname'  => clean_param($exelearning->name, PARAM_NOTAGS),
@@ -352,6 +406,49 @@ function exelearning_grade_item_update($exelearning, $grades = null, array $item
         $grades,
         $item
     );
+}
+
+/**
+ * Re-publishes the activity's gradebook grades from the stored attempt history.
+ *
+ * This is the second half of the gradebook module contract: core's
+ * grade_update_mod_grades() only re-syncs a module when BOTH
+ * exelearning_grade_item_update() and exelearning_update_grades() exist. With
+ * only the former declared, core did nothing (and logged "you have declared one
+ * of ... but not both"), so course-reset "remove all grades", grade-item unlock
+ * and user-undelete history recovery silently dropped every exelearning grade
+ * while exelearning_attempt still held the data (B2b, DEC-0044).
+ *
+ * Each user's grade is re-aggregated from exelearning_attempt with the current
+ * grademethod/grademodel via exelearning_recalculate_user_grades(), so it is also
+ * the correct primitive to call after a pure grademodel/grademethod change, which
+ * deletes and recreates the gradebook columns empty (B2).
+ *
+ * @param stdClass $exelearning The activity instance row.
+ * @param int $userid Recalculate a single user (0 = every user with attempts).
+ * @return void
+ */
+function exelearning_update_grades(stdClass $exelearning, int $userid = 0): void {
+    global $CFG, $DB;
+    require_once($CFG->libdir . '/gradelib.php');
+
+    // Not graded (DEC-0029): no grade items exist, so there is nothing to publish.
+    if (empty($exelearning->gradeenabled)) {
+        return;
+    }
+
+    if ($userid > 0) {
+        exelearning_recalculate_user_grades($exelearning, $userid);
+        return;
+    }
+
+    $userids = $DB->get_fieldset_sql(
+        'SELECT DISTINCT userid FROM {exelearning_attempt} WHERE exelearningid = ?',
+        [$exelearning->id]
+    );
+    foreach ($userids as $uid) {
+        exelearning_recalculate_user_grades($exelearning, (int) $uid);
+    }
 }
 
 /**
@@ -1108,6 +1205,17 @@ function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null
     $seen = [];
     $capwarned = false;
     foreach ($detected as $d) {
+        // Clamp the package-controlled identifiers to their column widths before
+        // they are used as the $existing lookup key or written to the DB, so an
+        // adversarial/overlong content.xml cannot throw a dml_write_exception
+        // mid-sync (a student-facing fatal through the view.php self-heal) (B5,
+        // DEC-0044). objectid/pageid are char(191), idevicetype char(64).
+        $d->idevicetype = core_text::substr((string) $d->idevicetype, 0, 64);
+        $d->objectid    = core_text::substr((string) $d->objectid, 0, 191);
+        $d->pageid      = ($d->pageid === null)
+            ? null
+            : core_text::substr((string) $d->pageid, 0, 191);
+
         $name = exelearning_grade_item_name($instance, $d);
         $now = time();
 
@@ -1346,10 +1454,70 @@ function exelearning_grade_item_name(stdClass $instance, stdClass $detected): st
     $type = clean_param($detected->idevicetype, PARAM_TEXT);
     $page = trim((string) ($detected->pagename ?? ''));
     $base = clean_param($instance->name, PARAM_NOTAGS);
-    if ($page !== '') {
-        return $base . ' · ' . $page . ' · ' . $type;
+    $name = ($page !== '') ? ($base . ' · ' . $page . ' · ' . $type) : ($base . ' · ' . $type);
+    // Clamp to the exelearning_grade_item.name column width (char 255). The page
+    // title comes from author-controlled content.xml and is unbounded; combined
+    // with an up-to-255-char activity name it can exceed 255 and throw a
+    // dml_write_exception on sync — which, via the view.php self-heal, is a
+    // student-facing fatal (B5, DEC-0044). core_text::substr is multibyte-safe and
+    // deterministic, so re-sync does not thrash the stored name.
+    return core_text::substr($name, 0, 255);
+}
+
+/**
+ * Relaxes core's "completion grade item has no grade field" validation error for a
+ * registered gradable item (B7, DEC-0044).
+ *
+ * Core's moodleform_mod::validation() rejects every completiongradeitemnumber with a
+ * badcompletiongradeitemnumber error (key 'completionpassgrade') because
+ * mod_exelearning maps 101 itemnumbers (gradeitems::MAX_ITEMNUMBER) but stores each
+ * grade in its own table instead of exposing per-itemnumber grade_ideviceN form
+ * fields — so core's "this item has no grade field" check always fails, making the
+ * DEC-0038 completion-by-grade feature impossible to save from the form. This
+ * stopgap clears that specific error when "require passing grade" is OFF and the
+ * chosen item is a real gradebook column (a per-iDevice item in PERITEM, or the
+ * overall in OVERALL): it does carry a grade, just not via a core form field.
+ * Because it only fires when completionpassgrade is unchecked, it never masks the
+ * legitimate "grade to pass not set" validation. "Require passing grade" needs a
+ * core_grades fieldname_mapping to validate the threshold and is left to that proper
+ * fix (deferred). Kept as a pure function so it is unit-testable without building the
+ * whole moodleform_mod (which couples to core availability/tags/completion fields).
+ *
+ * @param array $errors The errors array from moodleform_mod::validation().
+ * @param array $data The submitted form data.
+ * @param int $exelearningid The instance id (0 on a brand-new activity).
+ * @return array The (possibly relaxed) errors array.
+ */
+function exelearning_relax_completion_grade_errors(array $errors, array $data, int $exelearningid): array {
+    global $DB;
+
+    $selected = $data['completiongradeitemnumber'] ?? null;
+    if (
+        $selected === null || $selected === ''
+        || !empty($data['completionpassgrade'])
+        || !isset($errors['completionpassgrade'])
+    ) {
+        return $errors;
     }
-    return $base . ' · ' . $type;
+
+    $itemnumber = (int) $selected;
+    $grademodel = (int) ($data['grademodel'] ?? EXELEARNING_GRADEMODEL_PERITEM);
+    // A real gradebook column exists for the overall (0) only in OVERALL mode, and
+    // for a per-iDevice item only in PERITEM mode — OVERALL deletes the per-iDevice
+    // Moodle columns (DEC-0038), so completion must not target one there even though
+    // its exelearning_grade_item row is kept for the report.
+    $registered = ($itemnumber === 0)
+        ? ($grademodel === EXELEARNING_GRADEMODEL_OVERALL)
+        : ($grademodel === EXELEARNING_GRADEMODEL_PERITEM
+            && $DB->record_exists('exelearning_grade_item', [
+                'exelearningid' => $exelearningid,
+                'itemnumber'    => $itemnumber,
+                'deleted'       => 0,
+            ]));
+    if ($registered) {
+        unset($errors['completionpassgrade']);
+    }
+    return $errors;
 }
 
 /**

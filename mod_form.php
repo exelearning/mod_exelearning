@@ -322,6 +322,15 @@ class mod_exelearning_mod_form extends moodleform_mod {
         global $USER;
         $errors = parent::validation($data, $files);
 
+        // Relax core's badcompletiongradeitemnumber rejection for a registered
+        // gradable item (B7, DEC-0044). The logic is a pure, unit-tested helper in
+        // lib.php so it can be covered without constructing the whole moodleform_mod.
+        $errors = exelearning_relax_completion_grade_errors(
+            $errors,
+            (array) $data,
+            (int) ($this->current->id ?? 0)
+        );
+
         $grademax = (float) ($data['grademax'] ?? 100);
         $grademin = (float) ($data['grademin'] ?? 0);
         $gradepass = (float) ($data['gradepass'] ?? 0);
