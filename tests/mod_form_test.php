@@ -81,6 +81,7 @@ final class mod_form_test extends advanced_testcase {
             'modulename'          => 'exelearning',
             'instance'            => $instance->id,
             'coursemodule'        => $cm->id,
+            'cmidnumber'          => '',
             'name'                => $instance->name,
             'gradeenabled'        => 1,
             'grademodel'          => EXELEARNING_GRADEMODEL_PERITEM,
