@@ -43,3 +43,6 @@ items:
   - id: 'DEC-0041', titulo: 'Eventos selectivos de trazabilidad (sin ruido de tracking)', estado: 'Aceptada', fecha: '2026-06-09', ruta: 'decisiones/adr/DEC-0041-eventos-selectivos.md'
   - id: 'DEC-0042', titulo: 'Parchear al servir el guard de guardado de form/scrambled-list (embebedor-side de exelearning#1925)', estado: 'Aceptada', fecha: '2026-06-09', ruta: 'decisiones/adr/DEC-0042-parche-save-guard-form-scrambled.md'
   - id: 'DEC-0043', titulo: 'Detectar GeoGebra calificable por la clase auto-geogebra-scorm', estado: 'Aceptada', fecha: '2026-06-10', ruta: 'decisiones/adr/DEC-0043-deteccion-geogebra-auto-scorm.md'
+  - id: 'DEC-0044', titulo: 'Auditoría de bugs críticos (workflow multi-agente) y correcciones por temas', estado: 'Aceptada', fecha: '2026-06-10', ruta: 'decisiones/adr/DEC-0044-auditoria-bugs-criticos.md'
+  - id: 'DEC-0045', titulo: 'Transformación del paquete en tiempo de servido (eliminar la reescritura del HTML en extracción)', estado: 'Propuesta', fecha: '2026-06-10', ruta: 'decisiones/adr/DEC-0045-transformacion-en-servido.md'
+  - id: 'DEC-0046', titulo: 'Inyecciones SCORM-loader y teacher-mode: corrección en el plugin vs upstream en eXeLearning', estado: 'Aceptada', fecha: '2026-06-10', ruta: 'decisiones/adr/DEC-0046-inyecciones-scorm-teacher-mode-plugin-vs-upstream.md'
