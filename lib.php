@@ -565,11 +565,37 @@ function exelearning_navigation_before_key(navigation_node $node): ?string {
  * @param stdClass $data Form data (with `coursemodule`, `package` draftid, `revision`).
  */
 function exelearning_save_and_extract_package(stdClass $data): void {
+    global $USER;
+
     if (empty($data->package)) {
         return;
     }
     $context = context_module::instance($data->coursemodule);
     $fs = get_file_storage();
+
+    // Safety net against destroying the stored package (B1, DEC-0044). The
+    // submitted value is a draft itemid that is non-empty even when it carries no
+    // file; saving such an empty draft used to delete every stored package itemid
+    // (the form reads itemid 0 but the embedded editor stores at itemid=revision),
+    // leaving the activity with no content and the source .elpx unrecoverable.
+    // When the incoming draft has no file but a package is already stored, keep
+    // the existing one and just (re-)extract it to the current revision instead of
+    // wiping it. data_preprocessing() seeds the draft from the stored package, so
+    // a genuine settings save (or a real upload/replacement) still round-trips a
+    // non-empty draft and falls through to the normal path below.
+    $usercontext = context_user::instance($USER->id);
+    $draftfiles = $fs->get_area_files(
+        $usercontext->id,
+        'user',
+        'draft',
+        (int) $data->package,
+        'id',
+        false
+    );
+    if (empty($draftfiles) && exelearning_get_stored_package($context->id) !== null) {
+        exelearning_extract_stored_package($context->id, (int) $data->revision);
+        return;
+    }
 
     // 1) Persist the ZIP in 'package/0/'.
     $fs->delete_area_files($context->id, 'mod_exelearning', 'package');
