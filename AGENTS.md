@@ -167,6 +167,7 @@ Cerradas: **TAREA-012 / RIE-001** investigación (DEC-0019); **TAREA-009 / RIE-0
 | DEC-0043 | **Aceptada** (2026-06-10) | Detectar GeoGebra calificable por la clase `auto-geogebra-scorm` (issue #29, PR #30) |
 | DEC-0044 | **Aceptada** (2026-06-10) | Auditoría de bugs críticos (workflow multi-agente, 9 confirmados + 2 rechazados): B1 destrucción de paquete, B2/B2b pérdida de notas + `update_grades`, B3 items fantasma, B5 clamp DML, B6 `save_track` 0-score, B7 finalización por nota, B8 XSS informe; BETA tras críticos |
 | DEC-0045 | **Propuesta** (2026-06-10) | Transformación del paquete en tiempo de servido (`content_transformer` + `pluginfile`): elimina la reescritura del HTML en extracción (deuda nº1 del informe); diferida, salida definitiva es xAPI DEC-0032 |
+| DEC-0046 | **Aceptada** (2026-06-10) | Inyecciones SCORM-loader (`inject_scorm_loader`) y teacher-mode (`require_teacher_mode_hider`): análisis plugin vs upstream eXeLearning (ventajas/inconvenientes); híbrido = fix plugin-side DEC-0045 (amplía alcance al teacher-mode) + opción upstream documentada (sin abrir issues); conservar workaround para `.elpx` heredados |
 
 ## Restricciones inmutables
 
