@@ -127,7 +127,11 @@ echo $OUTPUT->heading(get_string('attemptsreport', 'mod_exelearning'));
 if ($userid > 0 && ($restrictusers === null || in_array($userid, $restrictusers, true))) {
     $filtereduser = $DB->get_record('user', ['id' => $userid]);
     if ($filtereduser) {
-        echo $OUTPUT->heading(fullname($filtereduser), 4);
+        // Escape the name: $OUTPUT->heading() does not HTML-escape its content, and a
+        // display name set via LDAP/SAML/WS/CSV upload is not guaranteed tag-stripped,
+        // so an unescaped name would run as stored XSS in the grader's session (B8,
+        // DEC-0044). The attempts table below already escapes the same value with s().
+        echo $OUTPUT->heading(s(fullname($filtereduser)), 4);
     }
 }
 
