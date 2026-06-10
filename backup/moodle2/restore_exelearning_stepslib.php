@@ -71,6 +71,20 @@ class restore_exelearning_activity_structure_step extends restore_activity_struc
         // does not point at a stale/non-existent user id after a cross-site restore.
         $data->usermodified = $this->get_mappingid('user', $data->usermodified) ?: 0;
 
+        // The gradecat column (DEC-0034) is a grade_categories.id that is
+        // course-specific: it survives a same-course duplicate but not a
+        // cross-course restore (where the category is recreated later with a
+        // different id). Keep it only when the
+        // category exists in the target course; otherwise fall back to the course
+        // top category (0). The per-iDevice items are re-parented on first view via
+        // exelearning_apply_grade_category() (B4, DEC-0044).
+        if (
+            !empty($data->gradecat)
+            && !$DB->record_exists('grade_categories', ['id' => $data->gradecat, 'courseid' => $data->course])
+        ) {
+            $data->gradecat = 0;
+        }
+
         // Insert the exelearning record.
         $newitemid = $DB->insert_record('exelearning', $data);
 

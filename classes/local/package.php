@@ -84,6 +84,7 @@ class package {
         'interactive-video',
         'challenge',
         'padlock',
+        'geogebra-activity',
     ];
 
     /** @var \stored_file ELPX zip stored in the 'package' filearea. */
@@ -240,7 +241,7 @@ class package {
                 continue;
             }
             [$type, $jsonprops, $htmlview, $blockxml] = $this->collect_region($idnode);
-            if (!$this->region_reports_score($jsonprops, $htmlview)) {
+            if (!$this->region_reports_score($type, $jsonprops, $htmlview)) {
                 continue;
             }
             $items[] = (object) [
@@ -304,18 +305,21 @@ class package {
      *   1. `jsonProperties` plain JSON (trueorfalse, form, map, …);
      *   2. `htmlView` plain (interactive-video, dragdrop, …; flag may be nested);
      *   3. `htmlView` encrypted `*-DataGame` div (the exe-game family).
+     *   4. `geogebra-activity`'s `auto-geogebra-scorm` class (issue #29; DEC-0043).
      * The maximum flag wins so a plain `0` never shadows an encrypted `1`.
      *
+     * @param string $type eXeLearning iDevice type.
      * @param string|null $jsonprops Decoded jsonProperties text, or null.
      * @param string|null $htmlview Decoded htmlView text, or null.
      * @return bool True when any source declares isScorm 1 or 2.
      */
-    private function region_reports_score(?string $jsonprops, ?string $htmlview): bool {
+    private function region_reports_score(string $type, ?string $jsonprops, ?string $htmlview): bool {
         $max = null;
         $candidates = [
             $jsonprops !== null ? $this->scan_isscorm_flag($jsonprops) : null,
             $htmlview !== null ? $this->scan_isscorm_flag($htmlview) : null,
             $htmlview !== null ? $this->scan_datagame_isscorm($htmlview) : null,
+            $htmlview !== null ? $this->scan_geogebra_scorm_class($type, $htmlview) : null,
         ];
         foreach ($candidates as $value) {
             if ($value !== null && ($max === null || $value > $max)) {
@@ -334,6 +338,30 @@ class package {
     private function scan_isscorm_flag(string $text): ?int {
         if (preg_match('~"isScorm"\s*:\s*"?([0-9])~', $text, $m)) {
             return (int) $m[1];
+        }
+        return null;
+    }
+
+    /**
+     * Reads GeoGebra's score-saving marker from its generated HTML.
+     *
+     * GeoGebra is the outlier in eXeLearning v4: the editor does not serialise an
+     * `isScorm` JSON property for this iDevice. Its export runtime treats the
+     * `auto-geogebra-scorm` class as the author opt-in, then creates runtime
+     * options with `isScorm: 2`, adds the save-score button, and registers the
+     * activity. The parser mirrors only that explicit author marker so unscored
+     * GeoGebra activities stay out of the gradebook (issue #29; DEC-0043).
+     *
+     * @param string $type eXeLearning iDevice type.
+     * @param string $html Decoded htmlView text.
+     * @return int|null 2 when GeoGebra declares the SCORM/save-score class, otherwise null.
+     */
+    private function scan_geogebra_scorm_class(string $type, string $html): ?int {
+        if ($type !== 'geogebra-activity') {
+            return null;
+        }
+        if (preg_match('~(?:^|[\s"\'])auto-geogebra-scorm(?:$|[\s"\'])~', $html)) {
+            return 2;
         }
         return null;
     }
@@ -487,7 +515,7 @@ class package {
                 $start = (int) $t[0][1];
                 $end = ($i + 1 < $total) ? (int) $tokens[$i + 1][0][1] : $xmllen;
                 $block = substr($xml, $start, $end - $start);
-                if (!$this->idevice_reports_score($block)) {
+                if (!$this->idevice_reports_score($devtype, $block)) {
                     continue;
                 }
                 $items[] = (object) [
@@ -507,11 +535,13 @@ class package {
     /**
      * Legacy block-based scoring check (used by the regex fallback).
      *
+     * @param string $type eXeLearning iDevice type.
      * @param string $block Raw content.xml slice for one iDevice.
      * @return bool True when the iDevice declares isScorm 1 or 2 in any source.
      */
-    private function idevice_reports_score(string $block): bool {
+    private function idevice_reports_score(string $type, string $block): bool {
         return $this->region_reports_score(
+            $type,
             $this->extract_tag($block, 'jsonProperties'),
             $this->extract_tag($block, 'htmlView')
         );

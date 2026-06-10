@@ -296,6 +296,71 @@ final class lib_test extends advanced_testcase {
     }
 
     /**
+     * Saving the settings form after an embedded-editor save must NOT destroy the
+     * stored .elpx (B1, DEC-0044). The editor stores the package at itemid=revision
+     * (deleting itemid 0); a subsequent settings submit carries a non-empty but
+     * file-less filemanager draft, which previously wiped every package itemid and
+     * left the activity unrecoverable. The guard keeps the stored package and
+     * re-extracts the content for the current revision.
+     *
+     * @covers ::exelearning_save_and_extract_package
+     */
+    public function test_settings_save_with_empty_draft_keeps_stored_package(): void {
+        global $DB;
+
+        $instance = $this->create_activity();
+        $cm = get_coursemodule_from_instance('exelearning', $instance->id);
+        $context = \context_module::instance($cm->id);
+        $fs = get_file_storage();
+
+        // Simulate editor/save.php: copy the package to itemid=revision+1 and drop
+        // the original (itemid 0), then bump the instance revision.
+        $original = exelearning_get_stored_package($context->id);
+        $this->assertNotNull($original);
+        $editoritemid = (int) $instance->revision + 1;
+        $fs->create_file_from_storedfile([
+            'contextid' => $context->id,
+            'component' => 'mod_exelearning',
+            'filearea'  => 'package',
+            'itemid'    => $editoritemid,
+            'filepath'  => '/',
+            'filename'  => $original->get_filename(),
+        ], $original);
+        $original->delete();
+        $DB->set_field('exelearning', 'revision', $editoritemid, ['id' => $instance->id]);
+
+        // Teacher opens "Edit settings" and saves without touching the package: the
+        // submitted draft is allocated but empty.
+        $emptydraft = file_get_unused_draft_itemid();
+        $data = (object) [
+            'coursemodule' => $cm->id,
+            'package'      => $emptydraft,
+            'revision'     => $editoritemid,
+        ];
+        exelearning_save_and_extract_package($data);
+
+        // The editor-saved package survives the settings save.
+        $surviving = exelearning_get_stored_package($context->id);
+        $this->assertNotNull(
+            $surviving,
+            'Stored package was destroyed by an empty-draft settings save'
+        );
+        // The content for the current revision is (re-)extracted and servable.
+        $mainfile = $fs->get_file(
+            $context->id,
+            'mod_exelearning',
+            'content',
+            $editoritemid,
+            '/',
+            'index.html'
+        );
+        $this->assertNotFalse(
+            $mainfile,
+            'Content was not extracted for the current revision'
+        );
+    }
+
+    /**
      * A grade item name is built from the activity name (up to char 255) plus the
      * author-controlled page title from content.xml plus the iDevice type, so it
      * can exceed the char(255) column. It must be clamped, not thrown as a

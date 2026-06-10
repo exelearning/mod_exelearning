@@ -37,17 +37,21 @@ class backup_exelearning_activity_structure_step extends backup_activity_structu
         $userinfo = $this->get_setting_value('userinfo');
 
         // Define the root element describing the exelearning instance.
-        // grademodel/maxattempt/reviewmode/teachermodevisible/gradepass are all
-        // NOT NULL instance settings; omitting them made restore silently revert
-        // grading model, attempt limits, review policy and pass grade to the
-        // install.xml defaults. gradesyncrev is deliberately NOT backed up so the
-        // restored copy re-scans its package once on first view.
+        // grademodel/maxattempt/reviewmode/teachermodevisible/gradepass/
+        // gradeenabled/gradecat are all NOT NULL instance settings; omitting them
+        // made restore silently revert grading model, attempt limits, review
+        // policy, pass grade, the master grading switch (DEC-0029) and the grade
+        // category (DEC-0034) to the install.xml defaults — so a deliberately
+        // ungraded activity (gradeenabled=0) came back graded and re-created its
+        // gradebook columns on first view (B4, DEC-0044). gradesyncrev is
+        // deliberately NOT backed up so the restored copy re-scans its package
+        // once on first view.
         $exelearning = new backup_nested_element('exelearning', ['id'], [
             'course', 'name', 'intro', 'introformat', 'display', 'displayoptions',
-            'entrypath', 'entryname', 'revision', 'grademax', 'grademin',
-            'gradepass', 'gradedisplaytype', 'grademethod', 'grademodel',
-            'maxattempt', 'reviewmode', 'teachermodevisible', 'timecreated',
-            'timemodified', 'usermodified',
+            'entrypath', 'entryname', 'revision', 'gradeenabled', 'grademax',
+            'grademin', 'gradepass', 'gradedisplaytype', 'grademethod', 'grademodel',
+            'gradecat', 'maxattempt', 'reviewmode', 'teachermodevisible',
+            'timecreated', 'timemodified', 'usermodified',
         ]);
 
         // Define each element separated.
