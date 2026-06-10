@@ -326,6 +326,58 @@ final class lib_test extends advanced_testcase {
     }
 
     /**
+     * The completion-by-grade validation stopgap (B7, DEC-0044) clears core's
+     * badcompletiongradeitemnumber error only for a real gradebook column and only
+     * when "require passing grade" is off, never masking the legitimate
+     * pass-grade-required check. Tested as a pure helper so the coverage does not
+     * depend on constructing the whole moodleform_mod (which couples to core
+     * availability/tags/completion form fields).
+     *
+     * @covers ::exelearning_relax_completion_grade_errors
+     */
+    public function test_relax_completion_grade_errors(): void {
+        // PERITEM activity registers per-iDevice items 1 and 2, no overall.
+        $instance = $this->create_activity(['grademodel' => EXELEARNING_GRADEMODEL_PERITEM]);
+        $coreerror = ['completionpassgrade' => 'badcompletiongradeitemnumber'];
+
+        // Registered per-iDevice item in PERITEM, require-pass off → error cleared.
+        $out = exelearning_relax_completion_grade_errors(
+            $coreerror,
+            ['completiongradeitemnumber' => '1', 'completionpassgrade' => 0,
+                'grademodel' => EXELEARNING_GRADEMODEL_PERITEM],
+            $instance->id
+        );
+        $this->assertArrayNotHasKey('completionpassgrade', $out);
+
+        // Unregistered itemnumber → error kept (not masked).
+        $out = exelearning_relax_completion_grade_errors(
+            $coreerror,
+            ['completiongradeitemnumber' => '99', 'completionpassgrade' => 0,
+                'grademodel' => EXELEARNING_GRADEMODEL_PERITEM],
+            $instance->id
+        );
+        $this->assertArrayHasKey('completionpassgrade', $out);
+
+        // Require-passing-grade on → never masked (deferred proper fix).
+        $out = exelearning_relax_completion_grade_errors(
+            $coreerror,
+            ['completiongradeitemnumber' => '1', 'completionpassgrade' => 1,
+                'grademodel' => EXELEARNING_GRADEMODEL_PERITEM],
+            $instance->id
+        );
+        $this->assertArrayHasKey('completionpassgrade', $out);
+
+        // A per-iDevice item is not a live column in OVERALL mode → error kept.
+        $out = exelearning_relax_completion_grade_errors(
+            $coreerror,
+            ['completiongradeitemnumber' => '1', 'completionpassgrade' => 0,
+                'grademodel' => EXELEARNING_GRADEMODEL_OVERALL],
+            $instance->id
+        );
+        $this->assertArrayHasKey('completionpassgrade', $out);
+    }
+
+    /**
      * The serve-time guard patch (issue #13 / DEC-0042) removes the
      * `body.exe-scorm` condition from the form/scrambled-list SAVE guard so they
      * save on `isScorm > 0` like every other gradable iDevice, leaves the

@@ -309,48 +309,17 @@ class mod_exelearning_mod_form extends moodleform_mod {
      * @return array Map of field name => error string (empty when valid).
      */
     public function validation($data, $files) {
-        global $USER, $DB;
+        global $USER;
         $errors = parent::validation($data, $files);
 
-        // Core's moodleform_mod::validation() rejects every (B7, DEC-0044)
-        // completiongradeitemnumber with a badcompletiongradeitemnumber error
-        // ($errors['completionpassgrade']) because mod_exelearning maps 101
-        // itemnumbers (gradeitems::MAX_ITEMNUMBER) but stores each grade in its own
-        // table instead of exposing per-itemnumber grade_ideviceN form fields, so
-        // core's "this item has no grade field" check always fails — making the
-        // DEC-0038 completion-by-grade feature impossible to save from the form.
-        // Stopgap: clear that specific error when "require passing grade" is OFF and
-        // the chosen item is a real gradebook column (a per-iDevice item in PERITEM,
-        // or the overall in OVERALL) — it does carry a grade, just not via a core
-        // form field. "Require passing grade" needs a core_grades fieldname_mapping
-        // to validate the pass threshold and is left to that proper fix (deferred,
-        // see DEC-0044). Only fires when completionpassgrade is unchecked, so it
-        // never masks the legitimate "grade to pass not set" validation.
-        $selected = $data['completiongradeitemnumber'] ?? null;
-        if (
-            $selected !== null && $selected !== ''
-            && empty($data['completionpassgrade'])
-            && isset($errors['completionpassgrade'])
-        ) {
-            $itemnumber = (int) $selected;
-            $grademodel = (int) ($data['grademodel'] ?? EXELEARNING_GRADEMODEL_PERITEM);
-            // A real gradebook column exists for the overall (0) only in OVERALL
-            // mode, and for a per-iDevice item only in PERITEM mode — OVERALL
-            // deletes the per-iDevice Moodle columns (DEC-0038), so completion must
-            // not target one there even though its exelearning_grade_item row is kept
-            // for the report.
-            $registered = ($itemnumber === 0)
-                ? ($grademodel === EXELEARNING_GRADEMODEL_OVERALL)
-                : ($grademodel === EXELEARNING_GRADEMODEL_PERITEM
-                    && $DB->record_exists('exelearning_grade_item', [
-                        'exelearningid' => (int) ($this->current->id ?? 0),
-                        'itemnumber'    => $itemnumber,
-                        'deleted'       => 0,
-                    ]));
-            if ($registered) {
-                unset($errors['completionpassgrade']);
-            }
-        }
+        // Relax core's badcompletiongradeitemnumber rejection for a registered
+        // gradable item (B7, DEC-0044). The logic is a pure, unit-tested helper in
+        // lib.php so it can be covered without constructing the whole moodleform_mod.
+        $errors = exelearning_relax_completion_grade_errors(
+            $errors,
+            (array) $data,
+            (int) ($this->current->id ?? 0)
+        );
 
         $grademax = (float) ($data['grademax'] ?? 100);
         $grademin = (float) ($data['grademin'] ?? 0);
