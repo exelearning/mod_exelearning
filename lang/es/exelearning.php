@@ -44,6 +44,7 @@ $string['confirmuninstall'] = '¿Está seguro de que desea desinstalar el editor
 $string['confirmuninstalltitle'] = 'Confirmar desinstalación';
 $string['deleteattempt'] = '~Eliminar intento';
 $string['detecteditems'] = '~iDevices calificables detectados:';
+$string['downloadreport'] = '~Descargar los datos del informe como';
 $string['editorbackuperror'] = 'No se pudo crear una copia de seguridad de la instalación existente del editor.';
 $string['editorbundleddesc'] = 'El plugin incluye una versión. Puede instalar la última versión publicada en GitHub.';
 $string['editorbundledsource'] = 'Incluido con el plugin';
