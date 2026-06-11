@@ -216,6 +216,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: ateeducacion/mod_exelearning
           files: ./coverage.xml
+          flags: unittests
           fail_ci_if_error: false
 
       - name: Generate JUnit report for Codecov Test Analytics

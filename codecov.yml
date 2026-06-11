@@ -1,20 +1,24 @@
 # Codecov configuration for mod_exelearning.
-# See https://docs.codecov.com/docs/codecovyml-reference
+# Mirrors the exelearning/exelearning setup: the project/patch status checks
+# report the coverage percentage against an 80% target (not informational, so
+# the figure is shown on every commit/PR). See
+# https://docs.codecov.com/docs/codecovyml-reference
 coverage:
   status:
     project:
       default:
-        # Goal coverage. Kept informational so it reports progress toward 80%
-        # without ever blocking a pull request.
         target: 80%
-        threshold: 1%
-        informational: true
     patch:
       default:
-        informational: true
+        target: 80%
 
-# Make the PR comment show the project coverage percentage and the diff.
+flags:
+  unittests:
+    paths:
+      - classes/
+      - lib.php
+
+# Show the coverage percentage and the diff in the PR comment.
 comment:
   layout: "condensed_header, diff, flags, components, files"
   require_changes: false
-  behavior: default

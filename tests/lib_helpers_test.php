@@ -34,6 +34,10 @@ require_once($CFG->dirroot . '/mod/exelearning/lib.php');
  * @covers     ::exelearning_get_package_url
  * @covers     ::exelearning_grade_item_view_url
  * @covers     ::exelearning_grade_analysis_url
+ * @covers     ::exelearning_embedded_editor_enabled
+ * @covers     ::exelearning_embedded_editor_uses_local_assets
+ * @covers     ::exelearning_get_embedded_editor_index_source
+ * @covers     ::exelearning_get_embedded_editor_local_static_dir
  */
 final class lib_helpers_test extends advanced_testcase {
     /**
@@ -125,5 +129,27 @@ final class lib_helpers_test extends advanced_testcase {
         $this->setUser($student);
         $studenturl = exelearning_grade_analysis_url($instance, $cm->id, 1, $context, 0);
         $this->assertStringContainsString('/mod/exelearning/view.php', $studenturl->out(false));
+    }
+
+    /**
+     * The embedded-editor lib wrappers reflect an admin-installed editor
+     * (moodledata source).
+     */
+    public function test_embedded_editor_wrappers_reflect_install(): void {
+        $this->resetAfterTest();
+
+        $src = make_temp_directory('mod_exelearning/lw-' . random_string(6));
+        make_writable_directory($src . '/app');
+        file_put_contents($src . '/index.html', 'x');
+        $installer = new local\embedded_editor_installer();
+        $installer->safe_install($src);
+
+        $dir = local\embedded_editor_source_resolver::get_moodledata_dir();
+        $this->assertTrue(exelearning_embedded_editor_enabled());
+        $this->assertTrue(exelearning_embedded_editor_uses_local_assets());
+        $this->assertSame($dir . '/index.html', exelearning_get_embedded_editor_index_source());
+        $this->assertSame($dir, exelearning_get_embedded_editor_local_static_dir());
+
+        remove_dir($dir);
     }
 }
