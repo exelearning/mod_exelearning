@@ -35,6 +35,7 @@ $string['attemptsmanagementheading'] = 'Attempts management';
 $string['attemptsofmax']      = 'Attempts: {$a->used} of {$a->max}';
 $string['attemptsreport']    = 'Attempts report';
 $string['attemptsused']       = 'Attempts used: {$a}';
+$string['badexelearningpackage'] = 'The uploaded file is not a valid eXeLearning package.';
 $string['checkingforupdates'] = 'Checking for updates...';
 $string['confirmuninstall'] = 'Are you sure you want to uninstall the embedded editor? This will remove the admin-installed copy from moodledata.';
 $string['confirmuninstalltitle'] = 'Confirm uninstall';
@@ -261,6 +262,8 @@ $string['previewmode_desc']   = 'Nothing you do here will be saved to the gradeb
 $string['previewmode_enter']  = 'Try as a student (preview)';
 $string['previewmode_exit']   = 'Exit preview mode';
 $string['privacy:metadata:core_grades'] = 'Scores obtained on eXeLearning gradable items are stored in the Moodle gradebook.';
+$string['privacy:metadata:exelearning'] = 'eXeLearning activity instances.';
+$string['privacy:metadata:exelearning:usermodified'] = 'The user who last modified the activity settings.';
 $string['privacy:metadata:exelearning_attempt'] = 'Attempt records for each submission a user makes on an eXeLearning gradable item.';
 $string['privacy:metadata:exelearning_attempt:attempt'] = 'The sequential attempt number.';
 $string['privacy:metadata:exelearning_attempt:itemnumber'] = 'The gradable item (0 = overall, >0 = a specific iDevice).';

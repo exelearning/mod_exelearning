@@ -78,4 +78,40 @@ final class manage_embedded_editor_test extends advanced_testcase {
         $this->expectException(\invalid_parameter_exception::class);
         manage_embedded_editor::execute_action('frobnicate');
     }
+
+    /**
+     * get_status() reflects an admin-installed editor: version, active source and
+     * the repair/uninstall (but not install) action flags.
+     */
+    public function test_get_status_reflects_installed_editor(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $src = make_temp_directory('mod_exelearning/ms-' . random_string(6));
+        make_writable_directory($src . '/app');
+        file_put_contents($src . '/index.html', 'x');
+        $installer = new \mod_exelearning\local\embedded_editor_installer();
+        $installer->safe_install($src);
+        $installer->store_metadata('2.3.4');
+
+        $status = manage_embedded_editor::get_status(false);
+
+        $this->assertSame(embedded_editor_source_resolver::SOURCE_MOODLEDATA, $status['active_source']);
+        $this->assertTrue($status['moodledata_available']);
+        $this->assertSame('2.3.4', $status['moodledata_version']);
+        $this->assertTrue($status['can_repair']);
+        $this->assertTrue($status['can_uninstall']);
+        $this->assertFalse($status['can_install']);
+
+        remove_dir(embedded_editor_source_resolver::get_moodledata_dir());
+    }
+
+    /**
+     * Each editor action maps to a non-empty success message.
+     */
+    public function test_action_success_strings(): void {
+        foreach (['install', 'update', 'repair', 'uninstall'] as $action) {
+            $this->assertNotEmpty(manage_embedded_editor::get_action_success_string($action));
+        }
+    }
 }

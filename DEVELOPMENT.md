@@ -11,6 +11,25 @@ mounts it there automatically).
 
 ## PHPUnit
 
+### Quick start with Docker (recommended)
+
+The easiest way to run the suite is the bundled Docker stack — no local PHP/DB
+setup needed:
+
+```bash
+make upd      # start the moodle + db containers (first time)
+make test     # run the whole plugin suite inside the container
+
+# Target a single file or filter:
+make test ARGS=mod/exelearning/tests/track_test.php
+```
+
+`make test` execs `scripts/phpunit-docker.sh` inside the `moodle` container. The
+first run installs Moodle's dev dependencies and initialises the PHPUnit test
+database (idempotent); later runs just execute the suite.
+
+### Manual setup (inside a Moodle checkout)
+
 Initialise the PHPUnit environment once (creates the test DB and configures the
 test runner):
 

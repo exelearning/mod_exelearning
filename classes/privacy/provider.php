@@ -58,6 +58,11 @@ class provider implements
             'timemodified' => 'privacy:metadata:exelearning_attempt:timemodified',
         ], 'privacy:metadata:exelearning_attempt');
 
+        // The instance row records which user last edited the activity settings.
+        $collection->add_database_table('exelearning', [
+            'usermodified' => 'privacy:metadata:exelearning:usermodified',
+        ], 'privacy:metadata:exelearning');
+
         // The plugin also pushes each user's scores into the Moodle gradebook
         // via grade_update() (track.php / lib.php), so declare that data flow.
         $collection->add_subsystem_link('core_grades', [], 'privacy:metadata:core_grades');
