@@ -91,4 +91,35 @@ final class styles_service_test extends advanced_testcase {
         set_config('styles_max_zip_size', 1234, 'exelearning');
         $this->assertSame(1234, styles_service::get_max_zip_size());
     }
+
+    /**
+     * parse_config_xml() reads the style metadata and normalises the slug.
+     */
+    public function test_parse_config_xml_reads_metadata(): void {
+        $xml = '<config><name>My Style</name><title>My Style</title>'
+            . '<version>1.2</version><author>ATE</author></config>';
+
+        $meta = styles_service::parse_config_xml($xml);
+
+        $this->assertSame('my-style', $meta['name']);
+        $this->assertSame('My Style', $meta['title']);
+        $this->assertSame('1.2', $meta['version']);
+        $this->assertSame('ATE', $meta['author']);
+    }
+
+    /**
+     * parse_config_xml() rejects a config that declares no name.
+     */
+    public function test_parse_config_xml_rejects_missing_name(): void {
+        $this->expectException(\moodle_exception::class);
+        styles_service::parse_config_xml('<config><name></name></config>');
+    }
+
+    /**
+     * parse_config_xml() rejects malformed XML.
+     */
+    public function test_parse_config_xml_rejects_malformed_xml(): void {
+        $this->expectException(\moodle_exception::class);
+        styles_service::parse_config_xml('<config><name>x');
+    }
 }
