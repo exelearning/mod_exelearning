@@ -49,5 +49,8 @@ return new class extends phpunit_coverage_info {
      */
     protected $excludelistfolders = [
         'classes/admin',
+        // Test infrastructure, not plugin logic: Moodle adds the generator to the
+        // default coverage list, but it should not count toward the figure.
+        'tests/generator',
     ];
 };

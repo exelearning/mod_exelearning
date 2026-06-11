@@ -282,4 +282,85 @@ final class styles_service_test extends advanced_testcase {
             array_column(styles_service::build_theme_registry_override()['uploaded'], 'id')
         );
     }
+
+    /**
+     * validate_zip() rejects an empty file and a non-ZIP file.
+     */
+    public function test_validate_zip_rejects_bad_archives(): void {
+        $this->resetAfterTest();
+
+        $empty = make_temp_directory('mod_exelearning') . '/empty-' . random_string(6) . '.zip';
+        file_put_contents($empty, '');
+        try {
+            styles_service::validate_zip($empty);
+            $this->fail('Expected an exception for an empty archive.');
+        } catch (\moodle_exception $e) {
+            $this->assertNotEmpty($e->getMessage());
+        }
+
+        $notzip = make_temp_directory('mod_exelearning') . '/bad-' . random_string(6) . '.zip';
+        file_put_contents($notzip, 'this is not a zip archive');
+        $this->expectException(\moodle_exception::class);
+        styles_service::validate_zip($notzip);
+    }
+
+    /**
+     * validate_zip() requires a config.xml and rejects disallowed file types.
+     */
+    public function test_validate_zip_rejects_missing_config_and_bad_ext(): void {
+        $this->resetAfterTest();
+
+        // No config.xml.
+        $noconf = make_temp_directory('mod_exelearning') . '/noconf-' . random_string(6) . '.zip';
+        $zip = new \ZipArchive();
+        $zip->open($noconf, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+        $zip->addFromString('style.css', 'body{}');
+        $zip->close();
+        try {
+            styles_service::validate_zip($noconf);
+            $this->fail('Expected an exception for a missing config.xml.');
+        } catch (\moodle_exception $e) {
+            $this->assertNotEmpty($e->getMessage());
+        }
+
+        // Disallowed extension.
+        $badext = make_temp_directory('mod_exelearning') . '/badext-' . random_string(6) . '.zip';
+        $zip = new \ZipArchive();
+        $zip->open($badext, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+        $zip->addFromString('config.xml', '<config><name>X</name></config>');
+        $zip->addFromString('evil.php', '<?php echo 1;');
+        $zip->close();
+        $this->expectException(\moodle_exception::class);
+        styles_service::validate_zip($badext);
+    }
+
+    /**
+     * install_from_zip() rejects a package with no CSS file.
+     */
+    public function test_install_from_zip_requires_css(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $nocss = make_temp_directory('mod_exelearning') . '/nocss-' . random_string(6) . '.zip';
+        $zip = new \ZipArchive();
+        $zip->open($nocss, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+        $zip->addFromString('config.xml', '<config><name>No CSS</name></config>');
+        $zip->addFromString('readme.txt', 'just text');
+        $zip->close();
+
+        $this->expectException(\moodle_exception::class);
+        styles_service::install_from_zip($nocss, 'nocss.zip');
+    }
+
+    /**
+     * list_uploaded_files() and list_uploaded_styles() surface an installed style.
+     */
+    public function test_list_uploaded_files_and_styles(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        styles_service::install_from_zip($this->make_style_zip('Listed'), 'listed.zip');
+
+        $this->assertContains('style.css', styles_service::list_uploaded_files('listed'));
+        $this->assertContains('listed', array_column(styles_service::list_uploaded_styles(), 'id'));
+    }
 }
