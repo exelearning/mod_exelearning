@@ -359,6 +359,47 @@ final class track_test extends advanced_testcase {
     }
 
     /**
+     * Two ingest() calls for the same user with different session tokens allocate
+     * distinct, gap-free attempt numbers (1 then 2). The serializing per-(instance,
+     * user) lock makes the sequential path identical to the unlocked one; a real
+     * concurrent interleaving (the race the lock prevents) is not reproducible in
+     * single-threaded PHPUnit, so this is the functional-equivalence guard.
+     */
+    public function test_ingest_two_sessions_allocate_distinct_attempts(): void {
+        global $DB;
+        [$instance, $student] = $this->create_activity_with_student();
+        [$course, $cm] = $this->course_and_cm($instance);
+        $obj1 = $this->objectid_for($instance, 1);
+
+        $payload = fn(string $session) => [
+            'session' => $session,
+            'cmi' => ['cmi.core.score.raw' => '50', 'cmi.core.score.max' => '100'],
+            'itemscores' => [$obj1 => ['scorepct' => 50.0, 'weighted' => 100.0, 'title' => 'a']],
+        ];
+
+        $first = track::ingest($instance, $course, $cm, $student->id, $payload('sessA'), false);
+        $second = track::ingest($instance, $course, $cm, $student->id, $payload('sessB'), false);
+
+        // Both commits succeeded and were assigned consecutive attempt numbers (no
+        // collision on the unique (exelearningid, userid, attempt, itemnumber) index,
+        // no skipped number).
+        $this->assertTrue($first['ok']);
+        $this->assertTrue($second['ok']);
+        $this->assertSame(1, $first['attempt']);
+        $this->assertSame(2, $second['attempt']);
+
+        // The persisted rows confirm distinct attempts on the same item.
+        $attempts = $DB->get_fieldset_select(
+            'exelearning_attempt',
+            'attempt',
+            'exelearningid = ? AND userid = ? AND itemnumber = ?',
+            [$instance->id, $student->id, 1]
+        );
+        sort($attempts);
+        $this->assertSame([1, 2], array_map('intval', $attempts));
+    }
+
+    /**
      * A payload with no score is a no-op acknowledgement (nothing recorded).
      */
     public function test_ingest_noop_when_no_score(): void {
