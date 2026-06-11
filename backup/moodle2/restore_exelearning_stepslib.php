@@ -127,7 +127,14 @@ class restore_exelearning_activity_structure_step extends restore_activity_struc
         $oldid = $data->id;
 
         $data->exelearningid = $this->get_new_parentid('exelearning');
+
+        // Map the attempt owner. If the user cannot be mapped (excluded or
+        // anonymised in this restore), skip the row: inserting it would cast
+        // false to userid 0 and silently attribute the attempt to nobody.
         $data->userid = $this->get_mappingid('user', $data->userid);
+        if (!$data->userid) {
+            return;
+        }
 
         $data->timecreated = $this->apply_date_offset($data->timecreated);
         $data->timemodified = $this->apply_date_offset($data->timemodified);
