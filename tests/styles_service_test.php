@@ -122,4 +122,84 @@ final class styles_service_test extends advanced_testcase {
         $this->expectException(\moodle_exception::class);
         styles_service::parse_config_xml('<config><name>x');
     }
+
+    /**
+     * Build a minimal valid style ZIP (config.xml + one CSS) and return its path.
+     *
+     * @param string $name Style name for config.xml.
+     * @return string
+     */
+    private function make_style_zip(string $name): string {
+        $zippath = make_temp_directory('mod_exelearning') . '/style-' . random_string(6) . '.zip';
+        $zip = new \ZipArchive();
+        $zip->open($zippath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+        $zip->addFromString('config.xml', '<config><name>' . $name . '</name><title>' . $name
+            . '</title><version>1.0</version></config>');
+        $zip->addFromString('style.css', 'body { color: red; }');
+        $zip->close();
+        return $zippath;
+    }
+
+    /**
+     * install_from_zip() extracts the style, records it in the registry and lists it.
+     */
+    public function test_install_from_zip_registers_style(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $entry = styles_service::install_from_zip($this->make_style_zip('My Style'), 'My Style.zip');
+
+        $this->assertSame('my-style', $entry['id']);
+        $this->assertSame('My Style', $entry['title']);
+        $this->assertTrue($entry['enabled']);
+        $this->assertNotEmpty($entry['css_files']);
+
+        $this->assertArrayHasKey('my-style', styles_service::get_registry()['uploaded']);
+        $slugs = array_column(styles_service::list_uploaded_styles(), 'id');
+        $this->assertContains('my-style', $slugs);
+    }
+
+    /**
+     * The registry round-trips through plugin config.
+     */
+    public function test_registry_roundtrip(): void {
+        $this->resetAfterTest();
+
+        $empty = styles_service::get_registry();
+        $this->assertSame([], $empty['uploaded']);
+        $this->assertSame([], $empty['disabled_builtins']);
+
+        styles_service::save_registry([
+            'uploaded' => ['foo' => ['title' => 'Foo']],
+            'disabled_builtins' => ['bar'],
+        ]);
+
+        $loaded = styles_service::get_registry();
+        $this->assertArrayHasKey('foo', $loaded['uploaded']);
+        $this->assertSame(['bar'], $loaded['disabled_builtins']);
+    }
+
+    /**
+     * allocate_unique_slug() avoids colliding with an already-registered slug.
+     */
+    public function test_allocate_unique_slug(): void {
+        $this->resetAfterTest();
+
+        $this->assertSame('my-style', styles_service::allocate_unique_slug('My Style'));
+
+        styles_service::save_registry(['uploaded' => ['my-style' => []], 'disabled_builtins' => []]);
+        $this->assertNotSame('my-style', styles_service::allocate_unique_slug('My Style'));
+    }
+
+    /**
+     * The storage path and public URL builders use the normalised slug.
+     */
+    public function test_path_builders(): void {
+        $this->assertStringEndsWith('/mod_exelearning/styles', styles_service::get_storage_dir());
+        $this->assertStringEndsWith('/mod_exelearning/styles/my-style', styles_service::get_style_dir('My Style'));
+        $this->assertStringContainsString(
+            '/mod/exelearning/editor/styles.php/my-style',
+            styles_service::get_style_url('My Style')
+        );
+    }
 }
