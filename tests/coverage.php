@@ -31,7 +31,7 @@ defined('MOODLE_INTERNAL') || die();
  * focused on testable units (not the thin entry-point scripts or the bundled
  * editor build).
  */
-return new class extends \core\test\phpunit\coverage_info {
+return new class extends phpunit_coverage_info {
     /** @var array Folders relative to the plugin root to include in coverage. */
     protected $includelistfolders = [
         'classes',
