@@ -418,4 +418,62 @@ final class track_test extends advanced_testcase {
         $this->assertFalse($second['ok']);
         $this->assertSame('maxattemptsreached', $second['error']);
     }
+
+    /**
+     * An itemscores map far larger than any real package is dropped wholesale
+     * (size cap) instead of being routed, so a client cannot flood the grader.
+     */
+    public function test_ingest_drops_oversized_itemscores_map(): void {
+        [$instance, $student] = $this->create_activity_with_student();
+        [$course, $cm] = $this->course_and_cm($instance);
+
+        // Build a map well beyond the sane cap (>1000 entries) of fabricated ids.
+        $itemscores = [];
+        for ($i = 0; $i <= 1000; $i++) {
+            $itemscores['fake-' . $i] = ['scorepct' => 100.0, 'weighted' => 100.0, 'title' => 'x'];
+        }
+        $payload = [
+            'session' => 'sessOversize',
+            'cmi' => ['cmi.core.score.raw' => '10', 'cmi.core.score.max' => '100'],
+            'itemscores' => $itemscores,
+        ];
+
+        $result = track::ingest($instance, $course, $cm, $student->id, $payload, false);
+
+        // The oversized map is dropped with a developer warning, and none of the
+        // fabricated scores reach the per-iDevice gradebook columns.
+        $this->assertDebuggingCalled();
+        $this->assertTrue($result['ok']);
+        $this->assertNull($this->published_grade($instance, $student->id, 1));
+        $this->assertNull($this->published_grade($instance, $student->id, 2));
+    }
+
+    /**
+     * Per-iDevice scores are clamped to 0..100 before they are scaled, so an
+     * out-of-range client value cannot inflate (or underflow) a gradebook column.
+     */
+    public function test_ingest_clamps_out_of_range_item_scores(): void {
+        [$instance, $student] = $this->create_activity_with_student();
+        [$course, $cm] = $this->course_and_cm($instance);
+        $obj1 = $this->objectid_for($instance, 1);
+        $obj2 = $this->objectid_for($instance, 2);
+
+        // Clamped scores are 100 and 0; their weighted mean is 50, so set the
+        // client overall to 50 to avoid an (also-correct) divergence warning.
+        $payload = [
+            'session' => 'sessClamp',
+            'cmi' => ['cmi.core.score.raw' => '50', 'cmi.core.score.max' => '100'],
+            'itemscores' => [
+                $obj1 => ['scorepct' => 150.0, 'weighted' => 100.0, 'title' => 'a'],
+                $obj2 => ['scorepct' => -25.0, 'weighted' => 100.0, 'title' => 'b'],
+            ],
+        ];
+
+        $result = track::ingest($instance, $course, $cm, $student->id, $payload, false);
+
+        $this->assertTrue($result['ok']);
+        // 150% clamps to grademax (100); -25% clamps to grademin (0).
+        $this->assertEqualsWithDelta(100.0, $this->published_grade($instance, $student->id, 1), 0.0001);
+        $this->assertEqualsWithDelta(0.0, $this->published_grade($instance, $student->id, 2), 0.0001);
+    }
 }
