@@ -22,6 +22,7 @@ defined('MOODLE_INTERNAL') || die();
 
 global $CFG;
 require_once($CFG->dirroot . '/mod/exelearning/lib.php');
+require_once($CFG->libdir . '/gradelib.php');
 
 /**
  * Tests for lib.php grade helpers.
@@ -32,6 +33,8 @@ require_once($CFG->dirroot . '/mod/exelearning/lib.php');
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @covers     ::exelearning_grade_item_name
  * @covers     ::exelearning_remove_all_grade_items
+ * @covers     ::exelearning_relax_completion_grade_errors
+ * @covers     ::exelearning_apply_grade_category
  */
 final class lib_grades_test extends advanced_testcase {
     /**
@@ -82,5 +85,64 @@ final class lib_grades_test extends advanced_testcase {
             'exelearning_grade_item',
             ['exelearningid' => $instance->id, 'deleted' => 0]
         ));
+    }
+
+    /**
+     * exelearning_relax_completion_grade_errors() clears core's completion-grade
+     * rejection only when the targeted item is a registered gradebook column.
+     */
+    public function test_relax_completion_grade_errors(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $course = $this->getDataGenerator()->create_course();
+        $instance = $this->getDataGenerator()->get_plugin_generator('mod_exelearning')
+            ->create_instance(['course' => $course->id, 'grademodel' => 1]);
+
+        $errors = ['completionpassgrade' => 'core rejected it'];
+
+        // Targeting a registered per-iDevice item (1) in PERITEM clears the error.
+        $relaxed = exelearning_relax_completion_grade_errors(
+            $errors,
+            ['completiongradeitemnumber' => 1, 'grademodel' => 1],
+            $instance->id
+        );
+        $this->assertArrayNotHasKey('completionpassgrade', $relaxed);
+
+        // Targeting an unregistered item keeps the error.
+        $kept = exelearning_relax_completion_grade_errors(
+            $errors,
+            ['completiongradeitemnumber' => 99, 'grademodel' => 1],
+            $instance->id
+        );
+        $this->assertArrayHasKey('completionpassgrade', $kept);
+    }
+
+    /**
+     * exelearning_apply_grade_category() re-parents every grade item under the
+     * configured grade category.
+     */
+    public function test_apply_grade_category(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $course = $this->getDataGenerator()->create_course();
+        $instance = $this->getDataGenerator()->get_plugin_generator('mod_exelearning')
+            ->create_instance(['course' => $course->id]);
+
+        $category = new \grade_category(['courseid' => $course->id, 'fullname' => 'Cat'], false);
+        $categoryid = (int) $category->insert();
+        $instance->gradecat = $categoryid;
+
+        exelearning_apply_grade_category($instance);
+
+        $items = \grade_item::fetch_all([
+            'itemtype'     => 'mod',
+            'itemmodule'   => 'exelearning',
+            'iteminstance' => $instance->id,
+            'courseid'     => $course->id,
+        ]);
+        $this->assertNotEmpty($items);
+        foreach ($items as $item) {
+            $this->assertSame($categoryid, (int) $item->categoryid);
+        }
     }
 }

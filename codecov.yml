@@ -1,8 +1,11 @@
 # Codecov configuration for mod_exelearning.
-# Mirrors the exelearning/exelearning setup: the project/patch status checks
-# report the coverage percentage against an 80% target (not informational, so
-# the figure is shown on every commit/PR). See
-# https://docs.codecov.com/docs/codecovyml-reference
+# The project/patch status checks report the coverage percentage against an 80%
+# target (not informational, so the figure shows on every commit/PR), like
+# exelearning/exelearning. See https://docs.codecov.com/docs/codecovyml-reference
+#
+# No `flags` here on purpose: in CI the plugin lives under mod/exelearning/, so a
+# flag path filter like `classes/` matches nothing and yields "No coverage data
+# available". The coverage scope is already limited in tests/coverage.php.
 coverage:
   status:
     project:
@@ -12,13 +15,7 @@ coverage:
       default:
         target: 80%
 
-flags:
-  unittests:
-    paths:
-      - classes/
-      - lib.php
-
 # Show the coverage percentage and the diff in the PR comment.
 comment:
-  layout: "condensed_header, diff, flags, components, files"
+  layout: "condensed_header, diff, components, files"
   require_changes: false
