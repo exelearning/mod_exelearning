@@ -206,6 +206,14 @@ jobs:
         # ./coverage.xml in the workspace root by moodle-plugin-ci).
         run: moodle-plugin-ci phpunit --fail-on-warning ${{ matrix.coverage && '--coverage-text --coverage-clover' || '' }}
 
+      - name: Debug coverage paths (temporary)
+        if: ${{ matrix.coverage && !cancelled() }}
+        run: |
+          echo "=== first file paths in coverage.xml ==="
+          grep -o '<file name="[^"]*"' coverage.xml | head -5 || true
+          echo "=== <class> paths (clover may use these) ==="
+          grep -o 'filename="[^"]*"' coverage.xml | head -5 || true
+
       - name: Upload coverage to Codecov
         # Only the coverage job produces ./coverage.xml. A failed/missing upload
         # must never break CI, so fail_ci_if_error stays false. Requires the
