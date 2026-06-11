@@ -74,4 +74,43 @@ final class package_legacy_test extends advanced_testcase {
         $good = [(object) ['pathname' => 'safe.html', 'is_directory' => false]];
         $this->assertSame([], exelearning_package_legacy::validate_file_list($good));
     }
+
+    /**
+     * A real .elpx package is recognised, validates clean and expands into the
+     * content file area; the main entry file is then resolvable.
+     */
+    public function test_validate_and_expand_real_elpx(): void {
+        global $CFG;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        set_config('mandatoryfileslist', '', 'exelearning');
+        set_config('forbiddenfileslist', '', 'exelearning');
+
+        $course = $this->getDataGenerator()->create_course();
+        $instance = $this->getDataGenerator()->get_plugin_generator('mod_exelearning')
+            ->create_instance(['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('exelearning', $instance->id);
+        $context = \context_module::instance($cm->id);
+
+        $fs = get_file_storage();
+        $file = $fs->create_file_from_pathname([
+            'contextid' => $context->id,
+            'component' => 'mod_exelearning',
+            'filearea'  => 'packagetest',
+            'itemid'    => 0,
+            'filepath'  => '/',
+            'filename'  => 'package.elpx',
+        ], $CFG->dirroot . '/mod/exelearning/research/fixtures/elpx/actividad-evaluable.elpx');
+
+        $this->assertTrue(exelearning_package_legacy::is_valid_package_file($file));
+        $this->assertSame([], exelearning_package_legacy::validate_package($file));
+
+        $contentlist = exelearning_package_legacy::expand_package($file);
+        $this->assertIsArray($contentlist);
+        $this->assertNotEmpty($contentlist);
+
+        $mainfile = exelearning_package_legacy::get_mainfile($contentlist, $context->id, $file->get_itemid());
+        $this->assertNotFalse($mainfile);
+        $this->assertSame('index.html', $mainfile->get_filename());
+    }
 }
