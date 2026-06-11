@@ -77,3 +77,55 @@ Feature: View a mod_exelearning activity and its attempts report
     And I should see "Page Two"
     And I should see "90.00 / 100.00"
     And I should see "30.00 / 100.00"
+
+  # Delete flow (DEC-0007 phase 2, server-rendered, no @javascript): the delete
+  # link carries its own server-side sesskey in the URL, so a plain "I follow"
+  # exercises the capability + sesskey + recalculation redirect path end to end.
+  # The objectid is the trueorfalse iDevice of the default fixture
+  # (actividad-evaluable.elpx, itemnumber 1), so the seeded score produces one
+  # attempt row that can be deleted, returning the report to its empty state.
+  Scenario: A teacher deletes an attempt and the report returns to the empty state
+    Given the following eXeLearning SCORM scores exist:
+      | activity | user     | sessiontoken | objectid                        | score |
+      | exe1     | student1 | del-session  | idevice-1779989968114-sevb8qqdy | 75    |
+    And I am on the "Evaluable unit" "exelearning activity" page logged in as teacher1
+    When I follow "View attempts report"
+    And I follow "Delete attempt"
+    Then I should see "The attempt was deleted and the grade was recalculated."
+    And I should see "No attempts have been recorded yet."
+
+  # Separate-groups privacy boundary (report.php lines ~44-56, server-rendered,
+  # no @javascript): groupmode 1 = SEPARATEGROUPS on the cm. The editingteacher
+  # archetype HAS moodle/site:accessallgroups by default, so it is prohibited via
+  # a permission override; the report then auto-selects the teacher's own group
+  # (groups_get_activity_group($cm, true)) and must hide out-of-group attempts.
+  Scenario: A teacher restricted to a separate group only sees their group's attempts
+    Given the following "users" exist:
+      | username | firstname | lastname | email                |
+      | student2 | Student   | Two      | student2@example.com |
+    And the following "course enrolments" exist:
+      | user     | course | role    |
+      | student2 | C1     | student |
+    And the following "groups" exist:
+      | name    | course | idnumber |
+      | Group A | C1     | GA       |
+      | Group B | C1     | GB       |
+    And the following "group members" exist:
+      | user     | group |
+      | teacher1 | GA    |
+      | student1 | GA    |
+      | student2 | GB    |
+    And the following "permission overrides" exist:
+      | capability                   | permission | role           | contextlevel | reference |
+      | moodle/site:accessallgroups  | Prohibit   | editingteacher | Course       | C1        |
+    And the following "activities" exist:
+      | activity    | name         | course | idnumber | groupmode |
+      | exelearning | Grouped unit | C1     | exegrp   | 1         |
+    And the following eXeLearning SCORM scores exist:
+      | activity | user     | sessiontoken | objectid                        | score |
+      | exegrp   | student1 | grp-s1       | idevice-1779989968114-sevb8qqdy | 60    |
+      | exegrp   | student2 | grp-s2       | idevice-1779989968114-sevb8qqdy | 40    |
+    When I am on the "Grouped unit" "exelearning activity" page logged in as teacher1
+    And I follow "View attempts report"
+    Then I should see "Student One"
+    And I should not see "Student Two"
