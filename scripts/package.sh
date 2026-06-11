@@ -96,7 +96,7 @@ if [ -d dist/static ] && [ -n "$(ls -A dist/static 2>/dev/null)" ]; then
     <name>eXeLearning (static editor build)</name>\\
     <description>Embedded eXeLearning v4 editor, built from https://github.com/exelearning/exelearning and bundled into the release ZIP.</description>\\
     <version>$EDITOR_VERSION</version>\\
-    <license>GPL-3.0-or-later</license>\\
+    <license>AGPL-3.0-or-later</license>\\
   </library>\\
 </libraries>#" thirdpartylibs.xml \
         | git hash-object -w --stdin
