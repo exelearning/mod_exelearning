@@ -122,4 +122,25 @@ final class styles_service_test extends advanced_testcase {
         $this->expectException(\moodle_exception::class);
         styles_service::parse_config_xml('<config><name>x');
     }
+
+    /**
+     * parse_config_xml() rejects internal entity declarations (billion-laughs
+     * style entity expansion) per the hardened parser policy (DEC-0039).
+     */
+    public function test_parse_config_xml_rejects_entity_declarations(): void {
+        $this->expectException(\moodle_exception::class);
+        styles_service::parse_config_xml(
+            '<?xml version="1.0"?><!DOCTYPE config [<!ENTITY x "y">]><config><name>&x;</name></config>'
+        );
+    }
+
+    /**
+     * parse_config_xml() rejects a DOCTYPE declaration outright (DEC-0039).
+     */
+    public function test_parse_config_xml_rejects_doctype(): void {
+        $this->expectException(\moodle_exception::class);
+        styles_service::parse_config_xml(
+            '<!DOCTYPE config SYSTEM "config.dtd"><config><name>ok</name></config>'
+        );
+    }
 }
