@@ -202,4 +202,84 @@ final class styles_service_test extends advanced_testcase {
             styles_service::get_style_url('My Style')
         );
     }
+
+    /**
+     * set_uploaded_enabled() toggles the flag and reports unknown slugs.
+     */
+    public function test_set_uploaded_enabled(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        styles_service::install_from_zip($this->make_style_zip('Theme A'), 'a.zip');
+
+        $this->assertTrue(styles_service::set_uploaded_enabled('theme-a', false));
+        $this->assertFalse(styles_service::get_registry()['uploaded']['theme-a']['enabled']);
+        $this->assertTrue(styles_service::set_uploaded_enabled('theme-a', true));
+        $this->assertTrue(styles_service::get_registry()['uploaded']['theme-a']['enabled']);
+
+        $this->assertFalse(styles_service::set_uploaded_enabled('does-not-exist', false));
+    }
+
+    /**
+     * set_builtin_enabled() adds/removes the id from disabled_builtins.
+     */
+    public function test_set_builtin_enabled(): void {
+        $this->resetAfterTest();
+
+        styles_service::set_builtin_enabled('intef', false);
+        $this->assertContains('intef', styles_service::get_registry()['disabled_builtins']);
+
+        styles_service::set_builtin_enabled('intef', true);
+        $this->assertNotContains('intef', styles_service::get_registry()['disabled_builtins']);
+    }
+
+    /**
+     * delete_uploaded() removes the registry entry and the extracted files.
+     */
+    public function test_delete_uploaded(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        styles_service::install_from_zip($this->make_style_zip('Theme B'), 'b.zip');
+        $dir = styles_service::get_style_dir('theme-b');
+        $this->assertDirectoryExists($dir);
+
+        $this->assertTrue(styles_service::delete_uploaded('theme-b'));
+        $this->assertArrayNotHasKey('theme-b', styles_service::get_registry()['uploaded']);
+        $this->assertDirectoryDoesNotExist($dir);
+
+        $this->assertFalse(styles_service::delete_uploaded('does-not-exist'));
+    }
+
+    /**
+     * is_import_blocked() defaults to false and follows the admin setting.
+     */
+    public function test_is_import_blocked(): void {
+        $this->resetAfterTest();
+
+        $this->assertFalse(styles_service::is_import_blocked());
+        set_config('stylesblockimport', 1, 'exelearning');
+        $this->assertTrue(styles_service::is_import_blocked());
+    }
+
+    /**
+     * build_theme_registry_override() lists enabled uploaded styles and omits
+     * disabled ones.
+     */
+    public function test_build_theme_registry_override(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        styles_service::install_from_zip($this->make_style_zip('Theme C'), 'c.zip');
+
+        $override = styles_service::build_theme_registry_override();
+        $this->assertArrayHasKey('disabledBuiltins', $override);
+        $this->assertArrayHasKey('blockImportInstall', $override);
+        $this->assertSame('base', $override['fallbackTheme']);
+        $this->assertContains('theme-c', array_column($override['uploaded'], 'id'));
+
+        // A disabled style drops out of the override.
+        styles_service::set_uploaded_enabled('theme-c', false);
+        $this->assertNotContains(
+            'theme-c',
+            array_column(styles_service::build_theme_registry_override()['uploaded'], 'id')
+        );
+    }
 }
