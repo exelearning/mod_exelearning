@@ -216,6 +216,10 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: ateeducacion/mod_exelearning
           files: ./coverage.xml
+          # Upload only our report; do not scan the Moodle tree (it contains
+          # deliberately malformed XML fixtures that break Codecov processing).
+          disable_search: true
+          flags: unittests
           fail_ci_if_error: false
 
       - name: Generate JUnit report for Codecov Test Analytics
@@ -233,6 +237,9 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./junit.xml
+          # Only parse our JUnit file; the Moodle tree ships malformed XML
+          # fixtures that otherwise fail Test Analytics processing.
+          disable_search: true
 
       - name: Behat features
         id: behat
