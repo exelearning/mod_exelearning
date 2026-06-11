@@ -85,6 +85,9 @@ jobs:
           - moodle-branch: 'MOODLE_500_STABLE'
             php: '8.3'
             database: 'pgsql'
+            # Single combination that also generates code coverage and uploads
+            # it to Codecov (pcov is fast and matches the CI php version).
+            coverage: 'pcov'
           - moodle-branch: 'MOODLE_500_STABLE'
             php: '8.3'
             database: 'mariadb'
@@ -140,7 +143,8 @@ jobs:
           php-version: ${{ matrix.php }}
           extensions: ${{ matrix.extensions }}
           ini-values: max_input_vars=5000
-          coverage: none
+          # Enable a coverage driver only on the designated coverage job.
+          coverage: ${{ matrix.coverage || 'none' }}
 
       - name: Initialise moodle-plugin-ci
         run: |
@@ -198,7 +202,21 @@ jobs:
 
       - name: PHPUnit tests
         if: ${{ always() }}
-        run: moodle-plugin-ci phpunit --fail-on-warning
+        # On the coverage job, also emit a Clover report (written to
+        # ./coverage.xml in the workspace root by moodle-plugin-ci).
+        run: moodle-plugin-ci phpunit --fail-on-warning ${{ matrix.coverage && '--coverage-text --coverage-clover' || '' }}
+
+      - name: Upload coverage to Codecov
+        # Only the coverage job produces ./coverage.xml. A failed/missing upload
+        # must never break CI, so fail_ci_if_error stays false. Requires the
+        # CODECOV_TOKEN repository secret.
+        if: ${{ matrix.coverage && !cancelled() }}
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: ateeducacion/mod_exelearning
+          files: ./coverage.xml
+          fail_ci_if_error: false
 
       - name: Behat features
         id: behat

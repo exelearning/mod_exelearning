@@ -1,5 +1,8 @@
 # eXeLearning resource for Moodle
 
+[![Moodle Plugin CI](https://github.com/ateeducacion/mod_exelearning/actions/workflows/ci.yml/badge.svg)](https://github.com/ateeducacion/mod_exelearning/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/ateeducacion/mod_exelearning/graph/badge.svg)](https://codecov.io/gh/ateeducacion/mod_exelearning)
+
 <a href="https://moodle-playground.com/?blueprint-url=https://raw.githubusercontent.com/ateeducacion/mod_exelearning/main/blueprint.json"><img src="https://raw.githubusercontent.com/ateeducacion/action-moodle-playground-pr-preview/refs/heads/main/assets/playground-preview-button.svg" alt="Preview in Moodle Playground" width="224"></a>
 
 > ℹ️ The eXeLearning editor is fetched from the shared release and unpacked into the plugin when the playground boots, so the first load may take a few extra seconds. ELPX upload, viewer and preview work normally.
