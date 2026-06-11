@@ -379,4 +379,123 @@ final class grades_test extends advanced_testcase {
         );
         $this->assertInstanceOf(grade_item::class, $this->fetch_item($instance, 1));
     }
+
+    /**
+     * Helper: capture the published per-item grades for a set of users.
+     *
+     * @param \stdClass $instance the exelearning instance row
+     * @param int[] $userids users whose grades to read
+     * @param int[] $itemnumbers grade item numbers to read
+     * @return array<int,array<int,float|null>> userid => itemnumber => grade
+     */
+    protected function capture_grades(\stdClass $instance, array $userids, array $itemnumbers): array {
+        $captured = [];
+        foreach ($userids as $uid) {
+            $grades = grade_get_grades($instance->course, 'mod', 'exelearning', $instance->id, $uid);
+            foreach ($itemnumbers as $itemnumber) {
+                $grade = $grades->items[$itemnumber]->grades[$uid]->grade ?? null;
+                $captured[$uid][$itemnumber] = ($grade === null) ? null : (float) $grade;
+            }
+        }
+        return $captured;
+    }
+
+    /**
+     * The batched bulk recalculation (exelearning_update_grades($instance, 0),
+     * one query + one grade_update() per item) must publish exactly the same
+     * grades as the per-user path (exelearning_recalculate_user_grades()), for
+     * every supported aggregation method. The per-user path is the reference.
+     *
+     * @covers ::exelearning_update_grades
+     * @covers ::exelearning_recalculate_grades_for_users
+     * @covers \mod_exelearning\local\attempts::fetch_scaled_by_user_item
+     * @covers \mod_exelearning\local\attempts::aggregate_values
+     */
+    public function test_bulk_update_grades_matches_per_user_recalculation(): void {
+        $instance = $this->create_activity(['grademodel' => EXELEARNING_GRADEMODEL_PERITEM]);
+        $course = get_course($instance->course);
+
+        $student1 = $this->getDataGenerator()->create_user();
+        $student2 = $this->getDataGenerator()->create_user();
+        $this->getDataGenerator()->enrol_user($student1->id, $course->id, 'student');
+        $this->getDataGenerator()->enrol_user($student2->id, $course->id, 'student');
+        $userids = [$student1->id, $student2->id];
+
+        // Two attempts per user on each gradable iDevice (1, 2) plus the overall
+        // (0), so every aggregation method has more than one value to choose from.
+        attempts::record_item($instance->id, $student1->id, 1, 1, 7, 10, 'completed', 's1a');
+        attempts::record_item($instance->id, $student1->id, 2, 1, 9, 10, 'completed', 's1b');
+        attempts::record_item($instance->id, $student1->id, 1, 2, 5, 10, 'completed', 's1a');
+        attempts::record_item($instance->id, $student1->id, 2, 2, 8, 10, 'completed', 's1b');
+        attempts::record_item($instance->id, $student1->id, 1, 0, 60, 100, 'completed', 's1a');
+        attempts::record_item($instance->id, $student1->id, 2, 0, 90, 100, 'completed', 's1b');
+
+        attempts::record_item($instance->id, $student2->id, 1, 1, 10, 10, 'completed', 's2a');
+        attempts::record_item($instance->id, $student2->id, 2, 1, 4, 10, 'completed', 's2b');
+        attempts::record_item($instance->id, $student2->id, 1, 2, 6, 10, 'completed', 's2a');
+        attempts::record_item($instance->id, $student2->id, 2, 2, 3, 10, 'completed', 's2b');
+        attempts::record_item($instance->id, $student2->id, 1, 0, 50, 100, 'completed', 's2a');
+        attempts::record_item($instance->id, $student2->id, 2, 0, 70, 100, 'completed', 's2b');
+
+        // PERITEM publishes the per-iDevice columns (1, 2); the overall (0) does not exist.
+        $itemnumbers = [1, 2];
+
+        foreach ([attempts::GRADE_HIGHEST, attempts::GRADE_AVERAGE] as $grademethod) {
+            // The grademethod lives on the instance row; recalc reads it from there.
+            $this->bump_grademethod($instance, $grademethod);
+
+            // Bulk path (the one being optimised).
+            exelearning_update_grades($instance, 0);
+            $bulk = $this->capture_grades($instance, $userids, $itemnumbers);
+
+            // Per-user reference path.
+            foreach ($userids as $uid) {
+                exelearning_recalculate_user_grades($instance, $uid);
+            }
+            $peruser = $this->capture_grades($instance, $userids, $itemnumbers);
+
+            foreach ($userids as $uid) {
+                foreach ($itemnumbers as $itemnumber) {
+                    $this->assertEqualsWithDelta(
+                        $peruser[$uid][$itemnumber],
+                        $bulk[$uid][$itemnumber],
+                        0.001,
+                        "Bulk grade for user {$uid} item {$itemnumber} (method {$grademethod})"
+                            . ' must match the per-user recalculation'
+                    );
+                }
+            }
+        }
+    }
+
+    /**
+     * The bulk path on a fresh instance with no attempts must not throw and must
+     * publish nothing (no users to iterate, no grade_update calls).
+     *
+     * @covers ::exelearning_update_grades
+     * @covers ::exelearning_recalculate_grades_for_users
+     */
+    public function test_bulk_update_grades_no_attempts_is_noop(): void {
+        $instance = $this->create_activity(['grademodel' => EXELEARNING_GRADEMODEL_PERITEM]);
+
+        exelearning_update_grades($instance, 0);
+
+        $student = $this->getDataGenerator()->create_user();
+        $this->getDataGenerator()->enrol_user($student->id, $instance->course, 'student');
+        $grades = grade_get_grades($instance->course, 'mod', 'exelearning', $instance->id, $student->id);
+        $this->assertNull($grades->items[1]->grades[$student->id]->grade);
+    }
+
+    /**
+     * Helper: persist a new grademethod on the instance row and reflect it on the
+     * in-memory record so subsequent recalcs read the new aggregation.
+     *
+     * @param \stdClass $instance the exelearning instance row (mutated in place)
+     * @param int $grademethod one of the attempts::GRADE_* constants
+     */
+    protected function bump_grademethod(\stdClass $instance, int $grademethod): void {
+        global $DB;
+        $instance->grademethod = $grademethod;
+        $DB->set_field('exelearning', 'grademethod', $grademethod, ['id' => $instance->id]);
+    }
 }
