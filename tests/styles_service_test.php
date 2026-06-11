@@ -363,4 +363,44 @@ final class styles_service_test extends advanced_testcase {
         $this->assertContains('style.css', styles_service::list_uploaded_files('listed'));
         $this->assertContains('listed', array_column(styles_service::list_uploaded_styles(), 'id'));
     }
+
+    /**
+     * get_registry() tolerates a malformed persisted value.
+     */
+    public function test_get_registry_tolerates_malformed_json(): void {
+        $this->resetAfterTest();
+        set_config(styles_service::CONFIG_REGISTRY, 'not valid json', 'exelearning');
+
+        $registry = styles_service::get_registry();
+        $this->assertSame([], $registry['uploaded']);
+        $this->assertSame([], $registry['disabled_builtins']);
+    }
+
+    /**
+     * validate_zip() rejects an archive over the configured size cap.
+     */
+    public function test_validate_zip_rejects_oversize(): void {
+        $this->resetAfterTest();
+        set_config('styles_max_zip_size', 1, 'exelearning');
+
+        $this->expectException(\moodle_exception::class);
+        styles_service::validate_zip($this->make_style_zip('Too Big'));
+    }
+
+    /**
+     * validate_zip() rejects an archive with more than one config.xml.
+     */
+    public function test_validate_zip_rejects_multiple_config(): void {
+        $this->resetAfterTest();
+        $zippath = make_temp_directory('mod_exelearning') . '/multi-' . random_string(6) . '.zip';
+        $zip = new \ZipArchive();
+        $zip->open($zippath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+        $zip->addFromString('config.xml', '<config><name>A</name></config>');
+        $zip->addFromString('sub/config.xml', '<config><name>B</name></config>');
+        $zip->addFromString('style.css', 'body{}');
+        $zip->close();
+
+        $this->expectException(\moodle_exception::class);
+        styles_service::validate_zip($zippath);
+    }
 }

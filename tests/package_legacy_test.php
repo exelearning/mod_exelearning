@@ -113,4 +113,42 @@ final class package_legacy_test extends advanced_testcase {
         $this->assertNotFalse($mainfile);
         $this->assertSame('index.html', $mainfile->get_filename());
     }
+
+    /**
+     * save_draft_file() moves an uploaded draft into the activity's package area.
+     */
+    public function test_save_draft_file_stores_package(): void {
+        global $CFG, $USER;
+        require_once($CFG->libdir . '/resourcelib.php');
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $course = $this->getDataGenerator()->create_course();
+        $instance = $this->getDataGenerator()->get_plugin_generator('mod_exelearning')
+            ->create_instance(['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('exelearning', $instance->id);
+
+        // A draft area holding the fixture .elpx, as the upload form would build.
+        $draftid = file_get_unused_draft_itemid();
+        get_file_storage()->create_file_from_pathname([
+            'contextid' => \context_user::instance($USER->id)->id,
+            'component' => 'user',
+            'filearea'  => 'draft',
+            'itemid'    => $draftid,
+            'filepath'  => '/',
+            'filename'  => 'pkg.elpx',
+        ], $CFG->dirroot . '/mod/exelearning/research/fixtures/elpx/actividad-evaluable.elpx');
+
+        $data = (object) [
+            'coursemodule' => $cm->id,
+            'packagefile'  => $draftid,
+            'display'      => 0,
+            'revision'     => 7,
+        ];
+
+        $package = exelearning_package_legacy::save_draft_file($data);
+
+        $this->assertInstanceOf(\stored_file::class, $package);
+        $this->assertSame('pkg.elpx', $package->get_filename());
+    }
 }
