@@ -141,4 +141,75 @@ final class embedded_editor_installer_test extends advanced_testcase {
         $this->expectException(\moodle_exception::class);
         $installer->validate_zip($file);
     }
+
+    /**
+     * The GitHub asset filename and download URL are derived from the version.
+     */
+    public function test_asset_filename_and_url(): void {
+        $installer = new embedded_editor_installer();
+
+        $this->assertSame('exelearning-static-v4.0.0.zip', $installer->get_asset_filename('4.0.0'));
+        $this->assertSame(
+            'https://github.com/exelearning/exelearning/releases/download/v4.0.0/exelearning-static-v4.0.0.zip',
+            $installer->get_asset_url('4.0.0')
+        );
+    }
+
+    /**
+     * normalize_extraction() finds index.html at the extraction root, one level
+     * down or two levels down, and rejects a layout that has none.
+     */
+    public function test_normalize_extraction_handles_nesting(): void {
+        $installer = new embedded_editor_installer();
+
+        // Pattern 1: index.html directly at the extraction root.
+        $root = make_temp_directory('mod_exelearning/norm-root-' . random_string(6));
+        file_put_contents($root . '/index.html', 'x');
+        $this->assertSame($root, $installer->normalize_extraction($root));
+
+        // Pattern 2: a single wrapper directory holding index.html.
+        $wrap = make_temp_directory('mod_exelearning/norm-wrap-' . random_string(6));
+        make_writable_directory($wrap . '/inner');
+        file_put_contents($wrap . '/inner/index.html', 'x');
+        $this->assertSame($wrap . '/inner', $installer->normalize_extraction($wrap));
+
+        // Pattern 3: a double-nested wrapper.
+        $deep = make_temp_directory('mod_exelearning/norm-deep-' . random_string(6));
+        make_writable_directory($deep . '/a/b');
+        file_put_contents($deep . '/a/b/index.html', 'x');
+        $this->assertSame($deep . '/a/b', $installer->normalize_extraction($deep));
+
+        // No index.html anywhere is rejected.
+        $bad = make_temp_directory('mod_exelearning/norm-bad-' . random_string(6));
+        make_writable_directory($bad . '/x');
+        file_put_contents($bad . '/x/readme.txt', 'x');
+        $this->expectException(\moodle_exception::class);
+        $installer->normalize_extraction($bad);
+    }
+
+    /**
+     * validate_editor_contents() accepts a valid editor directory.
+     */
+    public function test_validate_editor_contents_accepts_valid_layout(): void {
+        $installer = new embedded_editor_installer();
+        $dir = make_temp_directory('mod_exelearning/vc-ok-' . random_string(6));
+        make_writable_directory($dir . '/app');
+        file_put_contents($dir . '/index.html', 'x');
+
+        $installer->validate_editor_contents($dir);
+        // Reaching here without an exception means the layout passed.
+        $this->expectNotToPerformAssertions();
+    }
+
+    /**
+     * validate_editor_contents() rejects a directory missing an asset folder.
+     */
+    public function test_validate_editor_contents_rejects_invalid_layout(): void {
+        $installer = new embedded_editor_installer();
+        $dir = make_temp_directory('mod_exelearning/vc-bad-' . random_string(6));
+        file_put_contents($dir . '/index.html', 'x');
+
+        $this->expectException(\moodle_exception::class);
+        $installer->validate_editor_contents($dir);
+    }
 }
