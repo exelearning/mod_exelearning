@@ -1,0 +1,88 @@
+# Audit follow-up — `mod_exelearning`
+
+> Reconciliation of the external comparative report (`mod_exescorm` / `mod_exeweb` /
+> `mod_exelearning`) against the **current** state of `main`. Verified by reading the
+> code, not by trusting the report. Every row cites `file:line` or a `DEC-NNNN` decision.
+
+## TL;DR
+
+The report ranks `mod_exelearning` first for architecture and internal quality — a
+verdict the code supports. But it was written against a snapshot **older than
+~2026-06-09**, so its **two headline criticisms of this plugin are already resolved**:
+maturity is `MATURITY_BETA` (not alpha), and `db/services.php` is fully coherent with
+`classes/external` (no "zombie" classes). The repo is itself responding to this report
+in its ADR corpus ([[DEC-0044]], [[DEC-0045]], [[DEC-0046]]). The audit found **no code
+incoherence requiring a fix**; this follow-up is documentation plus one ADR
+([[DEC-0047]]).
+
+## 1. Findings that are now OBSOLETE (the report is wrong against current code)
+
+| # | Report claim | Current reality | Evidence |
+|---|---|---|---|
+| O1 | `maturity = MATURITY_ALPHA`; "still alpha", maturity verdict "acceptable today". | `MATURITY_BETA`. | `version.php:33`; promoted in PR #34 / [[DEC-0044]] ("BETA tras críticos"). |
+| O2 | `db/services.php` "declares only two functions (embedded editor)" while 7 classes exist in `classes/external` → **"zombie architecture" / integration debt / priority #1**. | `db/services.php` declares **8 functions covering all 7 external classes — zero orphans**. | `db/services.php:27-96`; the 7 classes under `classes/external/`; [[DEC-0040]]. See `docs/EXTERNAL_SERVICES.md`. |
+| O3 | The external API gap is "the number-one priority" to fix. | Resolved: 2 admin AJAX functions + 6 `MOODLE_OFFICIAL_MOBILE_SERVICE` functions (`get_exelearnings_by_courses`, `view_exelearning`, `get_exelearning_access_information`, `get_user_attempts`, `get_user_grades`, `save_track`). | `db/services.php:28-95`; [[DEC-0040]]. |
+
+## 2. Findings that need NUANCE (partly true, imprecisely stated)
+
+| # | Report claim | Nuance / correction | Evidence |
+|---|---|---|---|
+| N1 | The parser "does not load external DTDs". | Imprecise. Real `.elpx` declare `<!DOCTYPE ode SYSTEM "content.dtd">`; the parser **accepts** that external DOCTYPE but **never fetches or expands** it (`LIBXML_NONET \| LIBXML_COMPACT`, deliberately **without** `LIBXML_DTDLOAD`/`LIBXML_NOENT`) and **rejects only internal entities**. The accurate statement is "never resolves external DTDs/entities and rejects internal entities". | `classes/local/package.php` `load_dom()` (~151-187); [[DEC-0039]]. See `docs/ELPX_PACKAGE.md`. |
+| N2 | It is "debatable" that the module declares `MOD_ARCHETYPE_ASSIGNMENT` / `MOD_PURPOSE_ASSESSMENT` when grading can be disabled. | Legitimate design question — **still open until now** (no prior ADR). But the report's implied per-instance fix is **infeasible**: `exelearning_supports()` receives only the feature constant, never the instance, so archetype/purpose are resolved per **module type**, never per `gradeenabled`. Decision: **keep ASSESSMENT, document why**. | `lib.php:44-71`; [[DEC-0029]]; resolved in [[DEC-0047]]. |
+| N3 | "Technical debt #1 = SCORM/teacher-mode injections" (implied unaddressed). | Already analysed in-repo: the plugin-side fix (serve-time transform) is designed in [[DEC-0045]] (deferred) and the upstream-vs-plugin trade-off recorded in [[DEC-0046]]; the definitive exit is xAPI ([[DEC-0032]]). Not fixed in this PR by design. | [[DEC-0045]], [[DEC-0046]]; `docs/TRACKING.md`. |
+
+## 3. Findings that remain VALID (the report is right)
+
+| # | Report claim | Confirmation | Evidence |
+|---|---|---|---|
+| V1 | Defensive XML parser. | Confirmed (with the N1 wording fix). | `classes/local/package.php` `load_dom()`; [[DEC-0039]]. |
+| V2 | Tracking centralises scoring server-side: recomputes overall, ignores unknown `objectid`, clamps, limits attempts, shares the pipeline across web + web service. | Confirmed and strengthened: `save_track` reuses `track::ingest()`. | `classes/local/track.php` `ingest()`/`recompute_overall_pct`/`apply_item_scores`; `track.php`; [[DEC-0017]], [[DEC-0018]], [[DEC-0040]]. See `docs/TRACKING.md`. |
+| V3 | `itemnumber_mapping` aligned with Moodle 4.5+ multi-grade-items. | Confirmed: `MAX_ITEMNUMBER = 100`. | `classes/grades/gradeitems.php`; `docs/GRADEBOOK.md`. |
+| V4 | Modern PHP / quality tooling (strict types, `moodlehq/moodle-cs`, phpmd, phpunit, local PHPCS, moodle-plugin-ci). | Confirmed. | `composer.json`; `.phpcs.xml.dist`; `.moodle-plugin-ci.yml`; `.github/workflows/ci.yml`. |
+| V5 | Best-designed of the three for evolution (domain classes, secure parsing, shared pipeline). | Confirmed by the responsibility map. | `docs/ARCHITECTURE.md`. |
+
+Note: the report dinged `mod_exeweb` for a copied `composer.json`. This does **not**
+apply here — `mod_exelearning`'s metadata is correct (`ateeducacion/mod_exelearning`,
+accurate description). `composer.json:2-3`.
+
+## 4. Improvements applied in this change
+
+- **[[DEC-0047]]** — ADR recording the functional-classification decision (keep
+  `ASSIGNMENT` / `ASSESSMENT`; no code change).
+- **Technical documentation suite** (English): `ARCHITECTURE.md`,
+  `EXTERNAL_SERVICES.md`, `GRADEBOOK.md`, `TRACKING.md`, `ELPX_PACKAGE.md`,
+  `EMBEDDED_EDITOR.md`, `PRIVACY_BACKUP_FILES.md`, `RELEASE_CHECKLIST.md`, and this file.
+- **Corrected parser-security wording** (N1) propagated to `ELPX_PACKAGE.md`.
+
+No functional code was changed: the audit surfaced no clear incoherence to fix.
+
+## 5. Improvements still pending (out of scope here, tracked)
+
+| Item | Status | Reference |
+|---|---|---|
+| Serve-time package transform (removes HTML injection at extraction — report's "debt #1"). | Proposed, deferred (not small/safe). | [[DEC-0045]] / [[DEC-0046]] |
+| Dual xAPI + SCORM 1.2 ingestion (definitive removal of the shim). | Proposed, gated on upstream `exelearning#1867`. | [[DEC-0032]] |
+| `.elpx` client-side JS sandboxing hardening (RIE-001). | Documented roadmap, intentionally not implemented. | [[DEC-0019]] |
+| Embedded-editor `postMessage` origin: `editorOrigin` falls back to `'*'`. | Hardening opportunity, low risk (same-origin pluginfile). | `docs/EMBEDDED_EDITOR.md` |
+| Promote `MATURITY_BETA` → `MATURITY_STABLE`. | Gated by the objective checklist. | `docs/RELEASE_CHECKLIST.md` |
+
+## 6. Risk register
+
+| Risk | Evidence | Recommended action | Associated test |
+|---|---|---|---|
+| Teacher expectation of a grade when `gradeenabled = 0`. | `lib.php:66-67` (`ASSESSMENT` static); [[DEC-0029]]. | Documented in `docs/GRADEBOOK.md` + [[DEC-0047]]; no code change. | `tests/` mod_form / grade-disabled behavior (existing). |
+| Package HTML injection coupled to eXe internals (`inject_scorm_loader`, teacher-mode hider). | `lib.php` `exelearning_inject_scorm_loader()` / `exelearning_require_teacher_mode_hider()`; [[DEC-0046]]. | Migrate to serve-time transform when prioritised ([[DEC-0045]]); keep workaround for legacy `.elpx`. | Backup/restore + view rendering tests (existing). |
+| `.elpx` runs untrusted JS same-origin in an iframe. | `view.php` iframe `sandbox` (no `allow-top-navigation`, no `allow-modals`); AN-008. | Tier-1/Tier-2 hardening roadmap ([[DEC-0019]]). | n/a (documented roadmap). |
+| External DTD declaration in packages could be an XXE vector. | `package.php` `load_dom()` (`LIBXML_NONET`, no `DTDLOAD`/`NOENT`, internal-entity rejection); [[DEC-0039]]. | None — mitigated; documented in `docs/ELPX_PACKAGE.md`. | Parser unit tests (existing, 22 cases). |
+| Client tampering with grades via tracking payload. | `track::ingest()` recompute + objectid filter + clamp; [[DEC-0018]]. | None — mitigated; documented in `docs/TRACKING.md`. | Tracking/external unit tests (existing). |
+
+## 7. Quality gates (how to reproduce)
+
+| Check | Command | Notes |
+|---|---|---|
+| Coding standard | `composer lint` (`vendor/bin/phpcs --standard=moodle .`) | Expect 0/0; this change touches no PHP. |
+| Unit tests | `composer test` / `moodle-plugin-ci phpunit` | Run inside a Moodle dev tree (see `DEVELOPMENT.md`). Cannot run from a bare clone. |
+| Full CI | `.github/workflows/ci.yml` | Moodle 4.5/5.0/5.1/5.2 × PHP 8.1-8.4 × pgsql16/mariadb10.11. |
+| ADR schema | `python3 research/tools/test_schema_validation.py` | Validates [[DEC-0047]] frontmatter. |
+
+See `docs/RELEASE_CHECKLIST.md` for the objective beta→stable gate.

@@ -170,12 +170,15 @@ capabilities.
 
 When a teacher uploads a `.elpx`, the plugin extracts the package and detects
 gradable iDevices from `content.xml`. The default gradebook model is **per-iDevice
-only**: one visible column per detected gradable iDevice (`itemnumber=1..N`).
-A hidden overall item is maintained only so Moodle can evaluate pass-grade
-completion. The teacher can switch the activity to **overall only** when a
+only**: one visible column per detected gradable iDevice (`itemnumber=1..N`) and
+**no overall column** — the two models are symmetric, with no hidden overall stub
+([DEC-0038](./research/decisiones/adr/DEC-0038-sin-columna-overall-en-peritem.md)).
+Pass-grade completion targets a registered gradable item directly (Moodle's
+completion-by-grade). The teacher can switch the activity to **overall only** when a
 single aggregated grade is preferred (SCORM-style). The former "both" mode was
 removed in [DEC-0008](./research/decisiones/adr/DEC-0008-grade-aggregation-y-feedback.md)
-to avoid double-counting and gradebook complexity.
+to avoid double-counting and gradebook complexity. See
+[docs/GRADEBOOK.md](docs/GRADEBOOK.md) for the full model.
 
 Each submission is stored as an **attempt** (see
 [DEC-0007](./research/decisiones/adr/DEC-0007-gestion-intentos.md)); the
@@ -224,6 +227,23 @@ See `research/decisiones/adr/` for the full set of ADRs. Highlights:
 * [DEC-0008](./research/decisiones/adr/DEC-0008-grade-aggregation-y-feedback.md) — overall vs per-iDevice grade aggregation (done).
 * [DEC-0009](./research/decisiones/adr/DEC-0009-solo-editor-embebido.md) — embedded editor only, no eXeLearning Online (done).
 * [DEC-0010](./research/decisiones/adr/DEC-0010-finalizacion-estilo-scorm.md) — SCORM-style completion by passing grade (done).
+
+## Technical documentation
+
+Developer/administrator reference docs live under [`docs/`](./docs/):
+
+| Document | Scope |
+|---|---|
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Responsibility map and request flows. |
+| [EXTERNAL_SERVICES.md](docs/EXTERNAL_SERVICES.md) | Web-service contract (`classes/external` ↔ `db/services.php`). |
+| [GRADEBOOK.md](docs/GRADEBOOK.md) | Multi-item gradebook model (OVERALL vs PER-ITEM). |
+| [TRACKING.md](docs/TRACKING.md) | End-to-end tracking pipeline + security model. |
+| [ELPX_PACKAGE.md](docs/ELPX_PACKAGE.md) | `.elpx` parsing, iDevice detection and XML hardening. |
+| [EMBEDDED_EDITOR.md](docs/EMBEDDED_EDITOR.md) | Embedded editor source/lifecycle and `postMessage` bridge. |
+| [PRIVACY_BACKUP_FILES.md](docs/PRIVACY_BACKUP_FILES.md) | Privacy, backup/restore and File API. |
+| [RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md) | Objective beta→stable release gate. |
+| [AUDIT_FOLLOWUP.md](docs/AUDIT_FOLLOWUP.md) | Reconciliation of the comparative report against current code. |
+| [USER_GUIDE.md](docs/USER_GUIDE.md) | Teacher/admin step-by-step guide. |
 
 ## Development
 
