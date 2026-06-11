@@ -38,6 +38,25 @@ each instance from the real ELPX fixture
 `research/fixtures/elpx/actividad-evaluable.elpx` (two gradable iDevices:
 `trueorfalse` + `guess`).
 
+## Code coverage
+
+Coverage scope is declared in `tests/coverage.php` (the plugin's `classes/`
+folder plus `lib.php`), so reports stay focused on testable logic. A coverage
+driver (`xdebug` or `pcov`) must be enabled in the CLI PHP.
+
+```bash
+# Text summary for this plugin only.
+make coverage
+# or, equivalently, from the Moodle root:
+vendor/bin/phpunit --coverage-text --filter mod_exelearning
+
+# HTML report (browse coverage/index.html):
+vendor/bin/phpunit --coverage-html coverage --filter mod_exelearning
+```
+
+CI runs PHPUnit with `coverage: none` for speed; generate coverage locally with
+a driver enabled.
+
 ## Behat
 
 Initialise the Behat environment once:

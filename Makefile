@@ -102,6 +102,11 @@ phpmd:
 # Run Behat tests using Composer
 behat:
 	composer behat
+
+# Run PHPUnit with a text code-coverage report (needs xdebug or pcov).
+# Coverage scope is declared in tests/coverage.php (classes/ + lib.php).
+coverage:
+	composer coverage
 # -------------------------------------------------------
 # Embedded static editor build targets
 # -------------------------------------------------------
@@ -213,6 +218,7 @@ help:
 	@echo "  test                   - Run tests using Composer"
 	@echo "  phpmd                  - Run PHP Mess Detector using Composer"
 	@echo "  behat                  - Run Behat tests using Composer"
+	@echo "  coverage               - Run PHPUnit with a text coverage report (needs xdebug/pcov)"
 	@echo "  build-editor           - Build embedded static editor"
 	@echo "  build-editor-no-update - Alias of build-editor"
 	@echo "  clean-editor           - Remove editor build artifacts"
