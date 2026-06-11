@@ -212,4 +212,38 @@ final class embedded_editor_installer_test extends advanced_testcase {
         $this->expectException(\moodle_exception::class);
         $installer->validate_editor_contents($dir);
     }
+
+    /**
+     * safe_install() deploys a source directory into moodledata and replaces an
+     * existing install (backup path); the metadata helpers round-trip the version.
+     */
+    public function test_safe_install_replaces_and_metadata_roundtrips(): void {
+        $this->resetAfterTest();
+        $installer = new embedded_editor_installer();
+        $target = embedded_editor_source_resolver::get_moodledata_dir();
+
+        // Fresh install from a valid source directory.
+        $src = make_temp_directory('mod_exelearning/si-a-' . random_string(6));
+        make_writable_directory($src . '/app');
+        file_put_contents($src . '/index.html', 'first');
+        $installer->safe_install($src);
+        $installer->store_metadata('1.0.0');
+
+        $this->assertStringEqualsFile($target . '/index.html', 'first');
+        $this->assertSame('1.0.0', embedded_editor_installer::get_installed_version());
+        $this->assertNotNull(embedded_editor_installer::get_installed_at());
+
+        // Re-install over the existing copy (exercises the backup/replace path).
+        $src2 = make_temp_directory('mod_exelearning/si-b-' . random_string(6));
+        make_writable_directory($src2 . '/libs');
+        file_put_contents($src2 . '/index.html', 'second');
+        $installer->safe_install($src2);
+        $this->assertStringEqualsFile($target . '/index.html', 'second');
+
+        // Clearing metadata removes the recorded version.
+        $installer->clear_metadata();
+        $this->assertNull(embedded_editor_installer::get_installed_version());
+
+        remove_dir($target);
+    }
 }

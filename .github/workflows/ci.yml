@@ -218,6 +218,22 @@ jobs:
           files: ./coverage.xml
           fail_ci_if_error: false
 
+      - name: Generate JUnit report for Codecov Test Analytics
+        # moodle-plugin-ci phpunit cannot emit JUnit, so run phpunit directly
+        # against the installed Moodle tree to produce a report. The pass/fail
+        # gate stays the moodle-plugin-ci step above; '|| true' just guarantees a
+        # report is written even when a test fails (Test Analytics needs it).
+        if: ${{ matrix.coverage && !cancelled() }}
+        working-directory: moodle
+        run: php vendor/bin/phpunit --testsuite mod_exelearning_testsuite --log-junit "$GITHUB_WORKSPACE/junit.xml" || true
+
+      - name: Upload test results to Codecov
+        if: ${{ matrix.coverage && !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./junit.xml
+
       - name: Behat features
         id: behat
         if: ${{ always() }}

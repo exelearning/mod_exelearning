@@ -41,4 +41,13 @@ return new class extends phpunit_coverage_info {
     protected $includelistfiles = [
         'lib.php',
     ];
+
+    /**
+     * @var array Folders to exclude from coverage. The admin setting classes are
+     * thin Moodle admin-UI rendering adapters (output_html), not plugin logic, so
+     * they are scoped out to keep the figure focused on testable behaviour.
+     */
+    protected $excludelistfolders = [
+        'classes/admin',
+    ];
 };

@@ -91,9 +91,13 @@ lint:
 fix:
 	composer fix
 
-# Run tests using Composer
-test:
-	composer test
+# Run the plugin's PHPUnit suite inside the running Docker `moodle` container.
+# Bring the stack up first with `make upd`. The first run installs Moodle's dev
+# dependencies and initialises the PHPUnit test database (idempotent), then runs
+# the suite. Target a single file/filter with ARGS, e.g.:
+#   make test ARGS=mod/exelearning/tests/lib_test.php
+test: check-docker
+	docker compose exec moodle sh /var/www/html/mod/exelearning/scripts/phpunit-docker.sh $(ARGS)
 
 # Run PHP Mess Detector using Composer
 phpmd:
@@ -215,7 +219,7 @@ help:
 	@echo "  install-deps           - Install PHP dependencies using Composer"
 	@echo "  lint                   - Run code linting using Composer"
 	@echo "  fix                    - Automatically fix code style issues using Composer"
-	@echo "  test                   - Run tests using Composer"
+	@echo "  test                   - Run PHPUnit in the Docker moodle container (make upd first)"
 	@echo "  phpmd                  - Run PHP Mess Detector using Composer"
 	@echo "  behat                  - Run Behat tests using Composer"
 	@echo "  coverage               - Run PHPUnit with a text coverage report (needs xdebug/pcov)"
