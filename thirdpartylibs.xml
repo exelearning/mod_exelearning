@@ -4,7 +4,8 @@
      time or installed from GitHub by an admin. It is therefore NOT declared here,
      because Moodle's `grunt ignorefiles` stats every <location> and aborts on a
      missing path, which breaks `moodle-plugin-ci install`. When dist/static/ is
-     bundled into a release zip it should be re-declared in that artifact. -->
+     bundled into a release zip, scripts/package.sh stamps a dist/static
+     declaration into the ZIP's copy of this file automatically. -->
 <libraries>
   <library>
     <location>assets/scorm/SCORM_API_wrapper.js</location>

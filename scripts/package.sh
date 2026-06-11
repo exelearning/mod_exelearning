@@ -80,6 +80,30 @@ stamped_sha="$(
 )"
 git update-index --add --cacheinfo "100644,$stamped_sha,version.php"
 
+# Stamp thirdpartylibs.xml in the index only: the committed file must not list
+# dist/static (the path is absent in a plain checkout and would break
+# moodle-plugin-ci install), but the release ZIP bundles the editor and must
+# declare it (see the header comment in thirdpartylibs.xml). The editor version
+# is read from .editor-version, which is .distignore'd, so it is taken from the
+# working tree here.
+if [ -d dist/static ] && [ -n "$(ls -A dist/static 2>/dev/null)" ]; then
+    EDITOR_VERSION="$(tr -d ' \t\r\n' < .editor-version 2>/dev/null || true)"
+    EDITOR_VERSION="${EDITOR_VERSION#v}"
+    [ -n "$EDITOR_VERSION" ] || EDITOR_VERSION="unknown"
+    tpl_sha="$(
+        sed "s#^</libraries>#  <library>\\
+    <location>dist/static</location>\\
+    <name>eXeLearning (static editor build)</name>\\
+    <description>Embedded eXeLearning v4 editor, built from https://github.com/exelearning/exelearning and bundled into the release ZIP.</description>\\
+    <version>$EDITOR_VERSION</version>\\
+    <license>GPL-3.0-or-later</license>\\
+  </library>\\
+</libraries>#" thirdpartylibs.xml \
+        | git hash-object -w --stdin
+    )"
+    git update-index --add --cacheinfo "100644,$tpl_sha,thirdpartylibs.xml"
+fi
+
 echo "Packaging release $RELEASE (version $DATE_VERSION) -> $PLUGIN_NAME-$RELEASE.zip"
 TREE="$(git write-tree)"
 rm -f "$OUTPUT"
