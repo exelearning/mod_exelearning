@@ -569,6 +569,11 @@ class styles_service {
             }
         }
         $zip->close();
+
+        // Post-extraction sweep: reject symlinks and verify every materialised
+        // path stayed inside $dest (defence-in-depth behind the per-entry name
+        // checks above). The caller deletes $dest on any thrown exception.
+        zip_utils::assert_extraction_contained($dest, 'stylesupload_unsafe');
     }
 
     // ---------------------------------------------------------------------
@@ -577,26 +582,15 @@ class styles_service {
     /**
      * Entries that must never be extracted (absolute paths, traversal, streams, empty).
      *
+     * Delegates to the shared {@see zip_utils::is_unsafe_zip_entry()}; kept here
+     * as a stable public wrapper because the editor installer, the existing
+     * tests and any external callers reference this symbol.
+     *
      * @param string $name
      * @return bool
      */
     public static function is_unsafe_zip_entry(string $name): bool {
-        if ($name === '') {
-            return true;
-        }
-        if (strpos($name, '\\') !== false) {
-            return true;
-        }
-        if (strpos($name, '/') === 0) {
-            return true;
-        }
-        if (preg_match('#^[a-zA-Z]+://#', $name)) {
-            return true;
-        }
-        if (preg_match('#(^|/)\.\.(/|$)#', $name)) {
-            return true;
-        }
-        return false;
+        return zip_utils::is_unsafe_zip_entry($name);
     }
 
     /**
