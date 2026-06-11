@@ -112,9 +112,15 @@ class attempts {
      *
      * @param int $exelearningid
      * @param int[] $userids Candidate users (enrolled students visible to the teacher).
+     * @param int $grademethod One of the GRADE_* constants; defaults to highest
+     *     so a caller that has not migrated keeps the previous behaviour.
      * @return array{total:int, attempted:int, meanpercent:float|null}
      */
-    public static function participation_summary(int $exelearningid, array $userids): array {
+    public static function participation_summary(
+        int $exelearningid,
+        array $userids,
+        int $grademethod = self::GRADE_HIGHEST
+    ): array {
         global $DB;
 
         $total = count($userids);
@@ -132,21 +138,31 @@ class attempts {
             $params
         );
 
-        // Mean of each user's best overall scaled score (0..1) → percent.
-        $best = $DB->get_records_sql(
-            "SELECT userid, MAX(scaledscore) AS best
+        // Mean of each user's AGGREGATED overall score (0..1) → percent. The
+        // aggregation follows the activity's grademethod (DEC-0007) so this
+        // summary matches what the gradebook publishes — it previously
+        // hardcoded the best attempt regardless of method. A second named
+        // parameter set (param2_) avoids collisions with the count query above.
+        [$insql2, $params2] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED, 'param2_');
+        $params2['exeid2'] = $exelearningid;
+        $rows = $DB->get_records_sql(
+            "SELECT id, userid, scaledscore
                    FROM {exelearning_attempt}
-                  WHERE exelearningid = :exeid AND itemnumber = 0 AND userid $insql
-               GROUP BY userid",
-            $params
+                  WHERE exelearningid = :exeid2 AND itemnumber = 0 AND userid $insql2
+               ORDER BY userid ASC, attempt ASC",
+            $params2
         );
+        $byuser = [];
+        foreach ($rows as $row) {
+            $byuser[(int) $row->userid][] = (float) $row->scaledscore;
+        }
         $meanpercent = null;
-        if (!empty($best)) {
+        if ($byuser !== []) {
             $sum = 0.0;
-            foreach ($best as $row) {
-                $sum += (float) $row->best;
+            foreach ($byuser as $scores) {
+                $sum += (float) self::aggregate_values($scores, $grademethod);
             }
-            $meanpercent = ($sum / count($best)) * 100.0;
+            $meanpercent = ($sum / count($byuser)) * 100.0;
         }
 
         return ['total' => $total, 'attempted' => $attempted, 'meanpercent' => $meanpercent];
@@ -293,7 +309,24 @@ class attempts {
         if (empty($scaled)) {
             return null;
         }
-        $scaled = array_map('floatval', $scaled);
+        return self::aggregate_values(array_map('floatval', $scaled), $grademethod);
+    }
+
+    /**
+     * Aggregate an ordered list of scaled scores (0..1) with a grade method.
+     *
+     * Pure helper shared by aggregate_scaled() and participation_summary()
+     * (and the bulk recalculation), so the five GRADE_* semantics (DEC-0007)
+     * live in exactly one place. $scaled must be ordered by attempt ASC.
+     *
+     * @param float[] $scaled Scaled scores ordered by attempt number.
+     * @param int $grademethod One of the GRADE_* constants.
+     * @return float|null Aggregated scaled score, or null for an empty list.
+     */
+    public static function aggregate_values(array $scaled, int $grademethod): ?float {
+        if ($scaled === []) {
+            return null;
+        }
 
         switch ($grademethod) {
             case self::GRADE_AVERAGE:
