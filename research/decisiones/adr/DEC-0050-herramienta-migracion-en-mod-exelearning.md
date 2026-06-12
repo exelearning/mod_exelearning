@@ -8,6 +8,7 @@ agentes:
   - claude-code
 fuentes:
   - REPO-001
+  - REPO-007
 relacionados:
   - DEC-0026
   - DEC-0025
@@ -41,10 +42,10 @@ que **se verificaron todos en el código** antes de actuar:
    `groupmode=NOGROUPS` fijos, ignorando visibilidad, grupos, disponibilidad y
    finalización del cm origen.
 4. **`mod_exescorm` sin clasificación.** No distinguía `local`/`embedded` (migrable) de
-   `external`/`aiccurl` (no migrable), ni el paquete que **es** un `.elpx` directo
-   (flujo EMBEDDED: `mod_exescorm/lib.php` salta el parseo SCORM cuando `reference`
-   acaba en `.elpx`), ni los ZIP con varios `.elpx` embebidos (elegía el primero en
-   silencio).
+   `external`/`aiccurl`/`localsync` (no migrable), ni el paquete que **es** un `.elpx`
+   directo (flujo EMBEDDED: `mod_exescorm/lib.php` salta el parseo SCORM cuando
+   `reference` acaba en `.elpx`), ni los ZIP con varios `.elpx` embebidos (elegía el
+   primero en silencio).
 5. **Shell vacío silencioso (descubierto al endurecer).** `exelearning_extract_stored_package()`
    ignora el retorno de `extract_to_storage`; un `.elpx` corrupto producía una actividad
    "migrada" vacía sin error.
@@ -62,13 +63,27 @@ lectura** detrás de una interfaz (`source_interface`); no se les añade lógica
 escritura hacia el destino, lo que evitaría duplicar el flujo y obligaría a mantener
 plugins legacy.
 
-**Precedente verificable.** El patrón más cercano del core de Moodle es una herramienta
-de administración tipo `tool_lpmigrate`: página admin con capability de sistema,
-procesador separado y tests. Para un par de plugins contrib, integrar esa herramienta en
-el módulo destino (que ya posee los internals necesarios) es más mantenible que un
-`tool_exelearningmigration` separado, que duplicaría la carga de instalación para un caso
-acotado. **No se afirma** que exista una migración oficial del core `hvp → h5pactivity`:
-no se ha verificado en el código actual y no debe citarse como precedente.
+**Precedentes Moodle (verificados).** El core incluye `tool_lpmigrate` (plugin
+`admin/tool/` con capability de sistema, procesador separado y tests) como migración
+administrativa dentro del propio core. Para el caso "migrar un plugin contrib hacia un
+módulo core más nuevo", el precedente oficial es **`tool_migratehvp2h5p`**
+(`moodlehq/moodle-tool_migratehvp2h5p`, Moodle HQ — Sara Arjona / Ferran Recio,
+MDL-67203, 2020; ver [[REPO-007]]): un plugin `admin/tool/` **separado** que migra
+`mod_hvp` (contrib) a `mod_h5pactivity` (core) con interfaz web y **CLI**
+(`cli/migrate.php`), procesador por actividad y tests, y `dependencies` sobre
+`mod_h5pactivity` y `mod_hvp`. **No existe** una migración `hvp → h5pactivity` dentro de
+`moodle/moodle` core: la ruta oficial es ese tool separado (corrige la afirmación
+cautelosa de una versión previa de este ADR, que decía no haberla verificado).
+
+Ambos precedentes son plugins `tool_*` **separados**. Aun así, para este par de orígenes
+(`mod_exeweb`/`mod_exescorm`) se mantiene la herramienta **dentro de `mod_exelearning`**
+porque el destino ya posee los internals que la migración necesita
+(`exelearning_extract_stored_package()`, `exelearning_sync_grade_items()`, modelos de
+calificación, idempotencia), el par de orígenes es pequeño, y la entrada de administración
+solo aparece cuando hay un sibling instalado; un tercer plugin `tool_*` duplicaría la
+instalación sin aportar aislamiento útil. Que `tool_migratehvp2h5p` incluya CLI confirma
+que diferir el `cli/migrate.php` a una segunda iteración es coherente con la práctica
+oficial.
 
 Se descartó la alternativa de un plugin `tool_*` independiente: añadiría una segunda
 instalación y separaría la herramienta de los internals que necesita.
@@ -103,11 +118,15 @@ portaron a `tests/local/migration/` (cada aserción antigua tiene destino nuevo)
   filearea y se toma el `itemid` más alto. Test de regresión que falla con la lógica
   antigua (paquete en `itemid = 3`, fila `revision = 3` → antes `nosource`, ahora
   `migrated`).
-- **Clasificación `exescorm`**: `external`/`aiccurl` → `unsupported` (sin tocar
-  ficheros); paquete que es un `.elpx` directo → migrable; ZIP con exactamente un
-  `.elpx` embebido → migrable (se extrae solo esa entrada); cero → `nosource`; más de
-  uno → `ambiguoussource`; ZIP corrupto → `nosource`. El listado del directorio central
-  del ZIP (`stored_file::list_files()`) es barato y no extrae nada, apto para preflight.
+- **Clasificación `exescorm`**: `external`/`aiccurl`/`localsync` → `unsupported` (sin
+  tocar ficheros; `localsync` se excluye aunque tenga snapshot local en `package/0`,
+  porque sigue sincronizándose desde una URL y migrarlo rompería esa relación);
+  `exescormnet` permanece migrable (instanciación única convertida a `local`, no es
+  sincronización continua); paquete que es un `.elpx` directo → migrable; ZIP con
+  exactamente un `.elpx` embebido → migrable (se extrae solo esa entrada); cero →
+  `nosource`; más de uno → `ambiguoussource`; ZIP corrupto → `nosource`. El listado del
+  directorio central del ZIP (`stored_file::list_files()`) es barato y no extrae nada,
+  apto para preflight.
 - **Limpieza compensatoria**: si la creación del destino tiene éxito pero falla la
   instalación o la migración de notas, el `catch` llama a `course_delete_module()` (borra
   cm, instancia, fileareas de contexto y grade items). **Sin transacción** DB
