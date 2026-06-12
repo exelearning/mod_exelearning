@@ -39,7 +39,8 @@ cmi5 is explicitly **excluded** upstream.
 ## 2. Host config injection (Moodle side)
 
 Just as the plugin injects the pipwerks loader into each package `<head>`
-(`exelearning_inject_scorm_loader`, `lib.php:770`), it will inject:
+(`exelearning_inject_scorm_loader`, delegador en `lib.php` →
+`\mod_exelearning\local\scorm\scorm_injector::inject()`, DEC-0054), it will inject:
 
 ```js
 window.exeXapi = {
