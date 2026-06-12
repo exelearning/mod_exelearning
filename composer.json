@@ -28,7 +28,9 @@
         "lint": "phpcs --standard=moodle .",
         "fix":  "phpcbf --standard=moodle .",
         "phpmd": "phpmd . text phpmd.xml || true",
-        "test": "phpunit --colors"
+        "test": "phpunit --colors",
+        "behat": "behat --colors",
+        "coverage": "phpunit --coverage-text"
     },
     "config": {
         "allow-plugins": {

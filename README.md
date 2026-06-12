@@ -1,5 +1,8 @@
 # eXeLearning resource for Moodle
 
+[![Moodle Plugin CI](https://github.com/ateeducacion/mod_exelearning/actions/workflows/ci.yml/badge.svg)](https://github.com/ateeducacion/mod_exelearning/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/ateeducacion/mod_exelearning/graph/badge.svg)](https://codecov.io/gh/ateeducacion/mod_exelearning)
+
 <a href="https://moodle-playground.com/?blueprint-url=https://raw.githubusercontent.com/ateeducacion/mod_exelearning/main/blueprint.json"><img src="https://raw.githubusercontent.com/ateeducacion/action-moodle-playground-pr-preview/refs/heads/main/assets/playground-preview-button.svg" alt="Preview in Moodle Playground" width="224"></a>
 
 > ℹ️ The eXeLearning editor is fetched from the shared release and unpacked into the plugin when the playground boots, so the first load may take a few extra seconds. ELPX upload, viewer and preview work normally.
@@ -170,12 +173,15 @@ capabilities.
 
 When a teacher uploads a `.elpx`, the plugin extracts the package and detects
 gradable iDevices from `content.xml`. The default gradebook model is **per-iDevice
-only**: one visible column per detected gradable iDevice (`itemnumber=1..N`).
-A hidden overall item is maintained only so Moodle can evaluate pass-grade
-completion. The teacher can switch the activity to **overall only** when a
+only**: one visible column per detected gradable iDevice (`itemnumber=1..N`) and
+**no overall column** — the two models are symmetric, with no hidden overall stub
+([DEC-0038](./research/decisiones/adr/DEC-0038-sin-columna-overall-en-peritem.md)).
+Pass-grade completion targets a registered gradable item directly (Moodle's
+completion-by-grade). The teacher can switch the activity to **overall only** when a
 single aggregated grade is preferred (SCORM-style). The former "both" mode was
 removed in [DEC-0008](./research/decisiones/adr/DEC-0008-grade-aggregation-y-feedback.md)
-to avoid double-counting and gradebook complexity.
+to avoid double-counting and gradebook complexity. See
+[docs/GRADEBOOK.md](docs/GRADEBOOK.md) for the full model.
 
 Each submission is stored as an **attempt** (see
 [DEC-0007](./research/decisiones/adr/DEC-0007-gestion-intentos.md)); the
@@ -190,6 +196,30 @@ Grading runtime uses a SCORM 1.2 bridge: a small `window.API` shim installed by
 wrapper and forwards them to `track.php`, which calls Moodle's `grade_update()`.
 xAPI support via `core_xapi` is on the roadmap.
 
+## Web services (Mobile API)
+
+The plugin exposes external functions for the official Moodle App and other
+external clients, all registered under `MOODLE_OFFICIAL_MOBILE_SERVICE` and
+enforcing context, login and capabilities in code
+([DEC-0040](./research/decisiones/adr/DEC-0040-mobile-external-api.md)):
+
+| Function | Type | Capability | Purpose |
+|---|---|---|---|
+| `mod_exelearning_get_exelearnings_by_courses` | read | `mod/exelearning:view` | List instances in courses (warnings for inaccessible ones; `packageurl` only for teachers). |
+| `mod_exelearning_view_exelearning` | write | `mod/exelearning:view` | Log a view (event + completion). |
+| `mod_exelearning_get_exelearning_access_information` | read | — | The user's `can*` capability flags. |
+| `mod_exelearning_get_user_attempts` | read | `mod/exelearning:view` (own); `:viewreport` (others) | A user's attempts. |
+| `mod_exelearning_get_user_grades` | read | `mod/exelearning:view` (own); `:viewreport` (others) | A user's per-iDevice grades. |
+| `mod_exelearning_save_track` | write | `mod/exelearning:savetrack` | Submit per-iDevice scores for the current user. |
+
+**Limits / security.** `save_track` reuses the same server-side pipeline as
+`track.php`: scores are routed by stable iDevice `objectid` (unknown objectids are
+ignored), the overall grade is recomputed server-side from the per-iDevice scores
+(the client overall is never trusted), scores are clamped to the grade range and the
+attempt cap is enforced. Tracking is SCORM 1.2 (score per iDevice + overall); xAPI
+ingestion is on the roadmap. The navigable package content itself is served via
+`pluginfile`, not through a web service.
+
 ## Roadmap
 
 See `research/decisiones/adr/` for the full set of ADRs. Highlights:
@@ -200,6 +230,23 @@ See `research/decisiones/adr/` for the full set of ADRs. Highlights:
 * [DEC-0008](./research/decisiones/adr/DEC-0008-grade-aggregation-y-feedback.md) — overall vs per-iDevice grade aggregation (done).
 * [DEC-0009](./research/decisiones/adr/DEC-0009-solo-editor-embebido.md) — embedded editor only, no eXeLearning Online (done).
 * [DEC-0010](./research/decisiones/adr/DEC-0010-finalizacion-estilo-scorm.md) — SCORM-style completion by passing grade (done).
+
+## Technical documentation
+
+Developer/administrator reference docs live under [`docs/`](./docs/):
+
+| Document | Scope |
+|---|---|
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Responsibility map and request flows. |
+| [EXTERNAL_SERVICES.md](docs/EXTERNAL_SERVICES.md) | Web-service contract (`classes/external` ↔ `db/services.php`). |
+| [GRADEBOOK.md](docs/GRADEBOOK.md) | Multi-item gradebook model (OVERALL vs PER-ITEM). |
+| [TRACKING.md](docs/TRACKING.md) | End-to-end tracking pipeline + security model. |
+| [ELPX_PACKAGE.md](docs/ELPX_PACKAGE.md) | `.elpx` parsing, iDevice detection and XML hardening. |
+| [EMBEDDED_EDITOR.md](docs/EMBEDDED_EDITOR.md) | Embedded editor source/lifecycle and `postMessage` bridge. |
+| [PRIVACY_BACKUP_FILES.md](docs/PRIVACY_BACKUP_FILES.md) | Privacy, backup/restore and File API. |
+| [RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md) | Objective beta→stable release gate. |
+| [AUDIT_FOLLOWUP.md](docs/AUDIT_FOLLOWUP.md) | Reconciliation of the comparative report against current code. |
+| [USER_GUIDE.md](docs/USER_GUIDE.md) | Teacher/admin step-by-step guide. |
 
 ## Development
 

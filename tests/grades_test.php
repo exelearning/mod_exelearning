@@ -212,4 +212,171 @@ final class grades_test extends advanced_testcase {
             'The overall grade is the visible grade in OVERALL mode; never excluded'
         );
     }
+
+    /**
+     * Switching the grading model (PERITEM<->OVERALL) must re-publish the grades
+     * from the stored attempt history. exelearning_sync_grade_items() deletes and
+     * recreates the gradebook columns empty on a model switch, so without the
+     * republish every student's grade vanished from the gradebook until they
+     * resubmitted, even though exelearning_attempt still held the scores (B2,
+     * DEC-0044).
+     *
+     * @covers ::exelearning_update_grades
+     */
+    public function test_grademodel_switch_republishes_grades(): void {
+        $instance = $this->create_activity(['grademodel' => EXELEARNING_GRADEMODEL_PERITEM]);
+        $course = get_course($instance->course);
+        $student = $this->getDataGenerator()->create_user();
+        $this->getDataGenerator()->enrol_user($student->id, $course->id, 'student');
+
+        // A real submission records both the overall (item 0) and per-iDevice
+        // attempts (track::ingest does this regardless of the model).
+        attempts::record_item($instance->id, $student->id, 1, 0, 80, 100, 'completed', 's1');
+        attempts::record_item($instance->id, $student->id, 1, 1, 7, 10, 'completed', 's1');
+        attempts::record_item($instance->id, $student->id, 1, 2, 9, 10, 'completed', 's1');
+        exelearning_recalculate_user_grades($instance, $student->id);
+
+        // PERITEM: per-iDevice grades are published, no overall column.
+        $before = grade_get_grades($instance->course, 'mod', 'exelearning', $instance->id, $student->id);
+        $this->assertEqualsWithDelta(70.0, (float) $before->items[1]->grades[$student->id]->grade, 0.0001);
+        $this->assertFalse($this->fetch_item($instance, 0));
+
+        // Switch to OVERALL through the settings-form update path.
+        $data = $this->update_payload($instance, ['grademodel' => EXELEARNING_GRADEMODEL_OVERALL]);
+        $this->assertTrue(exelearning_update_instance($data));
+
+        // The overall column now exists and its grade is republished from the
+        // stored attempts (80/100) instead of vanishing.
+        $this->assertInstanceOf(grade_item::class, $this->fetch_item($instance, 0));
+        $after = grade_get_grades($instance->course, 'mod', 'exelearning', $instance->id, $student->id);
+        $this->assertEqualsWithDelta(80.0, (float) $after->items[0]->grades[$student->id]->grade, 0.0001);
+    }
+
+    /**
+     * Changing the aggregation method (grademethod) must re-aggregate the already
+     * published grades from the attempt history, not leave them computed with the
+     * old method (B2, DEC-0044).
+     *
+     * @covers ::exelearning_update_grades
+     */
+    public function test_grademethod_change_republishes_overall(): void {
+        $instance = $this->create_activity([
+            'grademodel'  => EXELEARNING_GRADEMODEL_OVERALL,
+            'grademethod' => attempts::GRADE_HIGHEST,
+        ]);
+        $course = get_course($instance->course);
+        $student = $this->getDataGenerator()->create_user();
+        $this->getDataGenerator()->enrol_user($student->id, $course->id, 'student');
+
+        // Two overall attempts: 90 then 50.
+        attempts::record_item($instance->id, $student->id, 1, 0, 90, 100, 'completed', 's1');
+        attempts::record_item($instance->id, $student->id, 2, 0, 50, 100, 'completed', 's2');
+        exelearning_recalculate_user_grades($instance, $student->id);
+
+        $before = grade_get_grades($instance->course, 'mod', 'exelearning', $instance->id, $student->id);
+        $this->assertEqualsWithDelta(90.0, (float) $before->items[0]->grades[$student->id]->grade, 0.0001);
+
+        // Switch HIGHEST -> AVERAGE: the published grade must re-aggregate to 70.
+        $data = $this->update_payload($instance, ['grademethod' => attempts::GRADE_AVERAGE]);
+        $this->assertTrue(exelearning_update_instance($data));
+
+        $after = grade_get_grades($instance->course, 'mod', 'exelearning', $instance->id, $student->id);
+        $this->assertEqualsWithDelta(70.0, (float) $after->items[0]->grades[$student->id]->grade, 0.0001);
+    }
+
+    /**
+     * exelearning_update_grades() — the second half of the gradebook contract that
+     * core's grade_update_mod_grades() requires — re-publishes every attempting
+     * user's grade from the attempt history when called for all users (B2b,
+     * DEC-0044). Without it, core grade reset/grab/unlock silently dropped grades.
+     *
+     * @covers ::exelearning_update_grades
+     */
+    public function test_update_grades_republishes_after_core_clears_grades(): void {
+        $instance = $this->create_activity(['grademodel' => EXELEARNING_GRADEMODEL_OVERALL]);
+        $course = get_course($instance->course);
+        $student = $this->getDataGenerator()->create_user();
+        $this->getDataGenerator()->enrol_user($student->id, $course->id, 'student');
+
+        attempts::record_item($instance->id, $student->id, 1, 0, 60, 100, 'completed', 's1');
+        exelearning_recalculate_user_grades($instance, $student->id);
+        $published = grade_get_grades($instance->course, 'mod', 'exelearning', $instance->id, $student->id);
+        $this->assertEqualsWithDelta(60.0, (float) $published->items[0]->grades[$student->id]->grade, 0.0001);
+
+        // Simulate a core grade refresh that wiped the published grade.
+        grade_update(
+            'mod/exelearning',
+            $instance->course,
+            'mod',
+            'exelearning',
+            $instance->id,
+            0,
+            (object) ['userid' => $student->id, 'rawgrade' => null]
+        );
+        $cleared = grade_get_grades($instance->course, 'mod', 'exelearning', $instance->id, $student->id);
+        $this->assertNull($cleared->items[0]->grades[$student->id]->grade);
+
+        // The function core now finds republishes from the attempt history.
+        exelearning_update_grades($instance, 0);
+        $restored = grade_get_grades($instance->course, 'mod', 'exelearning', $instance->id, $student->id);
+        $this->assertEqualsWithDelta(60.0, (float) $restored->items[0]->grades[$student->id]->grade, 0.0001);
+    }
+
+    /**
+     * Core's grade_update_mod_grades() calls exelearning_grade_item_update($instance)
+     * unconditionally before exelearning_update_grades() on every regrade. In PERITEM
+     * there is no overall column (DEC-0038), so neither the direct call nor the core
+     * regrade path may create a phantom overall (itemnumber 0) that would inflate the
+     * course total (B2b follow-up, DEC-0044).
+     *
+     * @covers ::exelearning_grade_item_update
+     */
+    public function test_core_regrade_creates_no_overall_in_peritem(): void {
+        $instance = $this->create_activity(['grademodel' => EXELEARNING_GRADEMODEL_PERITEM]);
+        $this->assertFalse($this->fetch_item($instance, 0));
+
+        // The primitive core invokes first.
+        exelearning_grade_item_update($instance);
+        $this->assertFalse(
+            $this->fetch_item($instance, 0),
+            'grade_item_update must not create a phantom overall column in PERITEM'
+        );
+
+        // The full core regrade path (grade_item_update + update_grades).
+        $modinstance = (object) (array) $instance;
+        $modinstance->modname = 'exelearning';
+        grade_update_mod_grades($modinstance, 0);
+        $this->assertFalse(
+            $this->fetch_item($instance, 0),
+            'A core regrade must not create a phantom overall column in PERITEM'
+        );
+        // The per-iDevice columns are untouched.
+        $this->assertInstanceOf(grade_item::class, $this->fetch_item($instance, 1));
+    }
+
+    /**
+     * Resetting the course gradebook must not spawn phantom grade items. Looping
+     * 0..MAX(itemnumber) and calling grade_update(['reset']) blindly inserted a
+     * bare unnamed column for every itemnumber without a live grade item — in
+     * PERITEM the overall (0) never exists, so a reset created a phantom overall
+     * column that inflated the course total (B3, DEC-0044).
+     *
+     * @covers ::exelearning_reset_gradebook
+     */
+    public function test_reset_gradebook_creates_no_phantom_items(): void {
+        $instance = $this->create_activity(['grademodel' => EXELEARNING_GRADEMODEL_PERITEM]);
+
+        // PERITEM: per-iDevice columns exist (1, 2), the overall (0) does not.
+        $this->assertInstanceOf(grade_item::class, $this->fetch_item($instance, 1));
+        $this->assertFalse($this->fetch_item($instance, 0));
+
+        exelearning_reset_gradebook($instance->course);
+
+        // No phantom overall column was created; the real per-iDevice items remain.
+        $this->assertFalse(
+            $this->fetch_item($instance, 0),
+            'Course reset must not create a phantom overall grade item in PERITEM'
+        );
+        $this->assertInstanceOf(grade_item::class, $this->fetch_item($instance, 1));
+    }
 }

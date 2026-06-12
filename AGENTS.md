@@ -107,6 +107,22 @@ Cerradas: **TAREA-012 / RIE-001** investigación (DEC-0019); **TAREA-009 / RIE-0
   `finalgrade`/`gradepass` intactos (completion OK). Petición usabilidad INTEF #2.
   Verificado en Docker (Moodle 5.0.7): `COURSE TOTAL blanked_by_hidden=NO`.
 
+### Hecho en sesión 2026-06-09 (parser híbrido + Mobile API + eventos, claude-opus-4-8)
+- **Parser `content.xml` híbrido** (DEC-0039): `classes/local/package.php` pasa a
+  `DOMDocument` por `local-name()` para la estructura (robusto a namespaces/entidades/
+  CDATA/orden de atributos); se reutilizan intactos `extract_isscorm`/`decrypt_datagame`/
+  `hash_idevice_block`; fallback al escáner regex (`detect_gradable_idevices_regex`) con
+  log si el XML está malformado. **Bug crítico cazado por fixtures reales**: los `.elpx`
+  declaran `<!DOCTYPE ode SYSTEM "content.dtd">` → se acepta el DTD externo (`LIBXML_NONET`
+  sin `DTDLOAD`/`NOENT`) y solo se rechazan entidades **internas**. 22 tests.
+- **Mobile/External API** (DEC-0040): 6 funciones en `classes/external/` registradas en
+  `MOODLE_OFFICIAL_MOBILE_SERVICE`; `save_track` reusa la nueva `track::ingest()`
+  (extraída de `track.php`) con salvaguardas server-side (objectid routing, recálculo
+  overall, filtro de `itemscores` a objectids registrados). 14 tests.
+- **Eventos** (DEC-0041): `attempt_deleted` + `report_viewed` + `course_module_instance_list_viewed`.
+- **Test roundtrip backup/restore** (P2). Suite completa **99/99 verde**, `phpcs --standard=moodle` 0/0.
+- `version.php` intacto (centinela DEC-0030). README con sección "Web services (Mobile API)".
+
 ## Decisiones clave (ver `research/decisiones/adr/`)
 
 | ADR | Estado | Resumen |
@@ -146,6 +162,19 @@ Cerradas: **TAREA-012 / RIE-001** investigación (DEC-0019); **TAREA-009 / RIE-0
 | DEC-0033 | **Propuesta** (2026-06-04) | Actualización de contenido: reemplazo del `.elpx` + origen por URL con sincronización (patrón `mod_scorm`) → TAREA-016 |
 | DEC-0034 | **Aceptada** (2026-06-04) | Selector de categoría de calificación (`gradecat`) aplicado a todos los grade items vía `grade_item::set_parent` (`grade_update` ignora `categoryid`) → petición usabilidad INTEF #1 |
 | DEC-0035 | **Aceptada** (2026-06-04) | Coherencia profesor/alumno en `peritem`: excluir la nota overall oculta de la agregación (`grade_grade::set_excluded`) para que Moodle no vacíe el total del alumno → petición usabilidad INTEF #2 |
+| DEC-0036 | **Aceptada** (2026-06-08) | `contenttype_exelearning` (banco de contenidos, REPO-006) como plugin separado; mirroring intencional de extracción/sandbox `.elpx` (RIE-013) |
+| DEC-0037 | **Aceptada** (2026-06-08) | Detección de `isScorm` también en el div `*-DataGame` cifrado (`unescape` + XOR 146) → issue #13 "solo 12 de 30 detectados" |
+| DEC-0038 | **Aceptada** (2026-06-08) | Sin columna overall oculta en `peritem`: completion estilo workshop sobre un item por-iDevice (supersede de DEC-0035) |
+| DEC-0039 | **Aceptada** (2026-06-09) | Parser `content.xml` híbrido: `DOMDocument` por `local-name()` para la estructura + descifrado/hash conservados + fallback regex; acepta `<!DOCTYPE SYSTEM>` externo, rechaza entidades internas |
+| DEC-0040 | **Aceptada** (2026-06-09) | API externa/móvil: 6 funciones en `MOODLE_OFFICIAL_MOBILE_SERVICE` (incl. `save_track` reusando `track::ingest()` con salvaguardas server-side) |
+| DEC-0041 | **Aceptada** (2026-06-09) | Eventos selectivos: `attempt_deleted` + `report_viewed` + `course_module_instance_list_viewed` (sin evento por commit de tracking, sería ruido) |
+| DEC-0042 | **Aceptada** (2026-06-09) | Parchear al servir el guard de guardado de `form`/`scrambled-list` (quitar `body.exe-scorm`) → issue #13 "form/scrambled reportan 0" |
+| DEC-0043 | **Aceptada** (2026-06-10) | Detectar GeoGebra calificable por la clase `auto-geogebra-scorm` (issue #29, PR #30) |
+| DEC-0044 | **Aceptada** (2026-06-10) | Auditoría de bugs críticos (workflow multi-agente, 9 confirmados + 2 rechazados): B1 destrucción de paquete, B2/B2b pérdida de notas + `update_grades`, B3 items fantasma, B5 clamp DML, B6 `save_track` 0-score, B7 finalización por nota, B8 XSS informe; BETA tras críticos |
+| DEC-0045 | **Propuesta** (2026-06-10) | Transformación del paquete en tiempo de servido (`content_transformer` + `pluginfile`): elimina la reescritura del HTML en extracción (deuda nº1 del informe); diferida, salida definitiva es xAPI DEC-0032 |
+| DEC-0046 | **Aceptada** (2026-06-10) | Inyecciones SCORM-loader (`inject_scorm_loader`) y teacher-mode (`require_teacher_mode_hider`): análisis plugin vs upstream eXeLearning (ventajas/inconvenientes); híbrido = fix plugin-side DEC-0045 (amplía alcance al teacher-mode) + opción upstream documentada (sin abrir issues); conservar workaround para `.elpx` heredados |
+| DEC-0047 | **Aceptada** (2026-06-11) | Clasificación funcional: mantener `MOD_ARCHETYPE_ASSIGNMENT` + `MOD_PURPOSE_ASSESSMENT` (sin cambio de código); `supports()` no ve la instancia → el archetype/purpose no puede variar por `gradeenabled` (DEC-0029); `gradeenabled=0` es "modo recurso" dentro de un módulo evaluable. Cierra la observación del informe comparativo (`docs/AUDIT_FOLLOWUP.md`) |
+| DEC-0048 | **Aceptada** (2026-06-12) | Estrategia de cobertura de tests: mockear la red con `\curl::mock_response()` + mock parcial de `download_to_temp()` en vez de excluir; no excluir del scope código testeable (`excludelistfiles` vacío); xdebug/Codecov es la medida autoritativa (pcov local subacredita llamadas anidadas — artefacto, no límite); gate `codecov project: target: auto` (trinquete). Cobertura honesta 85.71%→87.2% (PR #65) |
 
 ## Restricciones inmutables
 
@@ -201,7 +230,7 @@ Cerradas: **TAREA-012 / RIE-001** investigación (DEC-0019); **TAREA-009 / RIE-0
 
 ```
 mod_exelearning/
-├── lib.php                    # API pública + sync_grade_items + inject_scorm_loader
+├── lib.php                    # API pública + sync_grade_items + update_grades + inject_scorm_loader
 ├── view.php                   # iframe + SCORM 1.2 shim (autocommit 500ms)
 ├── track.php                  # AJAX endpoint (sesskey + mode preview/grading)
 ├── mod_form.php

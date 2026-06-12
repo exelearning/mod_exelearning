@@ -17,12 +17,21 @@
 namespace mod_exelearning\local;
 
 /**
- * Lightweight parser for the proprietary `content.xml` manifest of eXeLearning v4.
+ * Parser for the proprietary `content.xml` manifest of eXeLearning v4.
  *
  * Only reads the fields that `mod_exelearning` needs to register grade items
  * (multi-itemnumber pattern, see research/analisis/notas/AN-002.md and AN-007.md).
  * It does not interpret sequencing or render pages — that is handled by the
  * package's own embedded JS inside the iframe.
+ *
+ * Structure traversal uses a real XML parser (DOMDocument): it is robust to
+ * namespaces, entities, attribute quoting/order, CDATA and multi-line payloads
+ * (the regex risks catalogued for the previous scanner) and reports useful
+ * errors on malformed packages. The `libxml`/`dom`/`xmlreader` extensions are
+ * mandatory in every supported Moodle (4.5–5.2, admin/environment.xml), so this
+ * is always available — which is why the previous "avoid libxml in backports"
+ * note no longer applies (DEC-0039). A malformed package still degrades to a
+ * best-effort regex token scan so an odd export keeps working.
  *
  * @package    mod_exelearning
  * @copyright  2026 ATE (Área de Tecnología Educativa)
@@ -33,7 +42,7 @@ class package {
      * Known gradable iDevice types — INFORMATIONAL ONLY (no longer the detection gate).
      *
      * Detection is now driven by the author's per-iDevice `isScorm` flag
-     * (see {@see self::idevice_reports_score()} and DEC-0022 / issue #13 #2,#5),
+     * (see {@see self::region_reports_score()} and DEC-0022 / issue #13 #2,#5),
      * because eXeLearning v4 gates all SCORM score reporting on that flag, not on
      * the iDevice type. This catalogue is kept as documentation of which types can
      * be configured to report a grade — it includes both the originally supported
@@ -75,6 +84,7 @@ class package {
         'interactive-video',
         'challenge',
         'padlock',
+        'geogebra-activity',
     ];
 
     /** @var \stored_file ELPX zip stored in the 'package' filearea. */
@@ -105,138 +115,213 @@ class package {
      */
     public function detect_gradable_idevices(): array {
         $xml = $this->read_content_xml();
-        if ($xml === null) {
+        if ($xml === null || trim($xml) === '') {
             return [];
         }
 
-        // Conservative regex-based parser: the tags used in content.xml do not
-        // nest inside namespaces and are consistent across v4.
-        // (XMLReader is avoided to avoid requiring libxml + ext-zip in backports.)
-        $items = [];
+        // Primary path: parse with a real XML parser so the structure traversal
+        // is namespace-, entity- and CDATA-safe.
+        $dom = $this->load_dom($xml);
+        if ($dom !== null) {
+            return $this->detect_from_dom($dom);
+        }
 
-        // Map odePageId -> pageName. Real eXeLearning v4 packages emit the page
-        // name immediately after its page id inside <odeNavStructure>; pages
-        // without an explicit name simply stay unmapped (best-effort labelling).
+        // Fallback: the package is not well-formed, but its iDevice tokens may
+        // still be recoverable. load_dom() already logged why we are here.
+        return $this->detect_gradable_idevices_regex($xml);
+    }
+
+    /**
+     * Loads content.xml into a DOMDocument, safely and with useful diagnostics.
+     *
+     * Real eXeLearning v4 packages declare an external DTD in the prolog
+     * (`<!DOCTYPE ode SYSTEM "content.dtd">`), which must be accepted. Safety is
+     * achieved by NOT passing LIBXML_DTDLOAD or LIBXML_NOENT, so libxml never
+     * fetches the external DTD and never substitutes entities — XXE and
+     * external-entity attacks are inert — while LIBXML_NONET forbids any network
+     * access. The only residual vector is an attacker-supplied *internal* entity
+     * subset (billion-laughs), which a genuine package never has, so a document
+     * that declares internal entities is rejected after parsing. On a
+     * not-well-formed document a single developer-level message records the first
+     * libxml error so the teacher-facing fallback is traceable in logs.
+     *
+     * @param string $xml Raw content.xml.
+     * @return \DOMDocument|null The loaded document, or null when unsafe/malformed.
+     */
+    private function load_dom(string $xml): ?\DOMDocument {
+        $previous = libxml_use_internal_errors(true);
+        libxml_clear_errors();
+        $dom = new \DOMDocument();
+        $ok = $dom->loadXML($xml, LIBXML_NONET | LIBXML_COMPACT);
+        $errors = libxml_get_errors();
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
+
+        if ($ok === false) {
+            $first = $errors[0] ?? null;
+            debugging(
+                sprintf(
+                    'mod_exelearning: content.xml is not well-formed; using the legacy '
+                        . 'scan as a fallback. First libxml error (line %d): %s',
+                    $first ? (int) $first->line : 0,
+                    $first ? trim($first->message) : 'unknown'
+                ),
+                DEBUG_DEVELOPER
+            );
+            return null;
+        }
+
+        // Defence in depth: reject a document that declares its own internal
+        // entities (the only entity-expansion vector still reachable). The
+        // legitimate external `content.dtd` is never loaded, so it contributes no
+        // entities here and is unaffected.
+        if ($dom->doctype !== null && $dom->doctype->entities !== null && $dom->doctype->entities->length > 0) {
+            debugging(
+                'mod_exelearning: content.xml declares internal XML entities and was rejected for safety.',
+                DEBUG_DEVELOPER
+            );
+            return null;
+        }
+
+        return $dom;
+    }
+
+    /**
+     * Detects gradable iDevices from a parsed content.xml document.
+     *
+     * eXeLearning v4 serialises iDevices either as loose `<odeIdeviceId>` /
+     * `<odeIdeviceTypeName>` siblings inside `<odeNavStructure>` or wrapped in
+     * `<odeComponent>` blocks. Both shapes are handled the same way: every
+     * `odeIdeviceId` element is matched by local name (so a namespace prefix does
+     * not hide it), attributed to the most recent page id seen before it in
+     * document order, and its content region (itself plus the following siblings
+     * up to the next iDevice/page marker) gives the scoring flag and the hashed
+     * pedagogical content.
+     *
+     * @param \DOMDocument $dom Parsed content.xml.
+     * @return \stdClass[]
+     */
+    private function detect_from_dom(\DOMDocument $dom): array {
+        $xpath = new \DOMXPath($dom);
+        // Match by local name so a namespace prefix does not hide the markers.
+        $markers = $xpath->query(
+            '//*[local-name()="odePageId" or local-name()="pageName" or local-name()="odeIdeviceId"]'
+        );
+        if ($markers === false || $markers->length === 0) {
+            return [];
+        }
+
+        // Pass 1: page-name map + per-iDevice page attribution, in document order.
         $pagenames = [];
-        if (
-            preg_match_all(
-                '~<odePageId>([^<]+)</odePageId>\s*<pageName>([^<]*)</pageName>~',
-                $xml,
-                $pn,
-                PREG_SET_ORDER
-            )
-        ) {
-            foreach ($pn as $p) {
-                $pagenames[$p[1]] = trim($p[2]);
+        $devicenodes = [];
+        $currentpage = '';
+        $lastpageid = null;
+        foreach ($markers as $node) {
+            switch ($node->localName) {
+                case 'odePageId':
+                    $currentpage = trim($node->textContent);
+                    $lastpageid = $currentpage;
+                    break;
+                case 'pageName':
+                    if ($lastpageid !== null) {
+                        $pagenames[$lastpageid] = trim($node->textContent);
+                    }
+                    break;
+                default: // An odeIdeviceId element.
+                    $devicenodes[] = [$node, $currentpage];
             }
         }
 
-        // Walk the manifest in document order. eXeLearning v4 serialises a flat
-        // <odeNavStructure> stream (page ids, page names and iDevice records
-        // interleaved), not the nested <odePage>/<odeIdevice> hierarchy an older
-        // format used (which never appears in real v4 packages, verified across
-        // all shipped fixtures). So we scan the whole document and attribute each
-        // gradable iDevice to the most recent page id seen before it. Detection
-        // is identical to the previous flat fallback (an <odeIdeviceId> directly
-        // followed by its <odeIdeviceTypeName>); the page id/name are recovered
-        // on top, so two same-type iDevices on different pages stay distinct.
-        // PREG_OFFSET_CAPTURE records each token's byte position. A gradable
-        // iDevice's content block is the slice from its own <odeIdeviceId>
-        // marker to the next token (any page id or iDevice id) — i.e. all of its
-        // properties/answers/scoring. Hashing that slice lets a re-sync tell an
-        // unchanged iDevice from one whose options were edited in place.
+        // Pass 2: read each iDevice's region and register the scored ones.
+        $items = [];
         $order = 0;
-        $currentpage = '';
-        $token = '~<odePageId>([^<]+)</odePageId>'
-            . '|<odeIdeviceId>([^<]+)</odeIdeviceId>\s*<odeIdeviceTypeName>([^<]+)</odeIdeviceTypeName>~';
-        if (preg_match_all($token, $xml, $tokens, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
-            $total = count($tokens);
-            $xmllen = strlen($xml);
-            for ($i = 0; $i < $total; $i++) {
-                $t = $tokens[$i];
-                $pageid   = $t[1][0] ?? '';
-                $deviceid = $t[2][0] ?? '';
-                $devtype  = $t[3][0] ?? '';
-                if ($pageid !== '' && $deviceid === '') {
-                    $currentpage = $pageid;
-                    continue;
-                }
-                if ($deviceid === '') {
-                    continue;
-                }
-                // Slice this iDevice's content block (its id marker → the next
-                // token) once: it carries both the scoring flag we gate on and the
-                // pedagogical content we hash.
-                $start = (int) $t[0][1];
-                $end = ($i + 1 < $total) ? (int) $tokens[$i + 1][0][1] : $xmllen;
-                $block = substr($xml, $start, $end - $start);
-                // Detection gate (DEC-0022, issue #13 #2/#5): register a grade item
-                // only for iDevices the author explicitly marked for assessment
-                // (isScorm > 0), regardless of type. This drops gradable-type
-                // iDevices left unscored (#2) and picks up any newly supported type
-                // once it is configured to report a score (#5).
-                if (!$this->idevice_reports_score($block)) {
-                    continue;
-                }
-                $items[] = (object) [
-                    'objectid'    => $deviceid,
-                    'idevicetype' => $devtype,
-                    'pageid'      => $currentpage,
-                    'pagename'    => $pagenames[$currentpage] ?? '',
-                    'orderhint'   => $order++,
-                    'contenthash' => $this->hash_idevice_block($block),
-                ];
+        foreach ($devicenodes as [$idnode, $page]) {
+            $deviceid = trim($idnode->textContent);
+            if ($deviceid === '') {
+                continue;
             }
+            [$type, $jsonprops, $htmlview, $blockxml] = $this->collect_region($idnode);
+            if (!$this->region_reports_score($type, $jsonprops, $htmlview)) {
+                continue;
+            }
+            $items[] = (object) [
+                'objectid'    => $deviceid,
+                'idevicetype' => $type,
+                'pageid'      => $page,
+                'pagename'    => $pagenames[$page] ?? '',
+                'orderhint'   => $order++,
+                'contenthash' => $this->hash_idevice_block($blockxml),
+            ];
         }
 
         return $items;
     }
 
     /**
-     * Decides whether an iDevice was marked for assessment by its author.
+     * Collects one iDevice's content region from its `odeIdeviceId` node.
      *
-     * eXeLearning v4 stores a per-iDevice `isScorm` flag: `0` = does not report a
-     * grade, `1` = auto-save score, `2` = "Send score" button. The whole eXeLearning
-     * gamification/SCORM layer gates score reporting on `isScorm > 0` (see the editor
-     * sources `public/app/common/common.js` — the `cmi.suspend_data` line builder this
-     * plugin parses in {@see \mod_exelearning\local\track} — and each iDevice's
-     * `export/*.js`), so the same flag is the single source of truth for whether an
-     * activity should own a Moodle grade item. Reading it makes detection
-     * type-agnostic (issue #13 #2 and #5; DEC-0022): any iDevice configured to be
-     * scored is detected (incl. Form, Map, Interactive Video, …) and gradable-type
-     * iDevices left unscored are skipped.
+     * The region is the id node plus its following siblings up to (but not
+     * including) the next `odeIdeviceId` or `odePageId`. That is the whole iDevice
+     * in both serialisations: its loose siblings (type, jsonProperties, htmlView,
+     * answers …) or, inside an `<odeComponent>`, the rest of the component after
+     * the id. The serialised region is hashed; the jsonProperties/htmlView text
+     * (already entity- and CDATA-decoded by the DOM) feeds the scoring check.
      *
-     * The flag is stored in one of THREE places depending on the iDevice family,
-     * so detection reads all of them and treats the iDevice as scored when ANY
-     * source reports isScorm > 0 (taking the maximum avoids a plain `0` shadowing
-     * an encrypted `1`):
-     *   1. `<jsonProperties>` — json-type iDevices (trueorfalse, form, map,
-     *      scrambled-list, …). Plain JSON.
-     *   2. `<htmlView>` plain — some html-type iDevices store the flag in their
-     *      rendered HTML (interactive-video, dragdrop, periodic-table, beforeafter,
-     *      flipcards, relate, trivial, mathematicaloperations). The value may be
-     *      nested (e.g. interactive-video stores it under `scorm`), so the match is
-     *      not anchored to the top level (DEC-0022 amendment).
-     *   3. `<htmlView>` encrypted `*-DataGame` div — the "exe-game" family
-     *      (guess, discover, identify, classify, quick-questions*, az-quiz-game,
-     *      crossword, word-search, padlock, challenge, select-media-files,
-     *      complete, sort, mathproblems, …) keeps its whole config — including
-     *      isScorm — obfuscated inside a hidden `*-DataGame` div, so the plain
-     *      regex never saw it (this was the "only 12 of 30 detected" bug, issue
-     *      #13 comment; DEC-0037 amendment). {@see self::extract_isscorm_datagame()}.
-     *
-     * @param string $block Raw content.xml slice for one iDevice (id → next token).
-     * @return bool True when the iDevice declares isScorm 1 or 2 in any source.
+     * @param \DOMNode $idnode The `odeIdeviceId` element.
+     * @return array{0:string,1:?string,2:?string,3:string} [type, jsonProperties, htmlView, regionXml]
      */
-    private function idevice_reports_score(string $block): bool {
+    private function collect_region(\DOMNode $idnode): array {
+        $type = '';
+        $jsonprops = null;
+        $htmlview = null;
+        $doc = $idnode->ownerDocument;
+        $blockxml = $doc->saveXML($idnode);
+
+        for ($sib = $idnode->nextSibling; $sib !== null; $sib = $sib->nextSibling) {
+            if ($sib->nodeType === XML_ELEMENT_NODE) {
+                $local = $sib->localName;
+                if ($local === 'odeIdeviceId' || $local === 'odePageId') {
+                    break;
+                }
+                if ($local === 'odeIdeviceTypeName' && $type === '') {
+                    $type = trim($sib->textContent);
+                } else if ($local === 'jsonProperties' && $jsonprops === null) {
+                    $jsonprops = $sib->textContent;
+                } else if ($local === 'htmlView' && $htmlview === null) {
+                    $htmlview = $sib->textContent;
+                }
+            }
+            $blockxml .= $doc->saveXML($sib);
+        }
+
+        return [$type, $jsonprops, $htmlview, $blockxml];
+    }
+
+    /**
+     * Decides whether an iDevice was marked for assessment, from its decoded parts.
+     *
+     * Same three-source rule as the legacy scan (DEC-0022 / DEC-0037), but reading
+     * the already-decoded jsonProperties/htmlView text the DOM gives us:
+     *   1. `jsonProperties` plain JSON (trueorfalse, form, map, …);
+     *   2. `htmlView` plain (interactive-video, dragdrop, …; flag may be nested);
+     *   3. `htmlView` encrypted `*-DataGame` div (the exe-game family).
+     *   4. `geogebra-activity`'s `auto-geogebra-scorm` class (issue #29; DEC-0043).
+     * The maximum flag wins so a plain `0` never shadows an encrypted `1`.
+     *
+     * @param string $type eXeLearning iDevice type.
+     * @param string|null $jsonprops Decoded jsonProperties text, or null.
+     * @param string|null $htmlview Decoded htmlView text, or null.
+     * @return bool True when any source declares isScorm 1 or 2.
+     */
+    private function region_reports_score(string $type, ?string $jsonprops, ?string $htmlview): bool {
         $max = null;
-        foreach (
-            [
-                $this->extract_isscorm($block, 'jsonProperties'),
-                $this->extract_isscorm($block, 'htmlView'),
-                $this->extract_isscorm_datagame($block),
-            ] as $value
-        ) {
+        $candidates = [
+            $jsonprops !== null ? $this->scan_isscorm_flag($jsonprops) : null,
+            $htmlview !== null ? $this->scan_isscorm_flag($htmlview) : null,
+            $htmlview !== null ? $this->scan_datagame_isscorm($htmlview) : null,
+            $htmlview !== null ? $this->scan_geogebra_scorm_class($type, $htmlview) : null,
+        ];
+        foreach ($candidates as $value) {
             if ($value !== null && ($max === null || $value > $max)) {
                 $max = $value;
             }
@@ -245,61 +330,66 @@ class package {
     }
 
     /**
-     * Reads the `isScorm` value from one element of an iDevice content block.
+     * Reads the first `isScorm` flag from a JSON/HTML payload string.
      *
-     * @param string $block Raw content.xml slice for one iDevice.
-     * @param string $tag Element to scan ('jsonProperties' or 'htmlView').
-     * @return int|null The isScorm value (0..9), or null when the element/flag is absent.
+     * @param string $text Decoded payload (JSON or rendered HTML).
+     * @return int|null The isScorm value (0..9), or null when absent.
      */
-    private function extract_isscorm(string $block, string $tag): ?int {
-        if (!preg_match('~<' . $tag . '>(.*?)</' . $tag . '>~s', $block, $m)) {
-            return null;
-        }
-        // The element payload is HTML-escaped JSON/HTML; decode before scanning.
-        $decoded = html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        if (preg_match('~"isScorm"\s*:\s*"?([0-9])~', $decoded, $mm)) {
-            return (int) $mm[1];
+    private function scan_isscorm_flag(string $text): ?int {
+        if (preg_match('~"isScorm"\s*:\s*"?([0-9])~', $text, $m)) {
+            return (int) $m[1];
         }
         return null;
     }
 
     /**
-     * Reads `isScorm` from the encrypted `*-DataGame` div(s) inside the htmlView.
+     * Reads GeoGebra's score-saving marker from its generated HTML.
      *
-     * The "exe-game" iDevice family (guess, discover, identify, classify,
-     * quick-questions*, az-quiz-game, crossword, word-search, padlock, challenge,
-     * select-media-files, complete, sort, mathproblems, …) does not expose its
-     * scoring config in plain text: the whole game JSON, including the `isScorm`
-     * flag, is obfuscated inside a hidden `<div class="…-DataGame …">` within the
-     * rendered htmlView. Each iDevice's `export/*.js` reverses it at runtime via
-     * eXeLearning's `decrypt()` (see `libs/common.js`): `unescape()` followed by an
-     * XOR with the fixed key 146 (0x92). We replicate that to read the flag so
-     * these iDevices register a Moodle grade item like the plain-text family
-     * (issue #13 "only 12 of 30 detected"; DEC-0037, amends DEC-0022).
+     * GeoGebra is the outlier in eXeLearning v4: the editor does not serialise an
+     * `isScorm` JSON property for this iDevice. Its export runtime treats the
+     * `auto-geogebra-scorm` class as the author opt-in, then creates runtime
+     * options with `isScorm: 2`, adds the save-score button, and registers the
+     * activity. The parser mirrors only that explicit author marker so unscored
+     * GeoGebra activities stay out of the gradebook (issue #29; DEC-0043).
      *
-     * The div content is `escape()` output (no `<`), so the non-greedy `</div>`
-     * terminator is safe. A block may hold more than one DataGame div, so the
-     * maximum flag wins.
-     *
-     * @param string $block Raw content.xml slice for one iDevice.
-     * @return int|null The decrypted isScorm value, or null when absent/undecodable.
+     * @param string $type eXeLearning iDevice type.
+     * @param string $html Decoded htmlView text.
+     * @return int|null 2 when GeoGebra declares the SCORM/save-score class, otherwise null.
      */
-    private function extract_isscorm_datagame(string $block): ?int {
-        if (!preg_match('~<htmlView>(.*?)</htmlView>~s', $block, $m)) {
+    private function scan_geogebra_scorm_class(string $type, string $html): ?int {
+        if ($type !== 'geogebra-activity') {
             return null;
         }
-        $html = html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        if (preg_match('~(?:^|[\s"\'])auto-geogebra-scorm(?:$|[\s"\'])~', $html)) {
+            return 2;
+        }
+        return null;
+    }
+
+    /**
+     * Reads `isScorm` from the encrypted `*-DataGame` div(s) of a decoded htmlView.
+     *
+     * The "exe-game" iDevice family hides its whole config — including `isScorm` —
+     * obfuscated inside a `<div class="…-DataGame …">`. Each game's `export/*.js`
+     * reverses it with eXeLearning's `decrypt()` (`libs/common.js`): `unescape()`
+     * then XOR with the fixed key 146 (0x92). We replicate that so these iDevices
+     * register a grade item like the plain-text family (issue #13 "only 12 of 30
+     * detected"; DEC-0037). A block may hold several DataGame divs; the maximum
+     * flag wins.
+     *
+     * @param string $html Decoded htmlView text.
+     * @return int|null The decrypted isScorm value, or null when absent/undecodable.
+     */
+    private function scan_datagame_isscorm(string $html): ?int {
         if (!preg_match_all('~class="[^"]*DataGame[^"]*"[^>]*>(.*?)</div>~s', $html, $divs)) {
             return null;
         }
         $max = null;
         foreach ($divs[1] as $encoded) {
             $json = $this->decrypt_datagame(trim($encoded));
-            if (preg_match('~"isScorm"\s*:\s*"?([0-9])~', $json, $mm)) {
-                $value = (int) $mm[1];
-                if ($max === null || $value > $max) {
-                    $max = $value;
-                }
+            $value = $this->scan_isscorm_flag($json);
+            if ($value !== null && ($max === null || $value > $max)) {
+                $max = $value;
             }
         }
         return $max;
@@ -356,13 +446,14 @@ class package {
      * A residual false positive only produces an extra informational warning
      * (the save is never blocked), matching mod_scorm's conservative notice.
      *
-     * @param string $block Raw content.xml slice for one iDevice.
+     * @param string $block Content block for one iDevice (serialised XML region).
      * @return string 40-char sha1.
      */
     private function hash_idevice_block(string $block): string {
-        // Drop volatile metadata tags first.
+        // Drop volatile metadata tags first (also matches namespaced variants).
         $normalised = preg_replace(
-            '~<([a-zA-Z0-9_]*(?:[Dd]ate|[Mm]odified|[Tt]imestamp)[a-zA-Z0-9_]*)>[^<]*</\1>~',
+            '~<(?:[\w.-]+:)?([a-zA-Z0-9_]*(?:[Dd]ate|[Mm]odified|[Tt]imestamp)[a-zA-Z0-9_]*)\b[^>]*>'
+                . '[^<]*</(?:[\w.-]+:)?\1>~',
             '',
             $block
         ) ?? $block;
@@ -370,6 +461,107 @@ class package {
         // any reflow a re-export introduces, does not flip the hash.
         $normalised = trim(preg_replace('~\s+~', ' ', $normalised) ?? $normalised);
         return sha1($normalised);
+    }
+
+    /**
+     * Best-effort regex scan, used only when content.xml is not well-formed XML.
+     *
+     * This is the historical scanner: it walks the manifest as a flat token stream
+     * (`<odeIdeviceId>` directly followed by its `<odeIdeviceTypeName>`), slices
+     * each iDevice's content block by byte offset and gates registration on the
+     * isScorm flag. It is kept as a resilience fallback for odd/corrupt exports
+     * the strict XML parser rejects; the primary path is {@see self::detect_from_dom()}.
+     *
+     * @param string $xml Raw content.xml.
+     * @return \stdClass[]
+     */
+    private function detect_gradable_idevices_regex(string $xml): array {
+        $items = [];
+
+        // Map odePageId -> pageName (best-effort labelling).
+        $pagenames = [];
+        if (
+            preg_match_all(
+                '~<odePageId>([^<]+)</odePageId>\s*<pageName>([^<]*)</pageName>~',
+                $xml,
+                $pn,
+                PREG_SET_ORDER
+            )
+        ) {
+            foreach ($pn as $p) {
+                $pagenames[$p[1]] = trim($p[2]);
+            }
+        }
+
+        $order = 0;
+        $currentpage = '';
+        $token = '~<odePageId>([^<]+)</odePageId>'
+            . '|<odeIdeviceId>([^<]+)</odeIdeviceId>\s*<odeIdeviceTypeName>([^<]+)</odeIdeviceTypeName>~';
+        if (preg_match_all($token, $xml, $tokens, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
+            $total = count($tokens);
+            $xmllen = strlen($xml);
+            for ($i = 0; $i < $total; $i++) {
+                $t = $tokens[$i];
+                $pageid   = $t[1][0] ?? '';
+                $deviceid = $t[2][0] ?? '';
+                $devtype  = $t[3][0] ?? '';
+                if ($pageid !== '' && $deviceid === '') {
+                    $currentpage = $pageid;
+                    continue;
+                }
+                if ($deviceid === '') {
+                    continue;
+                }
+                $start = (int) $t[0][1];
+                $end = ($i + 1 < $total) ? (int) $tokens[$i + 1][0][1] : $xmllen;
+                $block = substr($xml, $start, $end - $start);
+                if (!$this->idevice_reports_score($devtype, $block)) {
+                    continue;
+                }
+                $items[] = (object) [
+                    'objectid'    => $deviceid,
+                    'idevicetype' => $devtype,
+                    'pageid'      => $currentpage,
+                    'pagename'    => $pagenames[$currentpage] ?? '',
+                    'orderhint'   => $order++,
+                    'contenthash' => $this->hash_idevice_block($block),
+                ];
+            }
+        }
+
+        return $items;
+    }
+
+    /**
+     * Legacy block-based scoring check (used by the regex fallback).
+     *
+     * @param string $type eXeLearning iDevice type.
+     * @param string $block Raw content.xml slice for one iDevice.
+     * @return bool True when the iDevice declares isScorm 1 or 2 in any source.
+     */
+    private function idevice_reports_score(string $type, string $block): bool {
+        return $this->region_reports_score(
+            $type,
+            $this->extract_tag($block, 'jsonProperties'),
+            $this->extract_tag($block, 'htmlView')
+        );
+    }
+
+    /**
+     * Extracts and entity-decodes one element's payload from a raw block.
+     *
+     * Used by the regex fallback, where the block is raw (still entity-escaped)
+     * XML rather than a DOM node, so the payload must be decoded before scanning.
+     *
+     * @param string $block Raw content.xml slice for one iDevice.
+     * @param string $tag Element to read ('jsonProperties' or 'htmlView').
+     * @return string|null The decoded payload, or null when the element is absent.
+     */
+    private function extract_tag(string $block, string $tag): ?string {
+        if (!preg_match('~<' . $tag . '>(.*?)</' . $tag . '>~s', $block, $m)) {
+            return null;
+        }
+        return html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
     }
 
     /**

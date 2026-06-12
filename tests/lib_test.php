@@ -296,6 +296,265 @@ final class lib_test extends advanced_testcase {
     }
 
     /**
+     * Saving the settings form after an embedded-editor save must NOT destroy the
+     * stored .elpx (B1, DEC-0044). The editor stores the package at itemid=revision
+     * (deleting itemid 0); a subsequent settings submit carries a non-empty but
+     * file-less filemanager draft, which previously wiped every package itemid and
+     * left the activity unrecoverable. The guard keeps the stored package and
+     * re-extracts the content for the current revision.
+     *
+     * @covers ::exelearning_save_and_extract_package
+     */
+    public function test_settings_save_with_empty_draft_keeps_stored_package(): void {
+        global $DB;
+
+        $instance = $this->create_activity();
+        $cm = get_coursemodule_from_instance('exelearning', $instance->id);
+        $context = \context_module::instance($cm->id);
+        $fs = get_file_storage();
+
+        // Simulate editor/save.php: copy the package to itemid=revision+1 and drop
+        // the original (itemid 0), then bump the instance revision.
+        $original = exelearning_get_stored_package($context->id);
+        $this->assertNotNull($original);
+        $editoritemid = (int) $instance->revision + 1;
+        $fs->create_file_from_storedfile([
+            'contextid' => $context->id,
+            'component' => 'mod_exelearning',
+            'filearea'  => 'package',
+            'itemid'    => $editoritemid,
+            'filepath'  => '/',
+            'filename'  => $original->get_filename(),
+        ], $original);
+        $original->delete();
+        $DB->set_field('exelearning', 'revision', $editoritemid, ['id' => $instance->id]);
+
+        // Teacher opens "Edit settings" and saves without touching the package: the
+        // submitted draft is allocated but empty.
+        $emptydraft = file_get_unused_draft_itemid();
+        $data = (object) [
+            'coursemodule' => $cm->id,
+            'package'      => $emptydraft,
+            'revision'     => $editoritemid,
+        ];
+        exelearning_save_and_extract_package($data);
+
+        // The editor-saved package survives the settings save.
+        $surviving = exelearning_get_stored_package($context->id);
+        $this->assertNotNull(
+            $surviving,
+            'Stored package was destroyed by an empty-draft settings save'
+        );
+        // The content for the current revision is (re-)extracted and servable.
+        $mainfile = $fs->get_file(
+            $context->id,
+            'mod_exelearning',
+            'content',
+            $editoritemid,
+            '/',
+            'index.html'
+        );
+        $this->assertNotFalse(
+            $mainfile,
+            'Content was not extracted for the current revision'
+        );
+    }
+
+    /**
+     * A grade item name is built from the activity name (up to char 255) plus the
+     * author-controlled page title from content.xml plus the iDevice type, so it
+     * can exceed the char(255) column. It must be clamped, not thrown as a
+     * dml_write_exception that aborts add/update and white-screens the view.php
+     * self-heal for students (B5, DEC-0044).
+     *
+     * @covers ::exelearning_grade_item_name
+     */
+    public function test_long_grade_item_name_is_clamped(): void {
+        global $DB;
+
+        // A maximal (char 255) activity name guarantees the combined grade item
+        // name overflows once the page title and iDevice type are appended.
+        $instance = $this->create_activity(['name' => str_repeat('A', 255)]);
+
+        $rows = $DB->get_records(
+            'exelearning_grade_item',
+            ['exelearningid' => $instance->id, 'deleted' => 0]
+        );
+        $this->assertNotEmpty($rows);
+        foreach ($rows as $row) {
+            $this->assertLessThanOrEqual(
+                255,
+                \core_text::strlen($row->name),
+                'grade item name must be clamped to the char(255) column width'
+            );
+        }
+    }
+
+    /**
+     * The completion-by-grade validation stopgap (B7, DEC-0044) clears core's
+     * badcompletiongradeitemnumber error only for a real gradebook column and only
+     * when "require passing grade" is off, never masking the legitimate
+     * pass-grade-required check. Tested as a pure helper so the coverage does not
+     * depend on constructing the whole moodleform_mod (which couples to core
+     * availability/tags/completion form fields).
+     *
+     * @covers ::exelearning_relax_completion_grade_errors
+     */
+    public function test_relax_completion_grade_errors(): void {
+        // PERITEM activity registers per-iDevice items 1 and 2, no overall.
+        $instance = $this->create_activity(['grademodel' => EXELEARNING_GRADEMODEL_PERITEM]);
+        $coreerror = ['completionpassgrade' => 'badcompletiongradeitemnumber'];
+
+        // Registered per-iDevice item in PERITEM, require-pass off → error cleared.
+        $out = exelearning_relax_completion_grade_errors(
+            $coreerror,
+            ['completiongradeitemnumber' => '1', 'completionpassgrade' => 0,
+                'grademodel' => EXELEARNING_GRADEMODEL_PERITEM],
+            $instance->id
+        );
+        $this->assertArrayNotHasKey('completionpassgrade', $out);
+
+        // Unregistered itemnumber → error kept (not masked).
+        $out = exelearning_relax_completion_grade_errors(
+            $coreerror,
+            ['completiongradeitemnumber' => '99', 'completionpassgrade' => 0,
+                'grademodel' => EXELEARNING_GRADEMODEL_PERITEM],
+            $instance->id
+        );
+        $this->assertArrayHasKey('completionpassgrade', $out);
+
+        // Require-passing-grade on → never masked (deferred proper fix).
+        $out = exelearning_relax_completion_grade_errors(
+            $coreerror,
+            ['completiongradeitemnumber' => '1', 'completionpassgrade' => 1,
+                'grademodel' => EXELEARNING_GRADEMODEL_PERITEM],
+            $instance->id
+        );
+        $this->assertArrayHasKey('completionpassgrade', $out);
+
+        // A per-iDevice item is not a live column in OVERALL mode → error kept.
+        $out = exelearning_relax_completion_grade_errors(
+            $coreerror,
+            ['completiongradeitemnumber' => '1', 'completionpassgrade' => 0,
+                'grademodel' => EXELEARNING_GRADEMODEL_OVERALL],
+            $instance->id
+        );
+        $this->assertArrayHasKey('completionpassgrade', $out);
+    }
+
+    /**
+     * The serve-time guard patch (issue #13 / DEC-0042) removes the
+     * `body.exe-scorm` condition from the form/scrambled-list SAVE guard so they
+     * save on `isScorm > 0` like every other gradable iDevice, leaves the
+     * init-time guard (the `ldata.isScorm` variant) and unrelated files untouched,
+     * and is idempotent.
+     *
+     * @covers ::exelearning_patch_idevice_save_guards
+     */
+    public function test_patch_idevice_save_guards(): void {
+        $instance = $this->create_activity();
+        $cm = get_coursemodule_from_instance('exelearning', $instance->id);
+        $contextid = \context_module::instance($cm->id)->id;
+        $revision = (int) $instance->revision;
+        $fs = get_file_storage();
+
+        $write = function (string $path, string $name, string $content)
+ use ($fs, $contextid, $revision): void {
+            $fs->create_file_from_string([
+                'contextid' => $contextid,
+                'component' => 'mod_exelearning',
+                'filearea'  => 'content',
+                'itemid'    => $revision,
+                'filepath'  => $path,
+                'filename'  => $name,
+            ], $content);
+        };
+        $read = fn(string $path, string $name): string =>
+            $fs->get_file($contextid, 'mod_exelearning', 'content', $revision, $path, $name)
+            ->get_content();
+
+        $formsave = "if (\$('body').hasClass('exe-scorm') && data.isScorm > 0) {";
+        $forminit = "if (\$('body').hasClass('exe-scorm') && ldata.isScorm > 0) {";
+        $scrsave  = "if (document.body.classList.contains('exe-scorm') && data.isScorm > 0) {";
+        $write('/idevices/form/', 'form.js', "a;\n{$formsave}\n  send();\n}\n{$forminit}\n  label();\n}\n");
+        $write('/idevices/scrambled-list/', 'scrambled-list.js', "b;\n{$scrsave}\n  send();\n  return;\n}\n");
+
+        exelearning_patch_idevice_save_guards($contextid, $revision);
+
+        $form = $read('/idevices/form/', 'form.js');
+        $scr  = $read('/idevices/scrambled-list/', 'scrambled-list.js');
+        // SAVE guard: the exe-scorm condition is gone, leaving the bare isScorm check.
+        $this->assertStringContainsString('if (data.isScorm > 0) {', $form);
+        $this->assertStringNotContainsString("hasClass('exe-scorm') && data.isScorm", $form);
+        $this->assertStringNotContainsString("contains('exe-scorm') && data.isScorm", $scr);
+        // INIT guard (ldata.isScorm) is left untouched.
+        $this->assertStringContainsString($forminit, $form);
+
+        // Idempotent: a second run is a no-op (the guard is already gone).
+        exelearning_patch_idevice_save_guards($contextid, $revision);
+        $this->assertStringContainsString('if (data.isScorm > 0) {', $read('/idevices/form/', 'form.js'));
+    }
+
+    /**
+     * Future-proofing canary (issue #13 / DEC-0042): after extracting a package
+     * with many iDevice types, NO served iDevice JS may still gate its score-save
+     * on `body.exe-scorm`. The patch strips the two known offenders (form,
+     * scrambled-list); if a future eXeLearning release ships another iDevice with
+     * the same coupling — or the patch stops matching — this test fails, telling
+     * the maintainer to add that guard to exelearning_patch_idevice_save_guards().
+     *
+     * Coverage is limited to the iDevice types present in the fixture (superelpx,
+     * ~30 of the 51 iDevices, including form + scrambled-list); the plugin only
+     * ever sees the iDevices an uploaded package actually contains.
+     *
+     * @covers ::exelearning_patch_idevice_save_guards
+     */
+    public function test_no_idevice_keeps_an_exe_scorm_save_guard(): void {
+        $instance = $this->create_activity(
+            ['packagefilepath' => 'research/fixtures/elpx/superelpx.elpx']
+        );
+        $cm = get_coursemodule_from_instance('exelearning', $instance->id);
+        $contextid = \context_module::instance($cm->id)->id;
+        $revision = (int) $instance->revision;
+        $fs = get_file_storage();
+
+        // The save-guard signature: `body.exe-scorm` AND the per-attempt
+        // `data.isScorm` check in one condition. The init-time guards use
+        // `ldata.isScorm` (not `data`), so they do not match and are left alone.
+        $signature = '~(hasClass\(\'exe-scorm\'\)|contains\(\'exe-scorm\'\))\s*&&\s*data\.isScorm\s*>\s*0~';
+
+        $offenders = [];
+        $files = $fs->get_area_files(
+            $contextid,
+            'mod_exelearning',
+            'content',
+            $revision,
+            'filepath, filename',
+            false
+        );
+        foreach ($files as $file) {
+            if ($file->is_directory()) {
+                continue;
+            }
+            $full = $file->get_filepath() . $file->get_filename();
+            if (!preg_match('~/idevices/.+\.js$~', $full)) {
+                continue;
+            }
+            if (preg_match($signature, $file->get_content())) {
+                $offenders[] = $full;
+            }
+        }
+
+        $this->assertSame(
+            [],
+            $offenders,
+            'An iDevice still gates its score-save on body.exe-scorm after extraction. '
+                . 'Add its save guard to exelearning_patch_idevice_save_guards() '
+                . '(issue #13 / DEC-0042): ' . implode(', ', $offenders)
+        );
+    }
+
+    /**
      * The first sync stores a contenthash for each gradable iDevice and reports
      * them all as "added" (a fresh activity has no prior state).
      */

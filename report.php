@@ -89,6 +89,12 @@ if (
     ]);
     exelearning_recalculate_user_grades($exelearning, $deleteuser);
     $transaction->allow_commit();
+    \mod_exelearning\event\attempt_deleted::create([
+        'context'       => $context,
+        'objectid'      => $exelearning->id,
+        'relateduserid' => $deleteuser,
+        'other'         => ['attemptid' => $deleteattempt],
+    ])->trigger();
     redirect(
         new moodle_url('/mod/exelearning/report.php', $baseurlparams),
         get_string('attemptdeleted', 'mod_exelearning'),
@@ -105,6 +111,13 @@ $candelete = has_capability('mod/exelearning:deleteattempt', $context);
 // so this only affects presentation, not the data nor the grade recalculation.
 $grademodel = (int) ($exelearning->grademodel ?? EXELEARNING_GRADEMODEL_PERITEM);
 
+// Log the report view (a delete request redirects above, so this fires once per
+// actual view, not on the delete POST).
+\mod_exelearning\event\report_viewed::create([
+    'context'  => $context,
+    'objectid' => $exelearning->id,
+])->trigger();
+
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('attemptsreport', 'mod_exelearning'));
 
@@ -114,7 +127,11 @@ echo $OUTPUT->heading(get_string('attemptsreport', 'mod_exelearning'));
 if ($userid > 0 && ($restrictusers === null || in_array($userid, $restrictusers, true))) {
     $filtereduser = $DB->get_record('user', ['id' => $userid]);
     if ($filtereduser) {
-        echo $OUTPUT->heading(fullname($filtereduser), 4);
+        // Escape the name: $OUTPUT->heading() does not HTML-escape its content, and a
+        // display name set via LDAP/SAML/WS/CSV upload is not guaranteed tag-stripped,
+        // so an unescaped name would run as stored XSS in the grader's session (B8,
+        // DEC-0044). The attempts table below already escapes the same value with s().
+        echo $OUTPUT->heading(s(fullname($filtereduser)), 4);
     }
 }
 
