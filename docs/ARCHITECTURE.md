@@ -32,6 +32,7 @@ pipeline backs the `save_track` web service. `classes/external` exposes the API 
 | **Privacy** | `classes/privacy/provider.php` | Declares `exelearning_attempt` metadata + the `core_grades` data flow; export/delete with grade recalculation. | Moodle Privacy API subsystem. |
 | **Backup/Restore** | `backup/moodle2/*` | Export/import instance, grade-item mappings, attempts (gated by `userinfo`), and the `intro`/`package`/`content` file areas; remap user ids. | Moodle Backup/Restore API. |
 | **Events** | `classes/event/*` | `attempt_deleted`, `report_viewed`, `course_module_instance_list_viewed`. | Selective observability ([[DEC-0041]]); no per-commit event (would be noise). |
+| **Global search** | `classes/search/activity.php` | Search area extending `\core_search\base_activity`: indexes the activity `intro` and, via file indexing, the text extracted from the package `content` file area. | Makes eXe content findable in Moodle global search; visibility/context resolved by the base class ([[DEC-0053]]). |
 | **Editor integration** | `classes/local/embedded_editor_*`, `classes/admin/*`, `amd/src/editor_modal.js`, `editor/index.php`, `manage_embedded_editor_upload.php` | Resolve/install/update/repair/uninstall the embedded editor; `postMessage` open/export bridge; save → re-extract → re-sync. | Embedded-editor-only model ([[DEC-0009]]). |
 | **Entry points** | `view.php`, `track.php`, `grade.php`, `report.php`, `mod_form.php` | View + SCORM shim; tracking endpoint; gradebook deep-link; attempts report; activity form. | Thin controllers; security checks here, scoring logic delegated to `local\*`. |
 
@@ -88,6 +89,23 @@ serve-time transform ([[DEC-0045]], deferred) → upstream option ([[DEC-0046]])
 not vary with the per-activity `gradeenabled` switch ([[DEC-0029]]); `gradeenabled = 0`
 is a resource-like mode within an assessment-archetype module. Decision recorded in
 [[DEC-0047]]; see `docs/AUDIT_FOLLOWUP.md`.
+
+## Global search
+
+`classes/search/activity.php` registers a single search area (`mod_exelearning/activity`)
+by extending `\core_search\base_activity`. The base class resolves the module context and
+enforces visibility/access; the subclass only declares what to index:
+
+- The activity **`intro`** is indexed as the document content (default `get_document()`).
+- `uses_file_indexing()` returns `true` and `get_search_fileareas()` returns
+  `['intro', 'content']`, so the HTML/text **extracted from the `.elpx` package** (the
+  `content` file area populated by `exelearning_save_and_extract_package`, see
+  `lib.php`) is attached and text-indexed — making the authored eXe content findable.
+
+The area is auto-discovered; an admin enables it from the global search engine and
+reindexes (`php admin/cli/search.php`). Two adjacent integrations were considered and
+**deferred** ([[DEC-0053]]): `core\activity_dates` (no `timeopen`/`timeclose` window in
+`mod_form.php` today) and analytics indicators (only useful with active models).
 
 ## Related documentation
 
