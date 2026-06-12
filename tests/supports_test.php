@@ -47,7 +47,8 @@ final class supports_test extends advanced_testcase {
         $this->assertTrue(exelearning_supports(FEATURE_COMPLETION_TRACKS_VIEWS));
         $this->assertTrue(exelearning_supports(FEATURE_SHOW_DESCRIPTION));
         $this->assertFalse(exelearning_supports(FEATURE_GRADE_OUTCOMES));
-        $this->assertFalse(exelearning_supports(FEATURE_COMPLETION_HAS_RULES));
+        // DEC-0052: custom completion rule completionstatusrequired is now offered.
+        $this->assertTrue(exelearning_supports(FEATURE_COMPLETION_HAS_RULES));
         $this->assertNull(exelearning_supports('a_feature_that_does_not_exist'));
     }
 

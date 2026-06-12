@@ -497,5 +497,27 @@ function xmldb_exelearning_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026061201, 'exelearning');
     }
 
+    // Stage 17 (2026061202): custom completion rule storage (DEC-0052). Adds the
+    // nullable completionstatusrequired column to the instance so the activity can
+    // be marked complete when the user's attempt reaches a required status (passed
+    // or completed). NULL keeps the rule disabled, preserving current behaviour.
+    if ($oldversion < 2026061202) {
+        $instance = new xmldb_table('exelearning');
+        $field = new xmldb_field(
+            'completionstatusrequired',
+            XMLDB_TYPE_INTEGER,
+            '1',
+            null,
+            null,
+            null,
+            null,
+            'gradecat'
+        );
+        if (!$dbman->field_exists($instance, $field)) {
+            $dbman->add_field($instance, $field);
+        }
+        upgrade_mod_savepoint(true, 2026061202, 'exelearning');
+    }
+
     return true;
 }

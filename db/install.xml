@@ -32,6 +32,7 @@
         <FIELD NAME="usermodified"  TYPE="int"  LENGTH="10"  NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="gradesyncrev"  TYPE="int"  LENGTH="10"  NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Highest package revision already scanned for gradable iDevices. Gates the view.php self-heal so content-only packages (0 gradable iDevices) are not fully re-extracted/re-parsed on every page view."/>
         <FIELD NAME="gradecat"      TYPE="int"  LENGTH="10"  NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Gradebook category id every grade item of this activity is placed under via grade_item::set_parent (DEC-0034); grade_update() ignores categoryid. 0 = leave at the course top category."/>
+        <FIELD NAME="completionstatusrequired" TYPE="int" LENGTH="1" NOTNULL="false" SEQUENCE="false" COMMENT="Custom completion rule (DEC-0052): required attempt status to complete the activity. NULL = rule disabled, 1 = passed, 2 = completed, 3 = passed or completed (any). Module-level (one state per module)."/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>

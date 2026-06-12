@@ -22,6 +22,13 @@ use backup_controller;
 use restore_controller;
 use restore_dbops;
 
+defined('MOODLE_INTERNAL') || die();
+
+global $CFG;
+// Loaded for the EXELEARNING_COMPLETIONSTATUS_* constants used in the completion
+// round-trip test.
+require_once($CFG->dirroot . '/mod/exelearning/lib.php');
+
 /**
  * Backup and restore roundtrip test for mod_exelearning.
  *
@@ -182,5 +189,38 @@ final class backup_restore_test extends advanced_testcase {
             'exelearning_grade_item',
             ['exelearningid' => $restored->id, 'deleted' => 0]
         ));
+    }
+
+    /**
+     * The custom completion rule config (completionstatusrequired, DEC-0052) must
+     * round-trip through backup/restore so the restored copy keeps the rule.
+     */
+    public function test_backup_restore_preserves_completionstatusrequired(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $course = $this->getDataGenerator()->create_course(['enablecompletion' => 1]);
+        $instance = $this->getDataGenerator()
+            ->get_plugin_generator('mod_exelearning')
+            ->create_instance([
+                'course' => $course->id,
+                'completion' => COMPLETION_TRACKING_AUTOMATIC,
+                'completionstatusrequired' => EXELEARNING_COMPLETIONSTATUS_PASSED,
+            ]);
+
+        $this->assertSame(
+            EXELEARNING_COMPLETIONSTATUS_PASSED,
+            (int) $DB->get_field('exelearning', 'completionstatusrequired', ['id' => $instance->id])
+        );
+
+        $newcourseid = $this->backup_and_restore($course);
+
+        $restored = $DB->get_record('exelearning', ['course' => $newcourseid], '*', MUST_EXIST);
+        // The rule's stored config came across instead of reverting to NULL.
+        $this->assertSame(
+            EXELEARNING_COMPLETIONSTATUS_PASSED,
+            (int) $restored->completionstatusrequired
+        );
     }
 }

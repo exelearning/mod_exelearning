@@ -288,6 +288,23 @@ decisiones_bloqueantes:
       scrambled-list.js:551 al extraer (exelearning_patch_idevice_save_guards en lib.php),
       str_replace idempotente que degrada a no-op. Verificado: Formulario persiste 100%
       con body web-site (sin exe-scorm), sin regresiones.
+  DEC-0052:
+    titulo: "Regla de finalización personalizada por estado (completionstatusrequired)"
+    estado: Aceptada
+    ruta: decisiones/adr/DEC-0052-completion-por-estado.md
+    fecha: 2026-06-12
+    relacionados: [DEC-0038, DEC-0049, DEC-0044]
+    notas: >-
+      Cierra el hueco de "completion rules" frente a mod_exescorm: exelearning pasa a
+      FEATURE_COMPLETION_HAS_RULES=true con UNA sola regla a nivel de módulo,
+      completionstatusrequired (aprobado / completado / cualquiera), reutilizando el campo
+      status ya persistido en exelearning_attempt. Contrato Moodle completo: columna INT(1)
+      nullable + upgrade stage 17 (2026061202), exelearning_get_coursemodule_info,
+      add_completion_rules/completion_rule_enabled/data_postprocessing en mod_form, subclase
+      classes/completion/custom_completion.php (get_state). Descartado completionscorerequired
+      (solapa con completion-by-grade DEC-0038/DEC-0010) y completionstatusallscos (multi-SCO
+      ajeno a eXe). No conflictúa con DEC-0049 (que rechazó completion per-iDevice): esta regla
+      es un estado por módulo. Backup conserva el campo. Riesgos RIE-014/RIE-015.
 
 tareas:
   TAREA-001:
@@ -608,3 +625,32 @@ riesgos:
       - DEC-0036
       - REPO-006
       - FTE-013
+  RIE-014:
+    titulo: "Cambio del estado requerido de completion con intentos ya registrados"
+    severidad: baja
+    probabilidad: baja
+    estado: mitigado
+    mitigacion: >-
+      Cambiar el estado exigido por la regla completionstatusrequired (DEC-0052) tras haber
+      intentos podría recalcular la finalización para el alumnado ya evaluado. MITIGADO:
+      mod_form data_postprocessing solo persiste el valor con completion automática activa;
+      track::ingest recalcula la finalización en cada commit (queda coherente con los
+      intentos reales); el campo es nullable y por defecto NULL (regla desactivada),
+      preservando el comportamiento previo. Cubierto por tests/completion_test.php.
+    relacionados:
+      - DEC-0052
+      - DEC-0044
+  RIE-015:
+    titulo: "Deriva futura del contrato activity_custom_completion respecto a mod_scorm"
+    severidad: baja
+    probabilidad: baja
+    estado: mitigado
+    mitigacion: >-
+      Si Moodle cambia el contrato de core_completion activity_custom_completion, la subclase
+      de mod_exelearning (DEC-0052) podría divergir. MITIGADO: la implementación es un calco
+      fino del patrón canónico de mod_scorm (REPO-004), cubierta por PHPUnit
+      (tests/completion_test.php, tests/backup_restore_test.php) y el gate de cobertura
+      Codecov (DEC-0048).
+    relacionados:
+      - DEC-0052
+      - DEC-0048
