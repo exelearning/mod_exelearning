@@ -156,6 +156,23 @@ class track {
         try {
             // Resolve the attempt number (one per page load / session).
             $attempt = attempts::resolve_attempt_number($exe->id, $userid, $sessiontoken);
+            // Whether this attempt already has rows, checked before any write for it:
+            // drives the one-shot attempt_started event below (fired only when this
+            // commit is what brings the attempt into existence).
+            $attemptexisted = $DB->record_exists('exelearning_attempt', [
+                'exelearningid' => $exe->id,
+                'userid'        => $userid,
+                'attempt'       => $attempt,
+            ]);
+            // The attempt's overall status before this commit (false when none yet):
+            // drives the one-shot attempt_completed event, fired only on the commit
+            // that first moves the attempt into a terminal status.
+            $prioroverallstatus = $attemptexisted ? $DB->get_field('exelearning_attempt', 'status', [
+                'exelearningid' => $exe->id,
+                'userid'        => $userid,
+                'attempt'       => $attempt,
+                'itemnumber'    => 0,
+            ]) : false;
 
             // Attempt limit (DEC-0007 phase 2): a fresh session over the cap is rejected.
             $maxattempt = (int) ($exe->maxattempt ?? 0);
@@ -237,6 +254,25 @@ class track {
                 $completion->update_state($cm, COMPLETION_UNKNOWN, $userid);
             }
 
+            // Observability events (DEC-0051, extending DEC-0041): emitted only now the
+            // attempt is persisted, so the preview / no-op / over-cap commits that
+            // returned earlier never reach the logstore. Both are once-per-attempt
+            // LEVEL_PARTICIPATING learner events (begin + outcome), NOT per-commit — the
+            // ~500 ms autocommit would flood the log, which is why DEC-0041 rejected a
+            // per-commit event. The shared pipeline means the web (track.php) and mobile
+            // (save_track) paths emit the same signal.
+            self::emit_tracking_events(
+                $exe,
+                $course,
+                $cm,
+                $userid,
+                $attempt,
+                (float) $finaloverall,
+                (string) $overallstatus,
+                $prioroverallstatus,
+                $attemptexisted
+            );
+
             return [
                 'ok'       => $result === GRADE_UPDATE_OK,
                 'attempt'  => $attempt,
@@ -251,6 +287,68 @@ class track {
             if ($lock) {
                 $lock->release();
             }
+        }
+    }
+
+    /** @var string[] Overall statuses that count as a terminal (finished) attempt. */
+    private const TERMINAL_STATUSES = ['passed', 'failed', 'completed'];
+
+    /**
+     * Triggers the once-per-attempt lifecycle events for a persisted tracking commit:
+     * attempt_started (on the commit that creates the attempt) and attempt_completed
+     * (on the commit that first moves the attempt into a terminal status). Kept out of
+     * ingest() to keep that method focused; both events are part of the public
+     * observability contract (DEC-0051, extending DEC-0041) and are deliberately NOT
+     * per-commit.
+     *
+     * @param \stdClass    $exe            The exelearning instance record.
+     * @param \stdClass    $course         The course record.
+     * @param \stdClass    $cm             The course_module record.
+     * @param int          $userid         The learner whose attempt was recorded.
+     * @param int          $attempt        Attempt number that was written.
+     * @param float        $score          Server-side overall grade after aggregation.
+     * @param string       $status         Overall status just recorded for the attempt.
+     * @param string|false $priorstatus    The attempt's overall status before this commit.
+     * @param bool         $attemptexisted Whether the attempt already had rows before this commit.
+     * @return void
+     */
+    private static function emit_tracking_events(
+        \stdClass $exe,
+        \stdClass $course,
+        \stdClass $cm,
+        int $userid,
+        int $attempt,
+        float $score,
+        string $status,
+        $priorstatus,
+        bool $attemptexisted
+    ): void {
+        $base = [
+            'context'       => \context_module::instance($cm->id),
+            'objectid'      => $exe->id,
+            'relateduserid' => $userid,
+        ];
+        // The attempt_started event fires once, only on the commit creating the attempt.
+        if (!$attemptexisted) {
+            $started = \mod_exelearning\event\attempt_started::create(
+                $base + ['other' => ['attempt' => $attempt]]
+            );
+            $started->add_record_snapshot('course_modules', $cm);
+            $started->add_record_snapshot('course', $course);
+            $started->add_record_snapshot('exelearning', $exe);
+            $started->trigger();
+        }
+        // The attempt_completed event fires once, only on the transition into terminal.
+        $wasterminal = in_array((string) $priorstatus, self::TERMINAL_STATUSES, true);
+        $isterminal = in_array($status, self::TERMINAL_STATUSES, true);
+        if ($isterminal && !$wasterminal) {
+            $completed = \mod_exelearning\event\attempt_completed::create(
+                $base + ['other' => ['attempt' => $attempt, 'score' => $score, 'status' => $status]]
+            );
+            $completed->add_record_snapshot('course_modules', $cm);
+            $completed->add_record_snapshot('course', $course);
+            $completed->add_record_snapshot('exelearning', $exe);
+            $completed->trigger();
         }
     }
 
