@@ -111,6 +111,13 @@ behat:
 # Coverage scope is declared in tests/coverage.php (classes/ + lib.php).
 coverage:
 	composer coverage
+
+# Run the JavaScript unit tests for the SCORM tracker (Vitest, Node-only).
+# First run installs the dev dependencies (idempotent). Pass --coverage via ARGS,
+# e.g. `make test-js ARGS=--coverage`.
+test-js:
+	npm ci || npm install
+	npx vitest run $(ARGS)
 # -------------------------------------------------------
 # Embedded static editor build targets
 # -------------------------------------------------------
@@ -223,6 +230,7 @@ help:
 	@echo "  phpmd                  - Run PHP Mess Detector using Composer"
 	@echo "  behat                  - Run Behat tests using Composer"
 	@echo "  coverage               - Run PHPUnit with a text coverage report (needs xdebug/pcov)"
+	@echo "  test-js                - Run the SCORM tracker JS unit tests (Vitest, Node-only)"
 	@echo "  build-editor           - Build embedded static editor"
 	@echo "  build-editor-no-update - Alias of build-editor"
 	@echo "  clean-editor           - Remove editor build artifacts"

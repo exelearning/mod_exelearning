@@ -25,4 +25,8 @@ mod_exelearning-*.zip
 
 # Node
 node_modules/
+
+# JS test artifacts (Vitest)
+coverage/
+junit-js.xml
 .env

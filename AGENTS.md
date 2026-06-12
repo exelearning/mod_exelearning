@@ -225,6 +225,12 @@ Cerradas: **TAREA-012 / RIE-001** investigación (DEC-0019); **TAREA-009 / RIE-0
 - **PHPDoc completo** (`moodle-plugin-ci phpdoc`): `@param`/`@return` en cada función.
 - **AMD**: tras tocar `amd/src/*.js` hay que regenerar `amd/build/` con el
   `grunt amd` de Moodle (rollup), no a mano.
+- **Tests JS** (DEC-0056): el tracker SCORM crítico para notas vive en
+  `js/scorm_tracker.js` (fuente única; `view.php` lo inyecta inline para mantener
+  `window.API` síncrono antes del iframe). Se testea con **Vitest** en `tests/js/`
+  (`make test-js`), NO con el Jest de Moodle (solo ESM). La UI (`amd/src/fullscreen.js`,
+  `resize.js`, …) y los wrappers pipwerks (`assets/scorm/*`) quedan fuera de alcance.
+  La cobertura sube a Codecov bajo el flag `javascript` (job `jsunit`).
 - **`lang/en/exelearning.php`**: strings en orden alfabético ESTRICTO por clave,
   sin código (`for`/variables) — `moodle.Files.LangFilesOrdering` lo rechaza.
 

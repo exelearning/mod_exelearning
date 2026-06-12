@@ -250,3 +250,48 @@ jobs:
       - name: Mark cancelled jobs as failed
         if: ${{ cancelled() }}
         run: exit 1
+
+  # JavaScript unit tests for the grade-critical SCORM tracker (js/scorm_tracker.js),
+  # run with Vitest. Kept as a separate Node-only job on purpose: it does not depend on
+  # PHP, a database or a Moodle install, so it must not be multiplied across the PHP
+  # matrix. Coverage and test results upload to Codecov under the `javascript` flag so
+  # they are tracked apart from the PHP figure.
+  jsunit:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: JS unit tests with coverage
+        run: npx vitest run --coverage --reporter=default --reporter=junit --outputFile=junit-js.xml
+
+      - name: Upload JS coverage to Codecov
+        # A failed/missing upload must never break CI. Requires the CODECOV_TOKEN secret.
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: ateeducacion/mod_exelearning
+          files: ./coverage/lcov.info
+          flags: javascript
+          disable_search: true
+          fail_ci_if_error: false
+
+      - name: Upload JS test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./junit-js.xml
+          flags: javascript
+          disable_search: true
