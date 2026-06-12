@@ -126,6 +126,21 @@ own HTML/JS at serve time and are tracked for upstream resolution by **DEC-0045*
 — `research/decisiones/adr/DEC-0045-transformacion-en-servido.md` and
 `research/decisiones/adr/DEC-0046-inyecciones-scorm-teacher-mode-plugin-vs-upstream.md`.
 
+## Observability events (DEC-0051)
+
+`track::ingest()` emits two **once-per-attempt** lifecycle events (it does **not** emit a
+per-commit event — the shim autocommits ~every 500 ms, which is why **DEC-0041** rejected
+one):
+
+- `\mod_exelearning\event\attempt_started` — on the commit that first creates the attempt.
+- `\mod_exelearning\event\attempt_completed` — on the commit that first moves the attempt
+  into a terminal status (`passed` / `failed` / `completed`); carries the server-recomputed
+  overall `score` and the `status` in `other`.
+
+Both fire from the single shared pipeline, so the web (`track.php`) and mobile (`save_track`,
+DEC-0040) paths produce the same signal. Preview, no-op (status-only) and over-cap commits
+emit nothing. See `research/decisiones/adr/DEC-0051-eventos-ciclo-de-vida-intento.md`.
+
 ## See also
 
 - `docs/scorm-shim-current-flow.md` — shim internals and the endpoint step list.

@@ -307,6 +307,19 @@ decisiones_bloqueantes:
       3 unit tests nuevos (grade_item_manager, scorm_injector, package_manager). phpcs 0/0.
       Riesgo RIE-018 (regresión de cálculo de notas) mitigado por movimiento verbatim + suite +
       Codecov patch ≥80% (DEC-0048) + CI.
+  DEC-0051:
+    titulo: "Eventos de ciclo de vida del intento (attempt_started / attempt_completed), uno por intento"
+    estado: Aceptada
+    ruta: decisiones/adr/DEC-0051-eventos-ciclo-de-vida-intento.md
+    fecha: 2026-06-12
+    relacionados: [DEC-0041, DEC-0007, DEC-0040, DEC-0044]
+    notas: >-
+      Extiende DEC-0041 (no la supersede): añade 2 eventos de ciclo de vida del alumno,
+      uno por intento — attempt_started (creación del intento) y attempt_completed (1ª
+      transición a estado terminal passed/failed/completed, con nota+estado). Emitidos
+      desde track::ingest() (web + móvil/save_track). NO por-commit: respeta el límite
+      anti-flood (autocommit 500ms) que DEC-0041 fijó. Cierra parte del eje observabilidad
+      (REPO-004: exescorm 11 vs exelearning 4). Riesgo RIE-016 aceptado.
 
 tareas:
   TAREA-001:
@@ -627,3 +640,17 @@ riesgos:
       - DEC-0036
       - REPO-006
       - FTE-013
+  RIE-016:
+    titulo: "attempt_completed podría dispararse en el primer commit puntuado sin lesson_status explícito"
+    severidad: baja
+    probabilidad: media
+    estado: aceptado
+    mitigacion: >-
+      Un commit con nota pero sin cmi.core.lesson_status normaliza a 'completed' (DEC-0007),
+      así que attempt_completed se emitiría en ese primer commit. ACEPTADO: sigue siendo una
+      vez por intento (el siguiente commit ve el estado previo ya terminal y no re-emite), sin
+      flood; el flujo incompleto→completo real se cubre por la transición de estado.
+    relacionados:
+      - DEC-0051
+      - DEC-0041
+      - DEC-0007
