@@ -111,37 +111,9 @@ $candelete = has_capability('mod/exelearning:deleteattempt', $context);
 // so this only affects presentation, not the data nor the grade recalculation.
 $grademodel = (int) ($exelearning->grademodel ?? EXELEARNING_GRADEMODEL_PERITEM);
 
-// Log the report view (a delete request redirects above, so this fires once per
-// actual view, not on the delete POST).
-\mod_exelearning\event\report_viewed::create([
-    'context'  => $context,
-    'objectid' => $exelearning->id,
-])->trigger();
-
-echo $OUTPUT->header();
-echo $OUTPUT->heading(get_string('attemptsreport', 'mod_exelearning'));
-
-// When deep-linked from a specific grade ("grade analysis"), show whose attempts
-// these are. Guarded by the group restriction so an out-of-group student's name
-// is not revealed.
-if ($userid > 0 && ($restrictusers === null || in_array($userid, $restrictusers, true))) {
-    $filtereduser = $DB->get_record('user', ['id' => $userid]);
-    if ($filtereduser) {
-        // Escape the name: $OUTPUT->heading() does not HTML-escape its content, and a
-        // display name set via LDAP/SAML/WS/CSV upload is not guaranteed tag-stripped,
-        // so an unescaped name would run as stored XSS in the grader's session (B8,
-        // DEC-0044). The attempts table below already escapes the same value with s().
-        echo $OUTPUT->heading(s(fullname($filtereduser)), 4);
-    }
-}
-
-// Group selector: lets a teacher switch between the groups they may see. In
-// separate-groups mode the options are limited to the teacher's own groups.
-if ($groupmode != NOGROUPS) {
-    groups_print_activity_menu($cm, $PAGE->url);
-}
-
-// Map itemnumber -> human-readable name (overall + iDevices).
+// Map itemnumber -> human-readable name (overall + iDevices). Hoisted above the
+// header so the download branch (DEC-0007) and the on-screen table share a
+// single dataset/filter definition (move, don't duplicate).
 $itemnames = [0 => get_string('report_overall', 'mod_exelearning')];
 $gradeitems = $DB->get_records(
     'exelearning_grade_item',
@@ -178,35 +150,12 @@ if ($restrictusers === []) {
     );
 }
 
-if (empty($attempts)) {
-    echo $OUTPUT->notification(
-        get_string('noattempts', 'mod_exelearning'),
-        \core\output\notification::NOTIFY_INFO
-    );
-    echo $OUTPUT->footer();
-    die;
-}
-
-// Load the users involved.
+// Load the users involved (empty when there are no attempts, which is harmless).
 $userids = [];
 foreach ($attempts as $a) {
     $userids[$a->userid] = true;
 }
-$users = $DB->get_records_list('user', 'id', array_keys($userids));
-
-$table = new html_table();
-$table->head = [
-    get_string('report_user', 'mod_exelearning'),
-    get_string('report_attempt', 'mod_exelearning'),
-    get_string('report_item', 'mod_exelearning'),
-    get_string('report_score', 'mod_exelearning'),
-    get_string('report_status', 'mod_exelearning'),
-    get_string('report_date', 'mod_exelearning'),
-];
-if ($candelete) {
-    $table->head[] = get_string('report_actions', 'mod_exelearning');
-}
-$table->attributes['class'] = 'generaltable';
+$users = $userids ? $DB->get_records_list('user', 'id', array_keys($userids)) : [];
 
 // Whether a row matches the active model (DEC-0008: peritem shows
 // itemnumber>0; overall shows itemnumber=0).
@@ -225,6 +174,106 @@ foreach ($attempts as $a) {
     $key = $a->userid . '-' . $a->attempt;
     $grouphasmatch[$key] = ($grouphasmatch[$key] ?? false) || $matchesmode((int) $a->itemnumber);
 }
+
+// Download branch (DEC-0007): stream the same dataset/filters as the on-screen
+// table through core's dataformat API (CSV/Excel/ODS/JSON). It must run before
+// any output, and intentionally before the report_viewed event below: a download
+// is not a report *view*, so it does not log one (a dedicated report_downloaded
+// event could be added later if auditing wants it). When there are no attempts,
+// fall through to the normal empty-state page.
+$download = optional_param('download', '', PARAM_ALPHA);
+if ($download !== '' && $attempts) {
+    $columns = [
+        'fullname'     => get_string('report_user', 'mod_exelearning'),
+        'attempt'      => get_string('report_attempt', 'mod_exelearning'),
+        'item'         => get_string('report_item', 'mod_exelearning'),
+        'rawscore'     => get_string('report_score', 'mod_exelearning'),
+        'maxscore'     => get_string('grademax', 'core_grades'),
+        'status'       => get_string('report_status', 'mod_exelearning'),
+        'timemodified' => get_string('report_date', 'mod_exelearning'),
+    ];
+    // Mirror the table loop: same grademodel row filtering plus the
+    // no-matching-row fallback, so the export matches the screen exactly.
+    $exportrows = [];
+    foreach ($attempts as $a) {
+        $itemnumber = (int) $a->itemnumber;
+        $groupkey = $a->userid . '-' . $a->attempt;
+        if ($grouphasmatch[$groupkey] && !$matchesmode($itemnumber)) {
+            continue;
+        }
+        $exportrows[] = [
+            'fullname'     => isset($users[$a->userid])
+                    ? fullname($users[$a->userid]) : ('#' . $a->userid),
+            'attempt'      => $a->attempt,
+            'item'         => $itemnames[$itemnumber] ?? ('#' . $itemnumber),
+            'rawscore'     => (float) $a->rawscore,
+            'maxscore'     => (float) $a->maxscore,
+            'status'       => $a->status,
+            'timemodified' => userdate($a->timemodified),
+        ];
+    }
+    \core\dataformat::download_data(
+        clean_filename($exelearning->name . '_attempts'),
+        $download,
+        $columns,
+        $exportrows
+    );
+    die;
+}
+
+// Log the report view (a delete request redirects above, so this fires once per
+// actual view, not on the delete POST; downloads return above, so they do not
+// log a view either).
+\mod_exelearning\event\report_viewed::create([
+    'context'  => $context,
+    'objectid' => $exelearning->id,
+])->trigger();
+
+echo $OUTPUT->header();
+echo $OUTPUT->heading(get_string('attemptsreport', 'mod_exelearning'));
+
+// When deep-linked from a specific grade ("grade analysis"), show whose attempts
+// these are. Guarded by the group restriction so an out-of-group student's name
+// is not revealed.
+if ($userid > 0 && ($restrictusers === null || in_array($userid, $restrictusers, true))) {
+    $filtereduser = $DB->get_record('user', ['id' => $userid]);
+    if ($filtereduser) {
+        // Escape the name: $OUTPUT->heading() does not HTML-escape its content, and a
+        // display name set via LDAP/SAML/WS/CSV upload is not guaranteed tag-stripped,
+        // so an unescaped name would run as stored XSS in the grader's session (B8,
+        // DEC-0044). The attempts table below already escapes the same value with s().
+        echo $OUTPUT->heading(s(fullname($filtereduser)), 4);
+    }
+}
+
+// Group selector: lets a teacher switch between the groups they may see. In
+// separate-groups mode the options are limited to the teacher's own groups.
+if ($groupmode != NOGROUPS) {
+    groups_print_activity_menu($cm, $PAGE->url);
+}
+
+if (empty($attempts)) {
+    echo $OUTPUT->notification(
+        get_string('noattempts', 'mod_exelearning'),
+        \core\output\notification::NOTIFY_INFO
+    );
+    echo $OUTPUT->footer();
+    die;
+}
+
+$table = new html_table();
+$table->head = [
+    get_string('report_user', 'mod_exelearning'),
+    get_string('report_attempt', 'mod_exelearning'),
+    get_string('report_item', 'mod_exelearning'),
+    get_string('report_score', 'mod_exelearning'),
+    get_string('report_status', 'mod_exelearning'),
+    get_string('report_date', 'mod_exelearning'),
+];
+if ($candelete) {
+    $table->head[] = get_string('report_actions', 'mod_exelearning');
+}
+$table->attributes['class'] = 'generaltable';
 
 // Track the first VISIBLE row of each (user, attempt) pair to anchor the
 // "Delete attempt" button there: deleting removes the whole attempt, so it is
@@ -274,4 +323,15 @@ foreach ($attempts as $a) {
 }
 
 echo html_writer::table($table);
+
+// Download selector (DEC-0007): reaches the download branch above with the same
+// filters (id, optional userid) so the export reflects the on-screen dataset. It
+// only renders here, after a non-empty table, so the empty-state page shows none.
+echo $OUTPUT->download_dataformat_selector(
+    get_string('downloadreport', 'mod_exelearning'),
+    new moodle_url('/mod/exelearning/report.php'),
+    'download',
+    $baseurlparams
+);
+
 echo $OUTPUT->footer();

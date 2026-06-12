@@ -41,6 +41,7 @@ $string['confirmuninstall'] = 'Are you sure you want to uninstall the embedded e
 $string['confirmuninstalltitle'] = 'Confirm uninstall';
 $string['deleteattempt']     = 'Delete attempt';
 $string['detecteditems']    = 'Gradable iDevices detected:';
+$string['downloadreport']   = 'Download report data as';
 $string['editorbackuperror'] = 'Could not back up the existing editor installation.';
 $string['editorbundleddesc'] = 'A version is included with the plugin. You can install the latest version published on GitHub.';
 $string['editorbundledsource'] = 'Bundled with plugin';

@@ -617,7 +617,7 @@ class embedded_editor_installer {
         for ($i = 0; $i < $zip->numFiles; $i++) {
             $stat = $zip->statIndex($i);
             $name = ($stat === false) ? '' : (string) $stat['name'];
-            if ($stat === false || styles_service::is_unsafe_zip_entry($name)) {
+            if ($stat === false || zip_utils::is_unsafe_zip_entry($name)) {
                 $zip->close();
                 $this->cleanup_temp_dir($tmpdir);
                 throw new \moodle_exception('editorunsafezip', 'mod_exelearning', '', $name);
@@ -636,6 +636,17 @@ class embedded_editor_installer {
         }
 
         $zip->close();
+
+        // Post-extraction sweep: extractTo()'s '../' neutralisation is not a
+        // guaranteed boundary across builds, so verify nothing escaped $tmpdir
+        // and no symlink was materialised. Destroy the temp dir on rejection.
+        try {
+            zip_utils::assert_extraction_contained($tmpdir, 'editorunsafezip');
+        } catch (\moodle_exception $e) {
+            $this->cleanup_temp_dir($tmpdir);
+            throw $e;
+        }
+
         return $tmpdir;
     }
 
