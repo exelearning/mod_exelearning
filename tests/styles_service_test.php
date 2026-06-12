@@ -403,4 +403,39 @@ final class styles_service_test extends advanced_testcase {
         $this->expectException(\moodle_exception::class);
         styles_service::validate_zip($zippath);
     }
+
+    /**
+     * A style with an icons/ folder and a subdirectory exercises icon scanning,
+     * recursive CSS discovery and recursive deletion.
+     */
+    public function test_style_with_icons_and_subdir(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $zippath = make_temp_directory('mod_exelearning') . '/rich-' . random_string(6) . '.zip';
+        $zip = new \ZipArchive();
+        $zip->open($zippath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+        $zip->addFromString('config.xml', '<config><name>Rich</name></config>');
+        $zip->addFromString('style.css', 'body{}');
+        $zip->addFromString('sub/extra.css', '.x{}');
+        $zip->addFromString('icons/icon.svg', '<svg xmlns="http://www.w3.org/2000/svg"/>');
+        $zip->close();
+
+        styles_service::install_from_zip($zippath, 'rich.zip');
+
+        // The registry override scans the icons/ folder.
+        $override = styles_service::build_theme_registry_override();
+        $entry = null;
+        foreach ($override['uploaded'] as $u) {
+            if ($u['id'] === 'rich') {
+                $entry = $u;
+            }
+        }
+        $this->assertNotNull($entry);
+        $this->assertNotEmpty($entry['icons']);
+
+        // Deletion recurses into icons/ and sub/.
+        $this->assertTrue(styles_service::delete_uploaded('rich'));
+        $this->assertDirectoryDoesNotExist(styles_service::get_style_dir('rich'));
+    }
 }

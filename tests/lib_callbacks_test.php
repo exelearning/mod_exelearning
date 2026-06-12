@@ -34,6 +34,8 @@ require_once($CFG->dirroot . '/mod/exelearning/lib.php');
  * @covers     ::exelearning_get_grade_item_names
  * @covers     ::exelearning_require_teacher_mode_hider
  * @covers     ::exelearning_pluginfile
+ * @covers     ::exelearning_extend_settings_navigation
+ * @covers     ::exelearning_navigation_before_key
  */
 final class lib_callbacks_test extends advanced_testcase {
     /**
@@ -154,5 +156,26 @@ final class lib_callbacks_test extends advanced_testcase {
             'itemnumber'   => 0,
         ]);
         $this->assertNotEmpty($items);
+    }
+
+    /**
+     * exelearning_extend_settings_navigation() adds a "Reports" node, inserted
+     * before the roles node when present.
+     */
+    public function test_extend_settings_navigation_adds_report_node(): void {
+        global $PAGE;
+        [$course, , $cm] = $this->make();
+
+        $PAGE->set_cm($cm, $course);
+        $PAGE->set_context(\context_module::instance($cm->id));
+        $PAGE->set_url('/mod/exelearning/view.php', ['id' => $cm->id]);
+
+        $node = \navigation_node::create('Module', null, \navigation_node::TYPE_SETTING, null, 'modulesettings');
+        // A roles node so navigation_before_key() returns a key (insert-before path).
+        $node->add('Roles', null, \navigation_node::TYPE_SETTING, null, 'roles');
+
+        exelearning_extend_settings_navigation(new \settings_navigation($PAGE), $node);
+
+        $this->assertNotEmpty($node->get('exelearningreport'));
     }
 }
