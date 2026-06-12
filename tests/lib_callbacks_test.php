@@ -114,4 +114,45 @@ final class lib_callbacks_test extends advanced_testcase {
             true
         );
     }
+
+    /**
+     * exelearning_extract_stored_package() unpacks the stored ELPX into the
+     * content area and injects the SCORM wrapper shim/loader.
+     */
+    public function test_extract_stored_package_injects_shim(): void {
+        [, $instance, $cm] = $this->make();
+        $context = \context_module::instance($cm->id);
+
+        // Re-extract to a fresh revision (re-runs the shim injection + loader).
+        exelearning_extract_stored_package($context->id, 99);
+
+        $fs = get_file_storage();
+        $this->assertNotFalse(
+            $fs->get_file($context->id, 'mod_exelearning', 'content', 99, '/', 'index.html')
+        );
+        $this->assertNotFalse(
+            $fs->get_file($context->id, 'mod_exelearning', 'content', 99, '/libs/', 'SCORM_API_wrapper.js')
+        );
+    }
+
+    /**
+     * exelearning_grade_item_update() publishes the overall column in OVERALL mode.
+     */
+    public function test_grade_item_update_overall(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $course = $this->getDataGenerator()->create_course();
+        $instance = $this->getDataGenerator()->get_plugin_generator('mod_exelearning')
+            ->create_instance(['course' => $course->id, 'grademodel' => 0, 'gradeenabled' => 1]);
+
+        $this->assertSame(GRADE_UPDATE_OK, exelearning_grade_item_update($instance));
+
+        $items = \grade_item::fetch_all([
+            'itemtype'     => 'mod',
+            'itemmodule'   => 'exelearning',
+            'iteminstance' => $instance->id,
+            'itemnumber'   => 0,
+        ]);
+        $this->assertNotEmpty($items);
+    }
 }
