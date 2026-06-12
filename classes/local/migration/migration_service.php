@@ -248,24 +248,12 @@ final class migration_service {
             ],
             $elpxpath
         );
+        // Extraction routes through package_manager::extract_stored(), which now owns the
+        // valid-extraction guard: a corrupt/empty archive that produces no servable
+        // index.html raises 'migrateextractfailed' there, so a corrupt package never gets
+        // recorded as migrated (the caller catches it and rolls the target back).
         exelearning_extract_stored_package($contextid, (int) $instance->revision);
 
-        // The extract_to_storage() call returns false on a corrupt/empty zip without
-        // throwing (exelearning_extract_stored_package ignores it and still injects the
-        // SCORM shim files), so the content area is never truly empty. A valid
-        // eXeLearning package always extracts an index.html entry; its absence means the
-        // package was corrupt, so guard against recording an empty shell as migrated.
-        $entry = $fs->get_file(
-            $contextid,
-            'mod_exelearning',
-            'content',
-            (int) $instance->revision,
-            '/',
-            'index.html'
-        );
-        if (!$entry) {
-            throw new \moodle_exception('migrateextractfailed', 'mod_exelearning');
-        }
         exelearning_sync_grade_items($instance->id, $contextid);
     }
 
