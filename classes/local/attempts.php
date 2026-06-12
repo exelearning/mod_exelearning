@@ -306,25 +306,23 @@ class attempts {
                ORDER BY attempt ASC",
             [$exelearningid, $userid, $itemnumber]
         );
-        if (empty($scaled)) {
-            return null;
-        }
         return self::aggregate_values(array_map('floatval', $scaled), $grademethod);
     }
 
     /**
-     * Aggregate an ordered list of scaled scores (0..1) with a grade method.
+     * Reduce an ordered list of scaled scores to a single grade (DEC-0007).
      *
-     * Pure helper shared by aggregate_scaled() and participation_summary()
-     * (and the bulk recalculation), so the five GRADE_* semantics (DEC-0007)
-     * live in exactly one place. $scaled must be ordered by attempt ASC.
+     * Pure aggregation shared by the per-user-per-item path (aggregate_scaled())
+     * and the batch recalculation path (exelearning_recalculate_grades_for_users()
+     * in lib.php). Scores must already be ordered by attempt ASC so FIRST/LAST
+     * pick the correct attempt.
      *
-     * @param float[] $scaled Scaled scores ordered by attempt number.
+     * @param float[] $scaled Scaled scores (0..1) ordered by attempt ASC.
      * @param int $grademethod One of the GRADE_* constants.
-     * @return float|null Aggregated scaled score, or null for an empty list.
+     * @return float|null Aggregated scaled score (0..1) or null for no attempts.
      */
     public static function aggregate_values(array $scaled, int $grademethod): ?float {
-        if ($scaled === []) {
+        if (empty($scaled)) {
             return null;
         }
 
@@ -341,5 +339,42 @@ class attempts {
             default:
                 return max($scaled);
         }
+    }
+
+    /**
+     * Fetch every scaled score for an activity grouped by user and item.
+     *
+     * One query replacing the per-user-per-item SELECTs of the bulk grade
+     * recalculation. Scores are ordered by attempt ASC inside each group so
+     * aggregate_values() (DEC-0007) sees the same ordering aggregate_scaled()
+     * uses.
+     *
+     * @param int $exelearningid
+     * @param int[] $userids Users to fetch; empty array fetches nothing.
+     * @return array<int,array<int,float[]>> userid => itemnumber => scaled scores.
+     */
+    public static function fetch_scaled_by_user_item(int $exelearningid, array $userids): array {
+        global $DB;
+
+        if (empty($userids)) {
+            return [];
+        }
+
+        [$insql, $params] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED);
+        $params['exeid'] = $exelearningid;
+
+        $rs = $DB->get_recordset_sql(
+            "SELECT id, userid, itemnumber, scaledscore FROM {exelearning_attempt}
+                  WHERE exelearningid = :exeid AND userid $insql
+               ORDER BY userid, itemnumber, attempt ASC",
+            $params
+        );
+        $byuser = [];
+        foreach ($rs as $row) {
+            $byuser[(int) $row->userid][(int) $row->itemnumber][] = (float) $row->scaledscore;
+        }
+        $rs->close();
+
+        return $byuser;
     }
 }
