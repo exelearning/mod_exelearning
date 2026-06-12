@@ -76,6 +76,7 @@ final class events_test extends advanced_testcase {
         $this->assertSame($context->id, $events[0]->contextid);
         $this->assertSame($this->student->id, $events[0]->relateduserid);
         $this->assertStringContainsString('3', $events[0]->get_description());
+        $this->assertInstanceOf(\moodle_url::class, $events[0]->get_url());
     }
 
     public function test_attempt_deleted_requires_attemptid(): void {
@@ -104,6 +105,7 @@ final class events_test extends advanced_testcase {
         $this->assertSame('r', $events[0]->crud);
         $this->assertSame(report_viewed::LEVEL_TEACHING, $events[0]->edulevel);
         $this->assertStringContainsString('report', strtolower($events[0]->get_description()));
+        $this->assertInstanceOf(\moodle_url::class, $events[0]->get_url());
     }
 
     public function test_instance_list_viewed_event(): void {
