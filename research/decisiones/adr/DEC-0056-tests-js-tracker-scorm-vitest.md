@@ -76,6 +76,27 @@ Codecov) y, en su caso, planificarlo acotándolo a lo que tiene **impacto de neg
    job hace checkout en la raíz, por lo que sus rutas (`js/`) no necesitan el `fixes:` que
    remapea el upload PHP (instalado bajo `moodle/mod/exelearning/`).
 
+## Alcance de los tests JS — qué se cubre y por qué se descarta el resto
+
+El criterio no es "¿tiene lógica?" sino **ROI**: *impacto en calificaciones* ×
+*probabilidad de regresión*, frente al *coste de mock/build*. Se testea solo lo
+crítico para notas y barato de aislar; lo demás es UI/glue o third-party cuya
+cobertura natural es Behat e2e.
+
+| Fichero / módulo | ¿Se testea? | Motivo |
+|---|---|---|
+| `js/scorm_tracker.js` (tracker SCORM) | **Sí — Vitest** | Lógica crítica de **notas**: parseo `cmi.suspend_data`, ruteo por `objectid` ([[DEC-0017]]), máquina `send`/`dirty` (no perder notas). Funciones puras + inyección de dependencias → testeable sin Moodle. |
+| `assets/scorm/SCORM_API_wrapper.js`, `SCOFunctions.js` (pipwerks) | **No** | Third-party vendorizado (`thirdpartylibs.xml`); las normas prohíben tocarlo. **No lo ejecuta el plugin**: corre dentro del iframe del paquete (SCO), inyectado por `exelearning_inject_scorm_loader` ([[DEC-0046]]), acoplado a DOM/jQuery y a `window.parent` ([[DEC-0019]]). Su contrato (que `window.API` responda síncrono) ya lo cubren los tests del tracker + Behat e2e. |
+| `amd/src/fullscreen.js`, `amd/src/resize.js` | **No** | UI pura (Fullscreen API / Mutation·ResizeObserver). Sin lógica de negocio ni impacto en notas; el riesgo lo cubre la prueba manual/visual. |
+| `amd/src/modform.js` | **No** | Cambia labels de botones del form según el origen. UX glue, sin transformación de datos. |
+| `amd/src/admin_embedded_editor.js` | **No** | Polling AJAX de instalación del editor (`define` + jQuery + `core/ajax`). Coste de mock alto, valor bajo; mejor test de integración de la página admin. |
+| `amd/src/moodle_exe_bridge.js` | **No** | Detección de cambios por postMessage acoplada a internals de eXeLearning v4 + Yjs. Territorio e2e, no unit. |
+| `amd/src/editor_modal.js` | **No — ROI bajo** | Es el único `amd/src` con lógica pura extraíble, pero **"tener lógica pura" ≠ "vale la pena"**: lo barato de testear (reescritura URL/revision, `nextRequestId`) es de **bajo riesgo** (un fallo = cache-busting/refresco con URL rara, recuperable con un reload, no afecta notas); lo de **riesgo real** (handshake postMessage `EXELEARNING_READY → CONFIGURE → OPEN_FILE`, retry/backoff, upload `fetch`, guard de cambios sin guardar) **no es unit-testeable barato** → su cobertura natural es **Behat**. Además es **glue del editor, no notas**, y extraerlo obliga a tocar `amd/src` → regenerar `amd/build` con grunt (moodle-plugin-ci falla si el build no coincide). Coste alto sobre la parte de **menos** valor. |
+
+**Resumen:** se testea con Vitest únicamente `js/scorm_tracker.js`. El contrato
+pipwerks↔`window.API` y los flujos del editor se cubren con **Behat** (extremo a
+extremo), no con unit tests acoplados a mocks de Moodle/eXeLearning.
+
 ## Evidencia
 
 - `js/scorm_tracker.js` — módulo extraído (funciones puras + `createScormApi`).
