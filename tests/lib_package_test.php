@@ -32,6 +32,7 @@ require_once($CFG->dirroot . '/mod/exelearning/lib.php');
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @covers     ::exelearning_get_stored_package
  * @covers     ::exelearning_package_has_content_xml
+ * @covers     \mod_exelearning\local\package_manager
  */
 final class lib_package_test extends advanced_testcase {
     /**

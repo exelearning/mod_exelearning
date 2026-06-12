@@ -294,6 +294,7 @@ $string['savedsuccess'] = 'Cambios guardados correctamente';
 $string['savetomoodle'] = 'Guardar en Moodle';
 $string['saving'] = 'Guardando...';
 $string['savingwait'] = 'Por favor, espere mientras se guarda el archivo.';
+$string['search:activity'] = 'Recurso eXeLearning - información de la actividad';
 $string['stillworking'] = 'Sigue en proceso...';
 $string['stylesblockimport'] = 'Bloquear estilos importados por el usuario';
 $string['stylesblockimport_desc'] = 'Cuando está activado, el editor integrado oculta la pestaña «Estilos importados» y rechaza instalar un estilo incluido en un proyecto .elpx importado. El usuario sólo podrá elegir entre la lista aprobada por el administrador. Equivale al comportamiento de eXeLearning ONLINE_THEMES_INSTALL=false.';

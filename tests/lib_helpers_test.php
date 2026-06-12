@@ -38,6 +38,8 @@ require_once($CFG->dirroot . '/mod/exelearning/lib.php');
  * @covers     ::exelearning_embedded_editor_uses_local_assets
  * @covers     ::exelearning_get_embedded_editor_index_source
  * @covers     ::exelearning_get_embedded_editor_local_static_dir
+ * @covers     \mod_exelearning\local\urls
+ * @covers     \mod_exelearning\local\package_manager
  */
 final class lib_helpers_test extends advanced_testcase {
     /**

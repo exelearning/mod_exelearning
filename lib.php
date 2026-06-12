@@ -421,51 +421,7 @@ function exelearning_reset_gradebook($courseid, $type = '') {
  * @return int
  */
 function exelearning_grade_item_update($exelearning, $grades = null, array $itemdetails = []) {
-    global $CFG;
-    require_once($CFG->libdir . '/gradelib.php');
-
-    // The overall (itemnumber=0) gradebook column only exists in OVERALL mode for a
-    // graded activity (DEC-0008, DEC-0038). Core's grade_update_mod_grades() calls
-    // this function UNCONDITIONALLY (before exelearning_update_grades()) on every
-    // regrade — cron needsupdate, course reset "remove all grades", grade-item
-    // unlock, user-undelete history recovery — so without this guard a PERITEM or
-    // ungraded activity would get a phantom overall column that inflates the course
-    // total (B2b follow-up, DEC-0044). When the overall must not exist, delete any
-    // stray one instead of creating it.
-    $grademodel = (int) ($exelearning->grademodel ?? EXELEARNING_GRADEMODEL_PERITEM);
-    if (empty($exelearning->gradeenabled) || $grademodel !== EXELEARNING_GRADEMODEL_OVERALL) {
-        return grade_update(
-            'mod/exelearning',
-            $exelearning->course,
-            'mod',
-            'exelearning',
-            $exelearning->id,
-            0,
-            null,
-            ['deleted' => true]
-        );
-    }
-
-    $item = [
-        'itemname'  => clean_param($exelearning->name, PARAM_NOTAGS),
-        'gradetype' => GRADE_TYPE_VALUE,
-        'grademax'  => $exelearning->grademax ?? 100,
-        'grademin'  => $exelearning->grademin ?? 0,
-        'gradepass' => $exelearning->gradepass ?? 0,
-        'display'   => (int) ($exelearning->gradedisplaytype ?? GRADE_DISPLAY_TYPE_DEFAULT),
-    ];
-    $item += $itemdetails;
-
-    return grade_update(
-        'mod/exelearning',
-        $exelearning->course,
-        'mod',
-        'exelearning',
-        $exelearning->id,
-        0,
-        $grades,
-        $item
-    );
+    return \mod_exelearning\grades\grade_item_manager::update_item($exelearning, $grades, $itemdetails);
 }
 
 /**
@@ -489,27 +445,7 @@ function exelearning_grade_item_update($exelearning, $grades = null, array $item
  * @return void
  */
 function exelearning_update_grades(stdClass $exelearning, int $userid = 0): void {
-    global $CFG, $DB;
-    require_once($CFG->libdir . '/gradelib.php');
-
-    // Not graded (DEC-0029): no grade items exist, so there is nothing to publish.
-    if (empty($exelearning->gradeenabled)) {
-        return;
-    }
-
-    if ($userid > 0) {
-        exelearning_recalculate_user_grades($exelearning, $userid);
-        return;
-    }
-
-    $userids = $DB->get_fieldset_sql(
-        'SELECT DISTINCT userid FROM {exelearning_attempt} WHERE exelearningid = ?',
-        [$exelearning->id]
-    );
-    if (empty($userids)) {
-        return;
-    }
-    exelearning_recalculate_grades_for_users($exelearning, array_map('intval', $userids));
+    \mod_exelearning\grades\grade_sync::update_grades($exelearning, $userid);
 }
 
 /**
@@ -709,12 +645,7 @@ function exelearning_extend_settings_navigation(
  * @return string|null
  */
 function exelearning_navigation_before_key(navigation_node $node): ?string {
-    foreach (['roleassign', 'roles', 'permissions', 'filtermanagement'] as $key) {
-        if ($node->get($key)) {
-            return $key;
-        }
-    }
-    return null;
+    return \mod_exelearning\local\urls::navigation_before_key($node);
 }
 
 /**
@@ -723,51 +654,7 @@ function exelearning_navigation_before_key(navigation_node $node): ?string {
  * @param stdClass $data Form data (with `coursemodule`, `package` draftid, `revision`).
  */
 function exelearning_save_and_extract_package(stdClass $data): void {
-    global $USER;
-
-    if (empty($data->package)) {
-        return;
-    }
-    $context = context_module::instance($data->coursemodule);
-    $fs = get_file_storage();
-
-    // Safety net against destroying the stored package (B1, DEC-0044). The
-    // submitted value is a draft itemid that is non-empty even when it carries no
-    // file; saving such an empty draft used to delete every stored package itemid
-    // (the form reads itemid 0 but the embedded editor stores at itemid=revision),
-    // leaving the activity with no content and the source .elpx unrecoverable.
-    // When the incoming draft has no file but a package is already stored, keep
-    // the existing one and just (re-)extract it to the current revision instead of
-    // wiping it. data_preprocessing() seeds the draft from the stored package, so
-    // a genuine settings save (or a real upload/replacement) still round-trips a
-    // non-empty draft and falls through to the normal path below.
-    $usercontext = context_user::instance($USER->id);
-    $draftfiles = $fs->get_area_files(
-        $usercontext->id,
-        'user',
-        'draft',
-        (int) $data->package,
-        'id',
-        false
-    );
-    if (empty($draftfiles) && exelearning_get_stored_package($context->id) !== null) {
-        exelearning_extract_stored_package($context->id, (int) $data->revision);
-        return;
-    }
-
-    // 1) Persist the ZIP in 'package/0/'.
-    $fs->delete_area_files($context->id, 'mod_exelearning', 'package');
-    file_save_draft_area_files(
-        $data->package,
-        $context->id,
-        'mod_exelearning',
-        'package',
-        0,
-        ['subdirs' => 0, 'maxfiles' => 1]
-    );
-
-    // 2) Extract the newly saved ZIP to the content filearea.
-    exelearning_extract_stored_package($context->id, (int) $data->revision);
+    \mod_exelearning\local\package_manager::save_and_extract($data);
 }
 
 /**
@@ -782,22 +669,7 @@ function exelearning_save_and_extract_package(stdClass $data): void {
  * @return \stored_file|null
  */
 function exelearning_get_stored_package(int $contextid): ?\stored_file {
-    $fs = get_file_storage();
-    // Itemid=false means every itemid in the filearea.
-    $files = $fs->get_area_files(
-        $contextid,
-        'mod_exelearning',
-        'package',
-        false,
-        'itemid DESC, sortorder, filepath, filename',
-        false
-    );
-    foreach ($files as $file) {
-        if (!$file->is_directory()) {
-            return $file;
-        }
-    }
-    return null;
+    return \mod_exelearning\local\package_manager::get_stored_package($contextid);
 }
 
 /**
@@ -811,17 +683,7 @@ function exelearning_get_stored_package(int $contextid): ?\stored_file {
  * @return bool True when the archive contains content.xml at its root.
  */
 function exelearning_package_has_content_xml(\stored_file $file): bool {
-    $packer = get_file_packer('application/zip');
-    $entries = $file->list_files($packer);
-    if (!is_array($entries)) {
-        return false;
-    }
-    foreach ($entries as $entry) {
-        if ($entry->pathname === 'content.xml') {
-            return true;
-        }
-    }
-    return false;
+    return \mod_exelearning\local\package_manager::validate_content_xml($file);
 }
 
 /**
@@ -837,96 +699,7 @@ function exelearning_package_has_content_xml(\stored_file $file): bool {
  * @param int $revision
  */
 function exelearning_extract_stored_package(int $contextid, int $revision): void {
-    $fs = get_file_storage();
-
-    // Locate the stored ZIP (any itemid).
-    $package = exelearning_get_stored_package($contextid);
-    if (!$package instanceof \stored_file) {
-        return;
-    }
-
-    $data = (object) ['revision' => $revision];
-    $context = (object) ['id' => $contextid];
-
-    // 3) Clear previous content and extract to the current revision.
-    $fs->delete_area_files($context->id, 'mod_exelearning', 'content');
-
-    $packer = get_file_packer('application/zip');
-    $package->extract_to_storage(
-        $packer,
-        $context->id,
-        'mod_exelearning',
-        'content',
-        (int) $data->revision,
-        '/'
-    );
-
-    // 4) Ensure index.html is set as mainfile (for the file browser).
-    $entry = $fs->get_file(
-        $context->id,
-        'mod_exelearning',
-        'content',
-        (int) $data->revision,
-        '/',
-        'index.html'
-    );
-    if ($entry) {
-        file_set_sortorder(
-            $context->id,
-            'mod_exelearning',
-            'content',
-            (int) $data->revision,
-            '/',
-            'index.html',
-            1
-        );
-    }
-
-    // 5) If the package (web export) does not include libs/SCORM_API_wrapper.js,
-    // inject it from the plugin's assets/ directory. eXeLearning v4 only bundles
-    // this wrapper in the SCORM export; without it, gradable iDevices display
-    // "this page is not part of a SCORM package".
-    foreach (['SCORM_API_wrapper.js', 'SCOFunctions.js'] as $shimname) {
-        $present = $fs->get_file(
-            $context->id,
-            'mod_exelearning',
-            'content',
-            (int) $data->revision,
-            '/libs/',
-            $shimname
-        );
-        if ($present) {
-            continue;
-        }
-        $assetpath = __DIR__ . '/assets/scorm/' . $shimname;
-        if (!is_file($assetpath)) {
-            continue;
-        }
-        $fs->create_file_from_pathname([
-            'contextid' => $context->id,
-            'component' => 'mod_exelearning',
-            'filearea'  => 'content',
-            'itemid'    => (int) $data->revision,
-            'filepath'  => '/libs/',
-            'filename'  => $shimname,
-        ], $assetpath);
-    }
-
-    // 6) Inject <script src="libs/SCORM_API_wrapper.js"></script> into the
-    // package HTML files. eXeLearning v4 only loads the wrapper on-demand when
-    // the user clicks "Save score", but before that (in libs/common.js:1052) it
-    // already checks `typeof pipwerks === 'undefined'` to decide whether to show
-    // the "not a SCORM package" message or the save-score bar. By forcing the
-    // load at page-load time, that check passes and the iDevice recognises the
-    // SCORM environment.
-    exelearning_inject_scorm_loader($context->id, (int) $data->revision);
-
-    // 7) Make the two iDevices that gate their score-save on the `exe-scorm` body
-    // class also save in this web-export embedding (issue #13). All other gradable
-    // iDevices save on `isScorm > 0` alone; only `form` and `scrambled-list` add a
-    // `body.hasClass('exe-scorm')` condition, which is absent here (we serve a web
-    // export). We drop that condition from their save guard at serve time.
-    exelearning_patch_idevice_save_guards($context->id, (int) $data->revision);
+    \mod_exelearning\local\package_manager::extract_stored($contextid, $revision);
 }
 
 /**
@@ -939,22 +712,7 @@ function exelearning_extract_stored_package(int $contextid, int $revision): void
  * @return void
  */
 function exelearning_require_teacher_mode_hider(string $iframeid): void {
-    global $PAGE;
-
-    $iframeidjson = json_encode($iframeid);
-    $cssjson = json_encode('#teacher-mode-toggler-wrapper { visibility: hidden !important; }');
-
-    $js = "(function(){"
-        . "var iframe=document.getElementById(" . $iframeidjson . ");"
-        . "if(!iframe){return;}"
-        . "var css=" . $cssjson . ";"
-        . "var inject=function(){try{if(!iframe.contentDocument){return;}"
-        . "var d=iframe.contentDocument;var st=d.createElement('style');st.textContent=css;"
-        . "(d.head||d.documentElement).appendChild(st);}catch(e){}};"
-        . "iframe.addEventListener('load', inject);inject();"
-        . "})();";
-
-    $PAGE->requires->js_init_code($js);
+    \mod_exelearning\local\ui\teacher_mode_hider::require_for_iframe($iframeid);
 }
 
 /**
@@ -965,72 +723,7 @@ function exelearning_require_teacher_mode_hider(string $iframeid): void {
  * @param int $revision
  */
 function exelearning_inject_scorm_loader(int $contextid, int $revision): void {
-    $fs = get_file_storage();
-    $marker = '<!-- mod_exelearning:scorm-loader -->';
-    // After loading the wrapper, force `pipwerks.SCORM.init()` so that
-    // connection.isActive=true and subsequent `set()` calls DO reach
-    // window.parent.API.LMSSetValue. eXeLearning only invokes init() in the
-    // on-click flow; with isScorm==1 (auto-save after each question) it never
-    // gets called, so we trigger it here.
-    $initscript = "\n    <script>\n" .
-            "      (function(){\n" .
-            "        var t = setInterval(function(){\n" .
-            "          if (window.pipwerks && window.pipwerks.SCORM) {\n" .
-            "            clearInterval(t);\n" .
-            "            try { window.pipwerks.SCORM.init(); } catch(e){}\n" .
-            "          }\n" .
-            "        }, 50);\n" .
-            "      })();\n" .
-            "    </script>\n";
-    $tags = $marker .
-            "\n    <script src=\"libs/SCORM_API_wrapper.js\"></script>" .
-            "\n    <script src=\"libs/SCOFunctions.js\"></script>" .
-            $initscript;
-    $tagshtml = $marker .
-            "\n    <script src=\"../libs/SCORM_API_wrapper.js\"></script>" .
-            "\n    <script src=\"../libs/SCOFunctions.js\"></script>" .
-            $initscript;
-
-    // Iterate over all HTML files in the filearea.
-    $files = $fs->get_area_files(
-        $contextid,
-        'mod_exelearning',
-        'content',
-        $revision,
-        'filepath, filename',
-        false
-    );
-    foreach ($files as $file) {
-        if ($file->is_directory()) {
-            continue;
-        }
-        $name = $file->get_filename();
-        if (!preg_match('~\.html?$~i', $name)) {
-            continue;
-        }
-        $html = $file->get_content();
-        if ($html === '' || strpos($html, $marker) !== false) {
-            continue;
-        }
-        $path = $file->get_filepath();
-        $payload = ($path === '/') ? $tags : $tagshtml;
-        // Insert just before </head> (case-insensitive).
-        $newhtml = preg_replace('~</head>~i', $payload . '</head>', $html, 1);
-        if ($newhtml === null || $newhtml === $html) {
-            continue;
-        }
-        // Replace content in the filearea: delete and recreate.
-        $record = [
-            'contextid' => $contextid,
-            'component' => 'mod_exelearning',
-            'filearea'  => 'content',
-            'itemid'    => $revision,
-            'filepath'  => $path,
-            'filename'  => $name,
-        ];
-        $file->delete();
-        $fs->create_file_from_string($record, $newhtml);
-    }
+    \mod_exelearning\local\scorm\scorm_injector::inject($contextid, $revision);
 }
 
 /**
@@ -1057,52 +750,7 @@ function exelearning_inject_scorm_loader(int $contextid, int $revision): void {
  * @param int $revision
  */
 function exelearning_patch_idevice_save_guards(int $contextid, int $revision): void {
-    $fs = get_file_storage();
-    // Map of iDevice JS filename => [ exact save-guard string => replacement ].
-    $patches = [
-        'form.js' => [
-            '$(\'body\').hasClass(\'exe-scorm\') && data.isScorm > 0' => 'data.isScorm > 0',
-        ],
-        'scrambled-list.js' => [
-            'document.body.classList.contains(\'exe-scorm\') && data.isScorm > 0' => 'data.isScorm > 0',
-        ],
-    ];
-    $files = $fs->get_area_files(
-        $contextid,
-        'mod_exelearning',
-        'content',
-        $revision,
-        'filepath, filename',
-        false
-    );
-    foreach ($files as $file) {
-        if ($file->is_directory()) {
-            continue;
-        }
-        $name = $file->get_filename();
-        if (!isset($patches[$name])) {
-            continue;
-        }
-        $content = $file->get_content();
-        $newcontent = $content;
-        foreach ($patches[$name] as $search => $replace) {
-            if (strpos($newcontent, $search) !== false) {
-                $newcontent = str_replace($search, $replace, $newcontent);
-            }
-        }
-        if ($newcontent === $content) {
-            continue;
-        }
-        $file->delete();
-        $fs->create_file_from_string([
-            'contextid' => $contextid,
-            'component' => 'mod_exelearning',
-            'filearea'  => 'content',
-            'itemid'    => $revision,
-            'filepath'  => $file->get_filepath(),
-            'filename'  => $name,
-        ], $newcontent);
-    }
+    \mod_exelearning\local\scorm\idevice_patch::patch($contextid, $revision);
 }
 
 /**
@@ -1117,36 +765,7 @@ function exelearning_patch_idevice_save_guards(int $contextid, int $revision): v
  * @return void
  */
 function exelearning_remove_all_grade_items(stdClass $instance): void {
-    global $CFG, $DB;
-    require_once($CFG->libdir . '/gradelib.php');
-
-    $rows = $DB->get_records('exelearning_grade_item', ['exelearningid' => $instance->id, 'deleted' => 0]);
-    foreach ($rows as $row) {
-        $row->deleted = 1;
-        $row->timemodified = time();
-        $DB->update_record('exelearning_grade_item', $row);
-        grade_update(
-            'mod/exelearning',
-            $instance->course,
-            'mod',
-            'exelearning',
-            $instance->id,
-            (int) $row->itemnumber,
-            null,
-            ['deleted' => true]
-        );
-    }
-    // Remove the overall item (itemnumber 0) too.
-    grade_update(
-        'mod/exelearning',
-        $instance->course,
-        'mod',
-        'exelearning',
-        $instance->id,
-        0,
-        null,
-        ['deleted' => true]
-    );
+    \mod_exelearning\grades\grade_item_manager::remove_all($instance);
 }
 
 /**
@@ -1162,245 +781,7 @@ function exelearning_remove_all_grade_items(stdClass $instance): void {
  * @return array{added:int,removed:int,changed:int}
  */
 function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null): array {
-    global $CFG, $DB;
-    require_once($CFG->libdir . '/gradelib.php');
-
-    $delta = ['added' => 0, 'removed' => 0, 'changed' => 0];
-
-    $instance = $DB->get_record('exelearning', ['id' => $exelearningid], '*', MUST_EXIST);
-
-    if ($contextid === null) {
-        $cm = get_coursemodule_from_instance('exelearning', $exelearningid);
-        if (!$cm) {
-            return $delta;
-        }
-        $contextid = context_module::instance($cm->id)->id;
-    }
-    $context = context::instance_by_id($contextid);
-
-    // Master grading switch (DEC-0029): when the activity is not graded, remove all
-    // gradebook items (soft-delete our rows + delete the Moodle grade items, overall
-    // included) and detect nothing. Attempt history (exelearning_attempt) is kept.
-    if (empty($instance->gradeenabled)) {
-        exelearning_remove_all_grade_items($instance);
-        return $delta;
-    }
-
-    // Locate the ELPX in the 'package' filearea (any itemid: form=0,
-    // Playground addModule=1, editor/save.php=revision).
-    $elpx = exelearning_get_stored_package($context->id);
-    if (!$elpx instanceof \stored_file) {
-        return $delta;
-    }
-
-    $grademodel = (int) ($instance->grademodel ?? EXELEARNING_GRADEMODEL_PERITEM);
-
-    // Canonical grade item (itemnumber=0) according to the grading model
-    // (DEC-0008, revised by DEC-0038). The two models are now symmetric: OVERALL
-    // shows only the aggregated column, PERITEM shows only the per-iDevice
-    // columns. There is no longer a hidden overall stub in PERITEM — a hidden
-    // item still shows (greyed) to teachers with moodle/grade:viewhidden and was
-    // reported as a confusing "extra grade" (DEC-0038). Completion-by-grade keeps
-    // working the Moodle-native way: the teacher points completiongradeitemnumber
-    // at a per-iDevice item (workshop model), or uses OVERALL mode to complete on
-    // passing the activity as a whole (DEC-0010).
-    if ($grademodel === EXELEARNING_GRADEMODEL_OVERALL) {
-        // Overall only: the gradebook shows a single aggregated column (SCORM-style).
-        // Pass hidden=0 explicitly so switching PERITEM -> OVERALL un-hides the
-        // overall item; grade_update() leaves the flag untouched otherwise and the
-        // column would stay hidden from when it was the completion-only stub.
-        exelearning_grade_item_update($instance, null, ['hidden' => 0]);
-    } else {
-        // Per iDevice (default): no overall column at all. Delete any overall left
-        // over from a previous sync or from the legacy hidden-stub model (DEC-0038).
-        grade_update(
-            'mod/exelearning',
-            $instance->course,
-            'mod',
-            'exelearning',
-            $instance->id,
-            0,
-            null,
-            ['deleted' => true]
-        );
-    }
-
-    // Detection.
-    $detected = (new \mod_exelearning\local\package($elpx))->detect_gradable_idevices();
-
-    // Record that this revision has been scanned for gradable iDevices, even when
-    // none were found. Without this marker the view.php self-heal (which is keyed
-    // on "has no gradable grade item") re-extracts and re-parses the whole ELPX
-    // on EVERY view of a content-only package, since that condition stays
-    // permanently true. Stored as max(revision, 1) so a package with revision=0
-    // (e.g. a programmatic Playground upload) is still marked as scanned and not
-    // re-extracted on every load.
-    $DB->set_field(
-        'exelearning',
-        'gradesyncrev',
-        max((int) $instance->revision, 1),
-        ['id' => $exelearningid]
-    );
-
-    if ($detected === []) {
-        // No gradable iDevices: PERITEM has no grade items at all, OVERALL keeps
-        // its single aggregated column. Place whatever exists under the configured
-        // grade category (DEC-0034); a no-op when there are no items.
-        exelearning_apply_grade_category($instance);
-        return $delta;
-    }
-
-    $existing = $DB->get_records(
-        'exelearning_grade_item',
-        ['exelearningid' => $exelearningid],
-        '',
-        'objectid, id, itemnumber, deleted, contenthash'
-    );
-
-    $nextnum = (int) $DB->get_field_sql(
-        "SELECT COALESCE(MAX(itemnumber),0) FROM {exelearning_grade_item}
-             WHERE exelearningid = ?",
-        [$exelearningid]
-    );
-
-    $seen = [];
-    $capwarned = false;
-    foreach ($detected as $d) {
-        // Clamp the package-controlled identifiers to their column widths before
-        // they are used as the $existing lookup key or written to the DB, so an
-        // adversarial/overlong content.xml cannot throw a dml_write_exception
-        // mid-sync (a student-facing fatal through the view.php self-heal) (B5,
-        // DEC-0044). objectid/pageid are char(191), idevicetype char(64).
-        $d->idevicetype = core_text::substr((string) $d->idevicetype, 0, 64);
-        $d->objectid    = core_text::substr((string) $d->objectid, 0, 191);
-        $d->pageid      = ($d->pageid === null)
-            ? null
-            : core_text::substr((string) $d->pageid, 0, 191);
-
-        $name = exelearning_grade_item_name($instance, $d);
-        $now = time();
-
-        $newhash = $d->contenthash ?? null;
-
-        if (isset($existing[$d->objectid])) {
-            $row = $existing[$d->objectid];
-            // An in-place options/scoring edit keeps the objectid but changes
-            // the content block hash; a re-appearing (un-deleted) iDevice also
-            // counts as a change worth flagging. Rows synced before this column
-            // existed have a NULL hash: backfill silently, never flag, so the
-            // first sync after upgrade does not warn on every iDevice.
-            $oldhash = $row->contenthash ?? null;
-            if (($oldhash !== null && $oldhash !== $newhash) || (int) $row->deleted === 1) {
-                $delta['changed']++;
-            }
-            $row->name         = $name;
-            $row->idevicetype  = $d->idevicetype;
-            $row->pageid       = $d->pageid;
-            $row->deleted      = 0;
-            $row->contenthash  = $newhash;
-            $row->timemodified = $now;
-            $DB->update_record('exelearning_grade_item', $row);
-            $itemnumber = (int) $row->itemnumber;
-        } else {
-            // Moodle 5.x can only label grade items whose itemnumber is declared
-            // in the component mapping (gradeitems::MAX_ITEMNUMBER). Registering
-            // beyond that creates columns Moodle cannot name, breaking the
-            // completion-via-grade dropdown and Course overview labelling, so we
-            // stop registering further iDevices once the cap is reached.
-            if ($nextnum >= \mod_exelearning\grades\gradeitems::MAX_ITEMNUMBER) {
-                if (!$capwarned) {
-                    debugging(
-                        'mod_exelearning: package has more than '
-                            . \mod_exelearning\grades\gradeitems::MAX_ITEMNUMBER
-                            . ' gradable iDevices; the extra items are not registered '
-                            . 'as gradebook columns.',
-                        DEBUG_DEVELOPER
-                    );
-                    $capwarned = true;
-                }
-                continue;
-            }
-            $nextnum++;
-            $itemnumber = $nextnum;
-            $delta['added']++;
-            $DB->insert_record('exelearning_grade_item', (object) [
-                'exelearningid' => $exelearningid,
-                'itemnumber'    => $itemnumber,
-                'objectid'      => $d->objectid,
-                'pageid'        => $d->pageid,
-                'idevicetype'   => $d->idevicetype,
-                'name'          => $name,
-                'grademax'      => $instance->grademax ?? 100,
-                'grademin'      => $instance->grademin ?? 0,
-                'deleted'       => 0,
-                'contenthash'   => $newhash,
-                'timecreated'   => $now,
-                'timemodified'  => $now,
-            ]);
-        }
-        $seen[$d->objectid] = true;
-
-        if ($grademodel === EXELEARNING_GRADEMODEL_OVERALL) {
-            // Overall only: do not expose per-iDevice columns in the gradebook
-            // (the row is kept for the attempts report).
-            grade_update(
-                'mod/exelearning',
-                $instance->course,
-                'mod',
-                'exelearning',
-                $instance->id,
-                $itemnumber,
-                null,
-                ['deleted' => true]
-            );
-        } else {
-            grade_update(
-                'mod/exelearning',
-                $instance->course,
-                'mod',
-                'exelearning',
-                $instance->id,
-                $itemnumber,
-                null,
-                [
-                        'itemname'  => $name,
-                        'gradetype' => GRADE_TYPE_VALUE,
-                        'grademax'  => $instance->grademax ?? 100,
-                        'grademin'  => $instance->grademin ?? 0,
-                        'display'   => (int) ($instance->gradedisplaytype ?? GRADE_DISPLAY_TYPE_DEFAULT),
-                ]
-            );
-        }
-    }
-
-    // Mark previously-known items that are gone as deleted, AND remove their
-    // gradebook column. Marking our own row is not enough: the Moodle grade
-    // item only disappears from the gradebook when grade_update() is called
-    // with ['deleted' => true]. Grade history in grade_grades is preserved.
-    foreach ($existing as $objectid => $row) {
-        if (!isset($seen[$objectid]) && !$row->deleted) {
-            $delta['removed']++;
-            $row->deleted = 1;
-            $row->timemodified = time();
-            $DB->update_record('exelearning_grade_item', $row);
-            grade_update(
-                'mod/exelearning',
-                $instance->course,
-                'mod',
-                'exelearning',
-                $instance->id,
-                (int) $row->itemnumber,
-                null,
-                ['deleted' => true]
-            );
-        }
-    }
-
-    // Place the overall and every per-iDevice column under the configured grade
-    // category (DEC-0034); grade_update() above cannot do this itself.
-    exelearning_apply_grade_category($instance);
-
-    return $delta;
+    return \mod_exelearning\grades\grade_sync::sync($exelearningid, $contextid);
 }
 
 /**
@@ -1420,21 +801,7 @@ function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null
  * @return void
  */
 function exelearning_warn_if_grades_stale(int $exelearningid, array $delta, ?int $cmid = null): void {
-    $changes = (int) ($delta['added'] ?? 0)
-        + (int) ($delta['removed'] ?? 0)
-        + (int) ($delta['changed'] ?? 0);
-    if ($changes === 0) {
-        return;
-    }
-    if (!\mod_exelearning\local\attempts::activity_has_attempts($exelearningid)) {
-        return;
-    }
-    $message = get_string('gradesetchangedwarning', 'mod_exelearning');
-    if ($cmid !== null) {
-        $url = new moodle_url('/mod/exelearning/report.php', ['id' => $cmid]);
-        $message .= ' ' . html_writer::link($url, get_string('attemptsreport', 'mod_exelearning'));
-    }
-    \core\notification::warning($message);
+    \mod_exelearning\grades\grade_sync::warn_if_stale($exelearningid, $delta, $cmid);
 }
 
 /**
@@ -1451,7 +818,7 @@ function exelearning_warn_if_grades_stale(int $exelearningid, array $delta, ?int
  * @param int $userid
  */
 function exelearning_recalculate_user_grades(stdClass $instance, int $userid): void {
-    exelearning_recalculate_grades_for_users($instance, [$userid]);
+    \mod_exelearning\grades\grade_recalculator::recalculate_user($instance, $userid);
 }
 
 /**
@@ -1472,71 +839,7 @@ function exelearning_recalculate_user_grades(stdClass $instance, int $userid): v
  * @param int[] $userids Users to recalculate; empty array is a no-op.
  */
 function exelearning_recalculate_grades_for_users(stdClass $instance, array $userids): void {
-    global $CFG, $DB;
-    require_once($CFG->libdir . '/gradelib.php');
-
-    if (empty($userids)) {
-        return;
-    }
-
-    $grademax = (float) ($instance->grademax ?? 100);
-    $grademethod = (int) ($instance->grademethod ?? \mod_exelearning\local\attempts::GRADE_HIGHEST);
-    $grademodel = (int) ($instance->grademodel ?? EXELEARNING_GRADEMODEL_PERITEM);
-    $base = [
-        'gradetype' => GRADE_TYPE_VALUE,
-        'grademax'  => $grademax,
-        'grademin'  => $instance->grademin ?? 0,
-        'display'   => (int) ($instance->gradedisplaytype ?? GRADE_DISPLAY_TYPE_DEFAULT),
-    ];
-
-    $items = [0 => clean_param($instance->name, PARAM_NOTAGS)];
-    $rows = $DB->get_records(
-        'exelearning_grade_item',
-        ['exelearningid' => $instance->id, 'deleted' => 0],
-        'itemnumber',
-        'itemnumber, name'
-    );
-    foreach ($rows as $r) {
-        $items[(int) $r->itemnumber] = $r->name;
-    }
-
-    // One query for every attempt of every user, grouped by user and item.
-    $byuser = \mod_exelearning\local\attempts::fetch_scaled_by_user_item($instance->id, $userids);
-
-    foreach ($items as $itemnumber => $name) {
-        unset($base['hidden']);
-        // PERITEM has no overall column (DEC-0038): never (re)publish item 0 there,
-        // which would recreate it. OVERALL has no per-iDevice columns.
-        if ($itemnumber === 0 && $grademodel !== EXELEARNING_GRADEMODEL_OVERALL) {
-            continue;
-        }
-        if ($itemnumber > 0 && $grademodel === EXELEARNING_GRADEMODEL_OVERALL) {
-            continue;
-        }
-        // One grade_update() per item with the grades keyed by userid; core's
-        // grade_update() accepts an array of grade objects.
-        $grades = [];
-        foreach ($userids as $uid) {
-            $scaled = \mod_exelearning\local\attempts::aggregate_values(
-                $byuser[$uid][$itemnumber] ?? [],
-                $grademethod
-            );
-            $grades[$uid] = (object) [
-                'userid'   => $uid,
-                'rawgrade' => ($scaled === null) ? null : ($scaled * $grademax),
-            ];
-        }
-        grade_update(
-            'mod/exelearning',
-            $instance->course,
-            'mod',
-            'exelearning',
-            $instance->id,
-            $itemnumber,
-            $grades,
-            $base + ['itemname' => $name]
-        );
-    }
+    \mod_exelearning\grades\grade_recalculator::recalculate_for_users($instance, $userids);
 }
 
 /**
@@ -1547,17 +850,7 @@ function exelearning_recalculate_grades_for_users(stdClass $instance, array $use
  * @return string
  */
 function exelearning_grade_item_name(stdClass $instance, stdClass $detected): string {
-    $type = clean_param($detected->idevicetype, PARAM_TEXT);
-    $page = trim((string) ($detected->pagename ?? ''));
-    $base = clean_param($instance->name, PARAM_NOTAGS);
-    $name = ($page !== '') ? ($base . ' · ' . $page . ' · ' . $type) : ($base . ' · ' . $type);
-    // Clamp to the exelearning_grade_item.name column width (char 255). The page
-    // title comes from author-controlled content.xml and is unbounded; combined
-    // with an up-to-255-char activity name it can exceed 255 and throw a
-    // dml_write_exception on sync — which, via the view.php self-heal, is a
-    // student-facing fatal (B5, DEC-0044). core_text::substr is multibyte-safe and
-    // deterministic, so re-sync does not thrash the stored name.
-    return core_text::substr($name, 0, 255);
+    return \mod_exelearning\grades\grade_item_manager::format_name($instance, $detected);
 }
 
 /**
@@ -1585,35 +878,7 @@ function exelearning_grade_item_name(stdClass $instance, stdClass $detected): st
  * @return array The (possibly relaxed) errors array.
  */
 function exelearning_relax_completion_grade_errors(array $errors, array $data, int $exelearningid): array {
-    global $DB;
-
-    $selected = $data['completiongradeitemnumber'] ?? null;
-    if (
-        $selected === null || $selected === ''
-        || !empty($data['completionpassgrade'])
-        || !isset($errors['completionpassgrade'])
-    ) {
-        return $errors;
-    }
-
-    $itemnumber = (int) $selected;
-    $grademodel = (int) ($data['grademodel'] ?? EXELEARNING_GRADEMODEL_PERITEM);
-    // A real gradebook column exists for the overall (0) only in OVERALL mode, and
-    // for a per-iDevice item only in PERITEM mode — OVERALL deletes the per-iDevice
-    // Moodle columns (DEC-0038), so completion must not target one there even though
-    // its exelearning_grade_item row is kept for the report.
-    $registered = ($itemnumber === 0)
-        ? ($grademodel === EXELEARNING_GRADEMODEL_OVERALL)
-        : ($grademodel === EXELEARNING_GRADEMODEL_PERITEM
-            && $DB->record_exists('exelearning_grade_item', [
-                'exelearningid' => $exelearningid,
-                'itemnumber'    => $itemnumber,
-                'deleted'       => 0,
-            ]));
-    if ($registered) {
-        unset($errors['completionpassgrade']);
-    }
-    return $errors;
+    return \mod_exelearning\grades\completion_validator::relax_errors($errors, $data, $exelearningid);
 }
 
 /**
@@ -1632,27 +897,7 @@ function exelearning_relax_completion_grade_errors(array $errors, array $data, i
  * @return void
  */
 function exelearning_apply_grade_category(stdClass $instance): void {
-    global $CFG;
-    require_once($CFG->libdir . '/gradelib.php');
-
-    $categoryid = (int) ($instance->gradecat ?? 0);
-    if ($categoryid <= 0) {
-        return;
-    }
-    $items = grade_item::fetch_all([
-        'itemtype'     => 'mod',
-        'itemmodule'   => 'exelearning',
-        'iteminstance' => $instance->id,
-        'courseid'     => $instance->course,
-    ]);
-    if (!$items) {
-        return;
-    }
-    foreach ($items as $item) {
-        if ((int) $item->categoryid !== $categoryid) {
-            $item->set_parent($categoryid);
-        }
-    }
+    \mod_exelearning\grades\grade_item_manager::apply_category($instance);
 }
 
 // Note: exelearning_exclude_overall_grade() (DEC-0035) was removed in DEC-0038.
@@ -1680,27 +925,7 @@ function exelearning_apply_grade_category(stdClass $instance): void {
  * @return moodle_url|null URL to the package file, or null if it does not exist.
  */
 function exelearning_get_package_url($exelearning, $context) {
-    $fs = get_file_storage();
-    $files = $fs->get_area_files(
-        $context->id,
-        'mod_exelearning',
-        'package',
-        false,
-        'itemid DESC, sortorder DESC, id ASC',
-        false
-    );
-    $package = reset($files);
-    if (!$package) {
-        return null;
-    }
-    return moodle_url::make_pluginfile_url(
-        $context->id,
-        'mod_exelearning',
-        'package',
-        $package->get_itemid(),
-        $package->get_filepath(),
-        $package->get_filename()
-    );
+    return \mod_exelearning\local\package_manager::get_package_url($exelearning, $context);
 }
 
 /**
@@ -1718,20 +943,7 @@ function exelearning_get_package_url($exelearning, $context) {
  * @return moodle_url View URL, with an `idevice` parameter when one is known.
  */
 function exelearning_grade_item_view_url(stdClass $exelearning, int $cmid, int $itemnumber): moodle_url {
-    global $DB;
-
-    $params = ['id' => $cmid];
-    if ($itemnumber > 0) {
-        $objectid = $DB->get_field('exelearning_grade_item', 'objectid', [
-            'exelearningid' => $exelearning->id,
-            'itemnumber'    => $itemnumber,
-            'deleted'       => 0,
-        ]);
-        if (!empty($objectid)) {
-            $params['idevice'] = $objectid;
-        }
-    }
-    return new moodle_url('/mod/exelearning/view.php', $params);
+    return \mod_exelearning\local\urls::grade_item_view_url($exelearning, $cmid, $itemnumber);
 }
 
 /**
@@ -1758,14 +970,7 @@ function exelearning_grade_analysis_url(
     context $context,
     int $userid = 0
 ): moodle_url {
-    if (has_capability('mod/exelearning:viewreport', $context)) {
-        $params = ['id' => $cmid];
-        if ($userid > 0) {
-            $params['userid'] = $userid;
-        }
-        return new moodle_url('/mod/exelearning/report.php', $params);
-    }
-    return exelearning_grade_item_view_url($exelearning, $cmid, $itemnumber);
+    return \mod_exelearning\local\urls::grade_analysis_url($exelearning, $cmid, $itemnumber, $context, $userid);
 }
 
 /**

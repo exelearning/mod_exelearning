@@ -102,7 +102,9 @@ $string['err_nocontentxml'] = 'The uploaded file is not a valid eXeLearning pack
 $string['error_maxattemptsreached'] = 'You have reached the maximum number of attempts for this activity.';
 $string['eventactivitymigrated'] = 'Activity migrated to eXeLearning';
 $string['eventactivityskipped'] = 'Activity skipped during migration';
+$string['eventattemptcompleted'] = 'Attempt completed';
 $string['eventattemptdeleted'] = 'Attempt deleted';
+$string['eventattemptstarted'] = 'Attempt started';
 $string['eventmigrationfailed'] = 'Activity migration failed';
 $string['eventmigrationstarted'] = 'Migration run started';
 $string['eventreportviewed'] = 'Attempts report viewed';
@@ -327,6 +329,7 @@ $string['savedsuccess'] = 'Changes saved successfully';
 $string['savetomoodle'] = 'Save to Moodle';
 $string['saving'] = 'Saving...';
 $string['savingwait'] = 'Please wait while the file is being saved.';
+$string['search:activity'] = 'eXeLearning resource - activity information';
 $string['stillworking'] = 'Still working...';
 $string['stylesblockimport'] = 'Block user-imported styles';
 $string['stylesblockimport_desc'] = 'When enabled, the embedded editor hides the "User styles" tab and refuses to install a style bundled inside an imported .elpx project. Users may only choose from the admin-approved list above. This mirrors the eXeLearning ONLINE_THEMES_INSTALL=false behavior.';

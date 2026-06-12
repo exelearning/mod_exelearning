@@ -288,6 +288,53 @@ decisiones_bloqueantes:
       scrambled-list.js:551 al extraer (exelearning_patch_idevice_save_guards en lib.php),
       str_replace idempotente que degrada a no-op. Verificado: Formulario persiste 100%
       con body web-site (sin exe-scorm), sin regresiones.
+  DEC-0053:
+    titulo: "Integración con la búsqueda global de Moodle (área de búsqueda + indexado de ficheros)"
+    estado: Aceptada
+    ruta: decisiones/adr/DEC-0053-busqueda-global.md
+    fecha: 2026-06-12
+    relacionados: [DEC-0049, DEC-0048]
+    notas: >-
+      Cierra el hueco de densidad de plataforma frente a mod_exescorm (que hereda el área
+      de mod_scorm): classes/search/activity.php extends core_search\base_activity, con
+      uses_file_indexing()=true y get_search_fileareas()=['intro','content'] para indexar
+      tanto el intro como el contenido eXe ya extraído al filearea content. 100% ficheros
+      nuevos (no toca lib.php). La base resuelve contexto/visibilidad/permisos. Opciones
+      adyacentes DIFERIDAS: core\activity_dates (no hay ventanas timeopen/timeclose en
+      mod_form.php) y los indicadores de analítica (solo útiles con modelos activos).
+  DEC-0054:
+    titulo: "Extracción de la lógica de lib.php a clases por responsabilidad (grades/*, local/scorm/*, package_manager, urls)"
+    estado: Aceptada
+    ruta: decisiones/adr/DEC-0054-extraccion-lib-php.md
+    fecha: 2026-06-12
+    relacionados: [DEC-0049, DEC-0046, DEC-0038, DEC-0007, DEC-0016]
+    notas: >-
+      Selecciona el hallazgo "descomposición de lib.php" diferido en DEC-0049. Refactor
+      mecánico sin cambio de comportamiento: lib.php 1751 → 956 líneas; los cuerpos de
+      sync/recálculo/item-management/completion (grades\grade_sync, grade_recalculator,
+      grade_item_manager, completion_validator), de paquete (local\package_manager), de
+      transformación SCORM al servir (local\scorm\scorm_injector, idevice_patch) y de
+      URLs/UI (local\urls, local\ui\teacher_mode_hider) pasan a clases; lib.php conserva
+      delegadores finos con las firmas que Moodle invoca, así que los llamadores externos
+      (view/report/grade/mod_form/editor/external/privacy/migration) no cambian. exelearning_supports()
+      intacto (lo edita otro carril). Paridad cubierta por la suite existente sin tocar asserts;
+      3 unit tests nuevos (grade_item_manager, scorm_injector, package_manager). phpcs 0/0.
+      Riesgo RIE-018 (regresión de cálculo de notas) mitigado por movimiento verbatim + suite +
+      Codecov patch ≥80% (DEC-0048) + CI.
+  DEC-0051:
+    titulo: "Eventos de ciclo de vida del intento (attempt_started / attempt_completed), uno por intento"
+    estado: Aceptada
+    ruta: decisiones/adr/DEC-0051-eventos-ciclo-de-vida-intento.md
+    fecha: 2026-06-12
+    relacionados: [DEC-0041, DEC-0007, DEC-0040, DEC-0044]
+    notas: >-
+      Extiende DEC-0041 (no la supersede): añade 2 eventos de ciclo de vida del alumno,
+      uno por intento — attempt_started (creación del intento) y attempt_completed (1ª
+      transición a estado terminal passed/failed/completed, con nota+estado). Emitidos
+      desde track::ingest() (web + móvil/save_track). NO por-commit: respeta el límite
+      anti-flood (autocommit 500ms) que DEC-0041 fijó. Cierra parte del eje observabilidad
+      (REPO-004: exescorm 11 vs exelearning 4). Riesgo RIE-016 aceptado.
+
   DEC-0052:
     titulo: "Regla de finalización personalizada por estado (completionstatusrequired)"
     estado: Aceptada
@@ -305,7 +352,6 @@ decisiones_bloqueantes:
       (solapa con completion-by-grade DEC-0038/DEC-0010) y completionstatusallscos (multi-SCO
       ajeno a eXe). No conflictúa con DEC-0049 (que rechazó completion per-iDevice): esta regla
       es un estado por módulo. Backup conserva el campo. Riesgos RIE-014/RIE-015.
-
 tareas:
   TAREA-001:
     fecha: 2026-05-28
@@ -625,6 +671,36 @@ riesgos:
       - DEC-0036
       - REPO-006
       - FTE-013
+  RIE-017:
+    titulo: "Indexado de contenido no visible o fuga de información vía búsqueda global"
+    severidad: baja
+    probabilidad: baja
+    estado: mitigado
+    mitigacion: >-
+      El área de búsqueda (DEC-0053, classes/search/activity.php) indexa los filearea
+      intro/content. Si indexara contenido que un usuario no debería ver, el buscador podría
+      filtrar fragmentos. MITIGADO: no se sobrescribe check_access(); la base
+      core_search\base_activity reverifica uservisible por módulo antes de devolver
+      resultados, y los filearea intro/content ya se sirven bajo
+      require_capability('mod/exelearning:view') en exelearning_pluginfile. Cubierto por
+      tests/search_test.php (check_access admin/alumno × visible/oculto/borrado).
+    relacionados:
+      - DEC-0053
+      - DEC-0049
+  RIE-016:
+    titulo: "attempt_completed podría dispararse en el primer commit puntuado sin lesson_status explícito"
+    severidad: baja
+    probabilidad: media
+    estado: aceptado
+    mitigacion: >-
+      Un commit con nota pero sin cmi.core.lesson_status normaliza a 'completed' (DEC-0007),
+      así que attempt_completed se emitiría en ese primer commit. ACEPTADO: sigue siendo una
+      vez por intento (el siguiente commit ve el estado previo ya terminal y no re-emite), sin
+      flood; el flujo incompleto→completo real se cubre por la transición de estado.
+    relacionados:
+      - DEC-0051
+      - DEC-0041
+      - DEC-0007
   RIE-014:
     titulo: "Cambio del estado requerido de completion con intentos ya registrados"
     severidad: baja
