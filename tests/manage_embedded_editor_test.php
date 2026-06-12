@@ -114,4 +114,25 @@ final class manage_embedded_editor_test extends advanced_testcase {
             $this->assertNotEmpty(manage_embedded_editor::get_action_success_string($action));
         }
     }
+
+    /**
+     * get_status() reports the install-lock state (in progress vs stale).
+     */
+    public function test_get_status_reports_install_lock(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $key = \mod_exelearning\local\embedded_editor_installer::CONFIG_INSTALLING;
+
+        // A fresh lock -> installing.
+        set_config($key, time(), 'exelearning');
+        $status = manage_embedded_editor::get_status(false);
+        $this->assertTrue($status['installing']);
+        $this->assertFalse($status['install_stale']);
+
+        // A lock older than the timeout -> stale.
+        set_config($key, time() - 10000, 'exelearning');
+        $status = manage_embedded_editor::get_status(false);
+        $this->assertFalse($status['installing']);
+        $this->assertTrue($status['install_stale']);
+    }
 }
