@@ -57,14 +57,13 @@ return new class extends phpunit_coverage_info {
     /**
      * @var array Files excluded from coverage.
      *
-     * embedded_editor_installer is the GitHub-release download adapter: most of
-     * it is network I/O (discover/fetch/download from api.github.com) that cannot
-     * be unit-tested without an HTTP mock. Its offline logic (validate_zip,
-     * normalize_extraction, safe_install, sha256, local-zip install) IS covered by
-     * embedded_editor_installer_test; the file is scoped out so the figure
-     * reflects unit-testable plugin logic rather than untestable integration code.
+     * Nothing is excluded by file: the embedded_editor_installer GitHub-release
+     * adapter — previously scoped out as "untestable network I/O" — is now covered
+     * by embedded_editor_installer_test, which drives the discover/fetch path with
+     * Moodle's \curl::mock_response() and the full install pipeline by stubbing the
+     * single download_to_temp() seam against a fixture ZIP. The only lines left
+     * uncovered are the curl error branches (get_errno()/http_code != 200), which
+     * the mock cannot reach because it always resolves successfully.
      */
-    protected $excludelistfiles = [
-        'classes/local/embedded_editor_installer.php',
-    ];
+    protected $excludelistfiles = [];
 };
