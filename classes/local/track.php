@@ -141,95 +141,117 @@ class track {
             'display'   => (int) ($exe->gradedisplaytype ?? GRADE_DISPLAY_TYPE_DEFAULT),
         ];
 
-        // Resolve the attempt number (one per page load / session).
-        $attempt = attempts::resolve_attempt_number($exe->id, $userid, $sessiontoken);
+        // Serialize attempt allocation + writes per (instance, user): two concurrent
+        // first commits with different session tokens (e.g. the same student in two
+        // tabs, each page load getting its own sessiontoken and autocommitting ~500 ms
+        // after the first score) would otherwise both read the same MAX(attempt),
+        // allocate the same number and collide on the unique
+        // (exelearningid, userid, attempt, itemnumber) index (db/install.xml). The web
+        // shim self-heals (it retries on a failed POST once MAX has moved), but the
+        // save_track WS would surface the raw dml_write_exception to the mobile client.
+        // The lock covers allocation, the maxattempt cap and every write/aggregation
+        // that reads back what was just written (this plan's reasoning).
+        $lockfactory = \core\lock\lock_config::get_lock_factory('mod_exelearning');
+        $lock = $lockfactory->get_lock('ingest_' . $exe->id . '_' . $userid, 5);
+        try {
+            // Resolve the attempt number (one per page load / session).
+            $attempt = attempts::resolve_attempt_number($exe->id, $userid, $sessiontoken);
 
-        // Attempt limit (DEC-0007 phase 2): a fresh session over the cap is rejected.
-        $maxattempt = (int) ($exe->maxattempt ?? 0);
-        if ($maxattempt > 0) {
-            $sessionknown = ($sessiontoken !== '') && $DB->record_exists(
-                'exelearning_attempt',
-                ['exelearningid' => $exe->id, 'userid' => $userid, 'sessiontoken' => $sessiontoken]
-            );
-            $priorcount = attempts::count_user_attempts($exe->id, $userid);
-            if (!$sessionknown && $priorcount >= $maxattempt) {
-                return [
-                    'ok'         => false,
-                    'error'      => 'maxattemptsreached',
-                    'attempts'   => $priorcount,
-                    'maxattempt' => $maxattempt,
-                ];
-            }
-        }
-
-        // 1) Attempts + aggregated grade per iDevice (itemnumber > 0).
-        $persaved = [];
-        if ($itemscores !== []) {
-            $persaved = self::apply_item_scores($exe, $userid, $attempt, $itemscores, $sessiontoken);
-        } else if ($peritem) {
-            $persaved = self::apply_legacy_peritem($exe, $userid, $attempt, $peritem, $sessiontoken);
-        }
-
-        // 2) Overall (itemnumber=0): recompute from the per-iDevice scores when an
-        // objectid map was supplied (DEC-0018), never trusting the client overall.
-        if ($itemscores !== []) {
-            $overallpct = self::recompute_overall_pct($itemscores);
-            if ($overallpct !== null) {
-                $recomputed = max($grademin, min($grademax, ($overallpct / 100.0) * $grademax));
-                if (abs($recomputed - $score) > 0.01) {
-                    debugging(
-                        'mod_exelearning: overall recomputed from itemscores (' . $recomputed
-                            . ') diverges from cmi.core.score.raw (' . $score
-                            . '); using the recomputed value (DEC-0018).',
-                        DEBUG_DEVELOPER
-                    );
+            // Attempt limit (DEC-0007 phase 2): a fresh session over the cap is rejected.
+            $maxattempt = (int) ($exe->maxattempt ?? 0);
+            if ($maxattempt > 0) {
+                $sessionknown = ($sessiontoken !== '') && $DB->record_exists(
+                    'exelearning_attempt',
+                    ['exelearningid' => $exe->id, 'userid' => $userid, 'sessiontoken' => $sessiontoken]
+                );
+                $priorcount = attempts::count_user_attempts($exe->id, $userid);
+                if (!$sessionknown && $priorcount >= $maxattempt) {
+                    // The try/finally releases the lock on this early return too.
+                    return [
+                        'ok'         => false,
+                        'error'      => 'maxattemptsreached',
+                        'attempts'   => $priorcount,
+                        'maxattempt' => $maxattempt,
+                    ];
                 }
-                $score = $recomputed;
+            }
+
+            // 1) Attempts + aggregated grade per iDevice (itemnumber > 0).
+            $persaved = [];
+            if ($itemscores !== []) {
+                $persaved = self::apply_item_scores($exe, $userid, $attempt, $itemscores, $sessiontoken);
+            } else if ($peritem) {
+                $persaved = self::apply_legacy_peritem($exe, $userid, $attempt, $peritem, $sessiontoken);
+            }
+
+            // 2) Overall (itemnumber=0): recompute from the per-iDevice scores when an
+            // objectid map was supplied (DEC-0018), never trusting the client overall.
+            if ($itemscores !== []) {
+                $overallpct = self::recompute_overall_pct($itemscores);
+                if ($overallpct !== null) {
+                    $recomputed = max($grademin, min($grademax, ($overallpct / 100.0) * $grademax));
+                    if (abs($recomputed - $score) > 0.01) {
+                        debugging(
+                            'mod_exelearning: overall recomputed from itemscores (' . $recomputed
+                                . ') diverges from cmi.core.score.raw (' . $score
+                                . '); using the recomputed value (DEC-0018).',
+                            DEBUG_DEVELOPER
+                        );
+                    }
+                    $score = $recomputed;
+                }
+            }
+            $overallstatus = in_array($status, ['passed', 'failed', 'completed', 'incomplete'], true)
+                    ? $status : 'completed';
+            attempts::record_item($exe->id, $userid, $attempt, 0, $score, $grademax, $overallstatus, $sessiontoken);
+            $scaledoverall = attempts::aggregate_scaled($exe->id, $userid, 0, $grademethod);
+            $finaloverall = ($scaledoverall === null) ? $score : ($scaledoverall * $grademax);
+
+            // Publish the aggregated overall grade ONLY in OVERALL mode (DEC-0038): in
+            // PERITEM the per-iDevice grades carry the gradebook.
+            $result = GRADE_UPDATE_OK;
+            if ($grademodel === EXELEARNING_GRADEMODEL_OVERALL) {
+                $grade = (object) [
+                    'userid'   => $userid,
+                    'rawgrade' => $finaloverall,
+                    'feedback' => null,
+                ];
+                $result = grade_update(
+                    'mod/exelearning',
+                    $exe->course,
+                    'mod',
+                    'exelearning',
+                    $exe->id,
+                    0,
+                    $grade,
+                    $itemdetailsbase + [
+                        'itemname' => clean_param($exe->name, PARAM_NOTAGS),
+                        'hidden'   => 0,
+                    ]
+                );
+            }
+
+            // Recalculate completion (completionpassgrade, SCORM style).
+            $completion = new \completion_info($course);
+            if ($completion->is_enabled($cm)) {
+                $completion->update_state($cm, COMPLETION_UNKNOWN, $userid);
+            }
+
+            return [
+                'ok'       => $result === GRADE_UPDATE_OK,
+                'attempt'  => $attempt,
+                'rawscore' => $finaloverall,
+                'status'   => $status,
+                'peritem'  => $persaved,
+            ];
+        } finally {
+            // On a timeout get_lock() returns false and we proceed without the lock:
+            // degraded mode equals today's unprotected behaviour, so a wedged request
+            // never blocks a legitimate commit. The guard skips release() in that case.
+            if ($lock) {
+                $lock->release();
             }
         }
-        $overallstatus = in_array($status, ['passed', 'failed', 'completed', 'incomplete'], true)
-                ? $status : 'completed';
-        attempts::record_item($exe->id, $userid, $attempt, 0, $score, $grademax, $overallstatus, $sessiontoken);
-        $scaledoverall = attempts::aggregate_scaled($exe->id, $userid, 0, $grademethod);
-        $finaloverall = ($scaledoverall === null) ? $score : ($scaledoverall * $grademax);
-
-        // Publish the aggregated overall grade ONLY in OVERALL mode (DEC-0038): in
-        // PERITEM the per-iDevice grades carry the gradebook.
-        $result = GRADE_UPDATE_OK;
-        if ($grademodel === EXELEARNING_GRADEMODEL_OVERALL) {
-            $grade = (object) [
-                'userid'   => $userid,
-                'rawgrade' => $finaloverall,
-                'feedback' => null,
-            ];
-            $result = grade_update(
-                'mod/exelearning',
-                $exe->course,
-                'mod',
-                'exelearning',
-                $exe->id,
-                0,
-                $grade,
-                $itemdetailsbase + [
-                    'itemname' => clean_param($exe->name, PARAM_NOTAGS),
-                    'hidden'   => 0,
-                ]
-            );
-        }
-
-        // Recalculate completion (completionpassgrade, SCORM style).
-        $completion = new \completion_info($course);
-        if ($completion->is_enabled($cm)) {
-            $completion->update_state($cm, COMPLETION_UNKNOWN, $userid);
-        }
-
-        return [
-            'ok'       => $result === GRADE_UPDATE_OK,
-            'attempt'  => $attempt,
-            'rawscore' => $finaloverall,
-            'status'   => $status,
-            'peritem'  => $persaved,
-        ];
     }
 
     /**

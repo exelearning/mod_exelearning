@@ -86,3 +86,25 @@ No functional code was changed: the audit surfaced no clear incoherence to fix.
 | ADR schema | `python3 research/tools/test_schema_validation.py` | Validates [[DEC-0047]] frontmatter. |
 
 See `docs/RELEASE_CHECKLIST.md` for the objective beta→stable gate.
+
+## 8. Standard-depth audit round (2026-06-11)
+
+A third, full-repo standard-depth audit (on top of [[DEC-0016]] security and [[DEC-0044]]
+critical bugs) produced **9 improvements**, each merged with its own tests and green CI.
+The decision record — including the **findings considered and rejected** (so they are not
+re-audited) and the recorded **direction options** — is in [[DEC-0049]].
+
+| Plan | Improvement | Pri | PR |
+|---|---|---|---|
+| 001 | Harden styles `config.xml` parsing (drop `LIBXML_NOENT`, reject DOCTYPE/ENTITY) — parity with [[DEC-0039]]. | P1 | #46 |
+| 002 | Declare the bundled editor in the release ZIP's `thirdpartylibs.xml` (index-only stamp). | P1 | #47 |
+| 003 | Backup/restore fidelity: round-trip `contenthash` ([[DEC-0021]]); skip unmappable attempt users instead of userid 0. | P1 | #48 |
+| 004 | Serialize attempt-number allocation with a per-`(instance,user)` `\core\lock` (degrades to today's behaviour on timeout). | P2 | #49 |
+| 005 | Participation summary honours `grademethod` ([[DEC-0007]]) so it matches the gradebook. | P2 | #50 |
+| 006 | Batch bulk grade recalculation: one SELECT + one `grade_update()` per item (kills the users×items N+1). | P2 | #51 |
+| 007 | Shared `zip_utils` with a post-extraction symlink/containment sweep, wired into both extraction sites. | P2 | #52 |
+| 008 | Attempts report download via `\core\dataformat` (CSV/Excel/ODS/JSON). | P3 | #53 |
+| 009 | Behat coverage for attempt deletion and the separate-groups restriction. | P3 | #54 |
+
+The standalone migration tool (issue #13 #3) is tracked separately as PR #15 and is **not**
+part of this round.

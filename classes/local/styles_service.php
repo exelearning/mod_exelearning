@@ -491,8 +491,15 @@ class styles_service {
      * @throws \moodle_exception
      */
     public static function parse_config_xml(string $source): array {
+        // A style config.xml never carries a DTD: reject any DOCTYPE/ENTITY
+        // outright so entity expansion is impossible, matching the hardened
+        // content.xml parser policy (DEC-0039). LIBXML_NOENT was removed: the
+        // flag ENABLES entity substitution despite its name.
+        if (preg_match('/<!(?:DOCTYPE|ENTITY)/i', $source)) {
+            throw new \moodle_exception('stylesupload_badxml', 'mod_exelearning');
+        }
         $preverrors = libxml_use_internal_errors(true);
-        $xml = simplexml_load_string($source, 'SimpleXMLElement', LIBXML_NONET | LIBXML_NOENT);
+        $xml = simplexml_load_string($source, 'SimpleXMLElement', LIBXML_NONET);
         libxml_clear_errors();
         libxml_use_internal_errors($preverrors);
         if ($xml === false) {
@@ -569,6 +576,11 @@ class styles_service {
             }
         }
         $zip->close();
+
+        // Post-extraction sweep: reject symlinks and verify every materialised
+        // path stayed inside $dest (defence-in-depth behind the per-entry name
+        // checks above). The caller deletes $dest on any thrown exception.
+        zip_utils::assert_extraction_contained($dest, 'stylesupload_unsafe');
     }
 
     // ---------------------------------------------------------------------
@@ -577,26 +589,15 @@ class styles_service {
     /**
      * Entries that must never be extracted (absolute paths, traversal, streams, empty).
      *
+     * Delegates to the shared {@see zip_utils::is_unsafe_zip_entry()}; kept here
+     * as a stable public wrapper because the editor installer, the existing
+     * tests and any external callers reference this symbol.
+     *
      * @param string $name
      * @return bool
      */
     public static function is_unsafe_zip_entry(string $name): bool {
-        if ($name === '') {
-            return true;
-        }
-        if (strpos($name, '\\') !== false) {
-            return true;
-        }
-        if (strpos($name, '/') === 0) {
-            return true;
-        }
-        if (preg_match('#^[a-zA-Z]+://#', $name)) {
-            return true;
-        }
-        if (preg_match('#(^|/)\.\.(/|$)#', $name)) {
-            return true;
-        }
-        return false;
+        return zip_utils::is_unsafe_zip_entry($name);
     }
 
     /**

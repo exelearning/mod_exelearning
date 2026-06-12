@@ -226,6 +226,54 @@ final class attempts_test extends advanced_testcase {
     }
 
     /**
+     * participation_summary aggregates per the grademethod (DEC-0007), so the
+     * front-page mean matches the gradebook instead of always using the best.
+     */
+    public function test_participation_summary_respects_grademethod(): void {
+        $eid = $this->instance->id;
+        $uid = $this->student->id;
+        $userids = [$uid];
+
+        // Two overall attempts: scaled 1.0 then 0.0 (ordered by attempt ASC).
+        attempts::record_item($eid, $uid, 1, 0, 10, 10, 'completed', 's1');
+        attempts::record_item($eid, $uid, 2, 0, 0, 10, 'completed', 's2');
+
+        // Highest keeps the old behaviour (best attempt → 100%).
+        $highest = attempts::participation_summary($eid, $userids, attempts::GRADE_HIGHEST);
+        $this->assertEqualsWithDelta(100.0, (float) $highest['meanpercent'], 0.001);
+
+        // Average aggregates the two attempts → 50%.
+        $average = attempts::participation_summary($eid, $userids, attempts::GRADE_AVERAGE);
+        $this->assertEqualsWithDelta(50.0, (float) $average['meanpercent'], 0.001);
+
+        // Last takes the most recent attempt → 0%.
+        $last = attempts::participation_summary($eid, $userids, attempts::GRADE_LAST);
+        $this->assertEqualsWithDelta(0.0, (float) $last['meanpercent'], 0.001);
+    }
+
+    /**
+     * aggregate_values applies the five GRADE_* methods to an ordered list and
+     * returns null for the empty list (DEC-0007).
+     */
+    public function test_aggregate_values(): void {
+        // Ordered by attempt ASC: first 0.6, last 0.7, highest 0.9, lowest 0.6.
+        $scaled = [0.6, 0.9, 0.7];
+
+        $this->assertEqualsWithDelta(0.9, attempts::aggregate_values($scaled, attempts::GRADE_HIGHEST), 0.0001);
+        $this->assertEqualsWithDelta(
+            (0.6 + 0.9 + 0.7) / 3,
+            attempts::aggregate_values($scaled, attempts::GRADE_AVERAGE),
+            0.0001
+        );
+        $this->assertEqualsWithDelta(0.6, attempts::aggregate_values($scaled, attempts::GRADE_FIRST), 0.0001);
+        $this->assertEqualsWithDelta(0.7, attempts::aggregate_values($scaled, attempts::GRADE_LAST), 0.0001);
+        $this->assertEqualsWithDelta(0.6, attempts::aggregate_values($scaled, attempts::GRADE_LOWEST), 0.0001);
+
+        // An empty list has no aggregate.
+        $this->assertNull(attempts::aggregate_values([], attempts::GRADE_HIGHEST));
+    }
+
+    /**
      * The option/stringkey maps expose the expected method and review constants.
      */
     public function test_option_maps(): void {

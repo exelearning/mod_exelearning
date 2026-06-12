@@ -446,9 +446,10 @@ function exelearning_update_grades(stdClass $exelearning, int $userid = 0): void
         'SELECT DISTINCT userid FROM {exelearning_attempt} WHERE exelearningid = ?',
         [$exelearning->id]
     );
-    foreach ($userids as $uid) {
-        exelearning_recalculate_user_grades($exelearning, (int) $uid);
+    if (empty($userids)) {
+        return;
     }
+    exelearning_recalculate_grades_for_users($exelearning, array_map('intval', $userids));
 }
 
 /**
@@ -1382,12 +1383,41 @@ function exelearning_warn_if_grades_stale(int $exelearningid, array $delta, ?int
  * (DEC-0007 phase 2). If an item has no remaining attempts, clears its grade
  * (rawgrade=null).
  *
+ * Single-user façade kept for its existing callers (report.php attempt deletion,
+ * privacy provider erasure). Delegates to exelearning_recalculate_grades_for_users()
+ * so the aggregation/publish logic lives in one place.
+ *
  * @param stdClass $instance
  * @param int $userid
  */
 function exelearning_recalculate_user_grades(stdClass $instance, int $userid): void {
+    exelearning_recalculate_grades_for_users($instance, [$userid]);
+}
+
+/**
+ * Recalculates the gradebook grades of several users in a single batch.
+ *
+ * Bulk entry point for exelearning_update_grades($exelearning, 0): one SELECT for
+ * every user's attempts (attempts::fetch_scaled_by_user_item()), an in-memory
+ * group-by, and one grade_update() per itemnumber with the grades keyed by userid.
+ * This replaces the former users × items N+1 (one SELECT and one grade_update()
+ * per user per item).
+ *
+ * Aggregation respects grademethod (DEC-0007, via attempts::aggregate_values()) and
+ * the grademodel column rules: PERITEM has no overall column (DEC-0038), OVERALL has
+ * no per-iDevice columns (DEC-0008). A user with no attempts for an item gets a null
+ * rawgrade, clearing any stale grade.
+ *
+ * @param stdClass $instance
+ * @param int[] $userids Users to recalculate; empty array is a no-op.
+ */
+function exelearning_recalculate_grades_for_users(stdClass $instance, array $userids): void {
     global $CFG, $DB;
     require_once($CFG->libdir . '/gradelib.php');
+
+    if (empty($userids)) {
+        return;
+    }
 
     $grademax = (float) ($instance->grademax ?? 100);
     $grademethod = (int) ($instance->grademethod ?? \mod_exelearning\local\attempts::GRADE_HIGHEST);
@@ -1410,6 +1440,9 @@ function exelearning_recalculate_user_grades(stdClass $instance, int $userid): v
         $items[(int) $r->itemnumber] = $r->name;
     }
 
+    // One query for every attempt of every user, grouped by user and item.
+    $byuser = \mod_exelearning\local\attempts::fetch_scaled_by_user_item($instance->id, $userids);
+
     foreach ($items as $itemnumber => $name) {
         unset($base['hidden']);
         // PERITEM has no overall column (DEC-0038): never (re)publish item 0 there,
@@ -1420,16 +1453,19 @@ function exelearning_recalculate_user_grades(stdClass $instance, int $userid): v
         if ($itemnumber > 0 && $grademodel === EXELEARNING_GRADEMODEL_OVERALL) {
             continue;
         }
-        $scaled = \mod_exelearning\local\attempts::aggregate_scaled(
-            $instance->id,
-            $userid,
-            $itemnumber,
-            $grademethod
-        );
-        $grade = (object) [
-            'userid'   => $userid,
-            'rawgrade' => ($scaled === null) ? null : ($scaled * $grademax),
-        ];
+        // One grade_update() per item with the grades keyed by userid; core's
+        // grade_update() accepts an array of grade objects.
+        $grades = [];
+        foreach ($userids as $uid) {
+            $scaled = \mod_exelearning\local\attempts::aggregate_values(
+                $byuser[$uid][$itemnumber] ?? [],
+                $grademethod
+            );
+            $grades[$uid] = (object) [
+                'userid'   => $uid,
+                'rawgrade' => ($scaled === null) ? null : ($scaled * $grademax),
+            ];
+        }
         grade_update(
             'mod/exelearning',
             $instance->course,
@@ -1437,7 +1473,7 @@ function exelearning_recalculate_user_grades(stdClass $instance, int $userid): v
             'exelearning',
             $instance->id,
             $itemnumber,
-            $grade,
+            $grades,
             $base + ['itemname' => $name]
         );
     }

@@ -57,9 +57,11 @@ class backup_exelearning_activity_structure_step extends backup_activity_structu
         // Define each element separated.
         $gradeitems = new backup_nested_element('gradeitems');
 
+        // The contenthash must round-trip: it backs the stale-grades warning
+        // (DEC-0021) when an iDevice is edited in place.
         $gradeitem = new backup_nested_element('gradeitem', ['id'], [
             'itemnumber', 'objectid', 'pageid', 'idevicetype', 'name',
-            'grademax', 'grademin', 'deleted', 'timecreated', 'timemodified',
+            'grademax', 'grademin', 'contenthash', 'deleted', 'timecreated', 'timemodified',
         ]);
 
         $attempts = new backup_nested_element('attempts');
