@@ -167,4 +167,31 @@ final class provider_test extends provider_testcase {
             ['exelearningid' => $this->instance->id, 'userid' => $this->student2->id]
         ));
     }
+
+    /**
+     * get_metadata() declares the attempt table, the instance table and the
+     * gradebook data flow.
+     */
+    public function test_get_metadata(): void {
+        $collection = new \core_privacy\local\metadata\collection('mod_exelearning');
+        $collection = provider::get_metadata($collection);
+
+        $names = array_map(static fn($item) => $item->get_name(), $collection->get_collection());
+        $this->assertContains('exelearning_attempt', $names);
+        $this->assertContains('exelearning', $names);
+    }
+
+    /**
+     * The provider safely ignores non-module contexts.
+     */
+    public function test_non_module_contexts_are_ignored(): void {
+        $system = \context_system::instance();
+
+        // A non-module context deletes nothing and adds no users.
+        provider::delete_data_for_all_users_in_context($system);
+
+        $userlist = new userlist($system, $this->component);
+        provider::get_users_in_context($userlist);
+        $this->assertCount(0, $userlist->get_userids());
+    }
 }
