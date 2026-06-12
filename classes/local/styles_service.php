@@ -251,10 +251,11 @@ class styles_service {
     /**
      * Whether the admin has disabled user-imported styles (tab hidden,
      * project-bundled styles silently ignored). Mirrors the eXeLearning
-     * `ONLINE_THEMES_INSTALL=false` policy.
+     * `ONLINE_THEMES_INSTALL` policy.
      *
-     * Defaults to true on first install so the editor remains locked down
-     * until an admin explicitly opts in.
+     * Defaults to false (imports allowed, matching upstream
+     * `ONLINE_THEMES_INSTALL=true`); an admin enables the lockdown explicitly
+     * from the Styles page.
      *
      * @return bool
      */

@@ -14,8 +14,9 @@ Published eXeLearning v4 iDevices call the **pipwerks** SCORM wrapper, which run
 supplies that object from the **parent** page (`view.php`) so the package can report
 scores without being a real SCORM package. eXeLearning v4 only calls
 `pipwerks.SCORM.init()` if the loader is injected into each HTML `<head>`; the plugin does
-that in `exelearning_inject_scorm_loader()` (`lib.php:770`) — see the "Pipwerks lazy" note
-in the root `AGENTS.md`.
+that in `exelearning_inject_scorm_loader()` (delegador en `lib.php`) →
+`\mod_exelearning\local\scorm\scorm_injector::inject()` (DEC-0054) — see the "Pipwerks lazy"
+note in the root `AGENTS.md`.
 
 ## Components
 

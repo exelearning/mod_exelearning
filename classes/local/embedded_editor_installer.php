@@ -52,11 +52,33 @@ class embedded_editor_installer {
     /** @var string Config key for the installation timestamp. */
     const CONFIG_INSTALLED_AT = 'embedded_editor_installed_at';
 
-    /** @var string Config key for the concurrent-install lock. */
+    /**
+     * Config key for the cross-request install progress marker.
+     *
+     * This timestamp is the visible progress signal the admin status endpoint
+     * ({@see \mod_exelearning\external\manage_embedded_editor::get_status()})
+     * reports as `installing` / `install_stale`. It is NOT the mutual-exclusion
+     * primitive — that is the atomic {@see self::LOCK_RESOURCE} core lock acquired
+     * in {@see self::acquire_lock()}.
+     *
+     * @var string
+     */
     const CONFIG_INSTALLING = 'embedded_editor_installing';
 
     /** @var int Maximum seconds to allow an install lock before considering it stale. */
     const INSTALL_LOCK_TIMEOUT = 300;
+
+    /** @var string Lock factory type used for the atomic concurrent-install lock. */
+    const LOCK_TYPE = 'mod_exelearning';
+
+    /** @var string Resource name of the atomic concurrent-install lock. */
+    const LOCK_RESOURCE = 'editor_install';
+
+    /** @var int Seconds to wait when acquiring the install lock before giving up. */
+    const LOCK_ACQUIRE_TIMEOUT = 5;
+
+    /** @var \core\lock\lock|null Held install lock, released in release_lock(). */
+    private $installlock = null;
 
     /**
      * Install the latest static editor from GitHub Releases into moodledata.
@@ -828,23 +850,37 @@ class embedded_editor_installer {
     }
 
     /**
-     * Acquire a lock to prevent concurrent installations.
+     * Acquire an atomic lock to prevent concurrent installations.
+     *
+     * Uses the configured Moodle lock factory (the same pattern as
+     * {@see \mod_exelearning\local\track}) so the check-and-claim is atomic and
+     * race-free, unlike the previous get_config()/set_config() pair. The
+     * CONFIG_INSTALLING timestamp is still written while the lock is held so the
+     * admin status endpoint can report install progress across requests.
      *
      * @throws \moodle_exception If another installation is already in progress.
      */
     private function acquire_lock(): void {
-        $locktime = get_config('exelearning', self::CONFIG_INSTALLING);
-        if ($locktime !== false && (time() - (int)$locktime) < self::INSTALL_LOCK_TIMEOUT) {
+        $lockfactory = \core\lock\lock_config::get_lock_factory(self::LOCK_TYPE);
+        $lock = $lockfactory->get_lock(self::LOCK_RESOURCE, self::LOCK_ACQUIRE_TIMEOUT);
+        if ($lock === false) {
+            // Another installation holds the lock: surface the same error as before.
             throw new \moodle_exception('editorinstallconcurrent', 'mod_exelearning');
         }
+        $this->installlock = $lock;
+        // Cross-request progress marker read by manage_embedded_editor::get_status().
         set_config(self::CONFIG_INSTALLING, time(), 'exelearning');
     }
 
     /**
-     * Release the installation lock.
+     * Release the installation lock and clear the progress marker.
      */
     private function release_lock(): void {
         unset_config(self::CONFIG_INSTALLING, 'exelearning');
+        if ($this->installlock !== null) {
+            $this->installlock->release();
+            $this->installlock = null;
+        }
     }
 
     /**

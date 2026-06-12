@@ -47,8 +47,8 @@ and writes them through `writer::with_context()`. Timestamps are normalized with
 
 All three deletion entry points delete `exelearning_attempt` rows **and then
 recalculate the gradebook** so an erased user keeps no stale grade with no backing
-attempt (`clear_grades_for_users()` `:76-90`, which calls
-`exelearning_recalculate_user_grades()`):
+attempt (`clear_grades_for_users()` `:81-95`, which calls
+`exelearning_recalculate_user_grades()` → `\mod_exelearning\grades\grade_recalculator::recalculate_user()`, DEC-0054):
 
 | Request | Method | Lines |
 |---------|--------|-------|
@@ -77,7 +77,7 @@ Reverse lookups for the privacy registry: `get_contexts_for_userid()`
 | `usermodified` (user id) | Yes | `annotate_ids('user','usermodified')` | remapped (`:72`) |
 | `attempt.userid` (user id) | Yes | `annotate_ids('user','userid')` | remapped (`:130`) |
 | `gradesyncrev` | **No** (deliberately omitted) | — | restored copy re-scans its package once on first view |
-| Moodle `grade_item` rows | **No** (not restored directly) | — | re-created on first view by `exelearning_sync_grade_items()` |
+| Moodle `grade_item` rows | **No** (not restored directly) | — | re-created on first view by `exelearning_sync_grade_items()` (→ `\mod_exelearning\grades\grade_sync::sync()`) |
 
 Backup specifics:
 
@@ -102,11 +102,12 @@ Backup specifics:
   a cross-course restore, where the target category does not yet exist. Restore
   keeps it only if the category exists in the destination course, otherwise resets
   it to `0` (the course top category) (`:81-86`); per-iDevice items are re-parented
-  later on first view by `exelearning_apply_grade_category()` (B4, DEC-0044).
+  later on first view by `exelearning_apply_grade_category()`
+  (→ `\mod_exelearning\grades\grade_item_manager::apply_category()`) (B4, DEC-0044).
 - **Moodle grade items re-created, not restored**: the plugin's own
   `exelearning_grade_item` rows are restored, but the actual Moodle gradebook
   `grade_item` columns are **not** restored directly — they are re-created on first
-  view when `exelearning_sync_grade_items()` runs (paired with the deliberately
+  view when `exelearning_sync_grade_items()` (→ `\mod_exelearning\grades\grade_sync::sync()`) runs (paired with the deliberately
   omitted `gradesyncrev`, above).
 - Related files are re-attached after the tables are restored
   (`after_execute()` `:142-147`).
@@ -116,8 +117,8 @@ The `@covers \backup_exelearning_activity_task` round-trip test lives at
 
 ## 3. File API and `pluginfile` access control
 
-`exelearning_pluginfile()` (`lib.php:497-552`) serves two fileareas;
-`exelearning_get_file_areas()` (`lib.php:562-567`) advertises `content` and
+`exelearning_pluginfile()` (`lib.php:494`) serves two fileareas;
+`exelearning_get_file_areas()` (`lib.php:559`) advertises `content` and
 `package`. A third area, `intro`, is the standard activity-description area handled
 by core.
 
@@ -129,30 +130,30 @@ by core.
 
 Access control (all requests):
 
-1. Require `CONTEXT_MODULE`, else refuse (`lib.php:500-502`).
-2. `require_course_login($course, true, $cm)` (`:504`).
-3. `require_capability('mod/exelearning:view', $context)` (`:505`).
+1. Require `CONTEXT_MODULE`, else refuse (`exelearning_pluginfile()`, `lib.php:497-499`).
+2. `require_course_login($course, true, $cm)` (`:501`).
+3. `require_capability('mod/exelearning:view', $context)` (`:502`).
 
 Area-specific:
 
 - **`package`** additionally requires
-  `require_capability('moodle/course:manageactivities', $context)` (`:507-509`),
+  `require_capability('moodle/course:manageactivities', $context)` (`:504-506`),
   i.e. teachers/managers only — students cannot download the source ELPX.
 - **`content`** is served to any viewer; SVG is served **inline**
-  (`$options['dontforcesvgdownload'] = true`, `:546`) so eXeLearning v4 icons
+  (`$options['dontforcesvgdownload'] = true`, `:543`) so eXeLearning v4 icons
   render rather than download (same flag as `mod_scorm`).
 - **Revision-based cache busting**: the `content` URL embeds `{revision}`
-  (`:528`); bumping `revision` on save invalidates old URLs automatically
-  (`:548-550`), so a long cache lifetime is safe.
+  (`:525`); bumping `revision` on save invalidates old URLs automatically
+  (`:546-548`), so a long cache lifetime is safe.
 
 ## 4. Threats and mitigations
 
 | Threat | Mitigation | Citation |
 |--------|-----------|----------|
-| A student downloads the raw `.elpx` source (answer keys, scoring logic) | `package` area gated behind `moodle/course:manageactivities` | `lib.php:507-509` |
-| A non-enrolled user fetches activity content | `require_course_login` + `mod/exelearning:view` on every request | `lib.php:504-505` |
-| File requests crossing into another module's context | `CONTEXT_MODULE` enforced, hash-by-path lookup scoped to `$context->id` | `lib.php:500-502`, `:513`, `:528` |
-| Erased user keeps a stale gradebook grade | every deletion path recalculates grades | `provider.php:76-90`, `:214`, `:238`, `:269` |
+| A student downloads the raw `.elpx` source (answer keys, scoring logic) | `package` area gated behind `moodle/course:manageactivities` | `exelearning_pluginfile()`, `lib.php:504-506` |
+| A non-enrolled user fetches activity content | `require_course_login` + `mod/exelearning:view` on every request | `exelearning_pluginfile()`, `lib.php:501-502` |
+| File requests crossing into another module's context | `CONTEXT_MODULE` enforced, hash-by-path lookup scoped to `$context->id` | `exelearning_pluginfile()`, `lib.php:497-499`, `:511`, `:525` |
+| Erased user keeps a stale gradebook grade | every deletion path recalculates grades | `provider::clear_grades_for_users()`, `provider.php:81-95` |
 | Cross-course restore points grades at a foreign grade category | `gradecat` reset to `0` when absent in target course | `restore_…stepslib.php:81-86` |
 
 > The package-download gate is the load-bearing control here: with only

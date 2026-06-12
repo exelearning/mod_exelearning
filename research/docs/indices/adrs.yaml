@@ -54,3 +54,4 @@ items:
   - id: 'DEC-0052', titulo: 'Regla de finalización personalizada por estado (completionstatusrequired)', estado: 'Aceptada', fecha: '2026-06-12', ruta: 'decisiones/adr/DEC-0052-completion-por-estado.md'
   - id: 'DEC-0053', titulo: 'Integración con la búsqueda global de Moodle (área de búsqueda + indexado de ficheros)', estado: 'Aceptada', fecha: '2026-06-12', ruta: 'decisiones/adr/DEC-0053-busqueda-global.md'
   - id: 'DEC-0054', titulo: 'Extracción de la lógica de lib.php a clases por responsabilidad (grades/*, local/scorm/*, package_manager, urls)', estado: 'Aceptada', fecha: '2026-06-12', ruta: 'decisiones/adr/DEC-0054-extraccion-lib-php.md'
+  - id: 'DEC-0055', titulo: 'Auditoría follow-up post-refactor (#71): 8 mejoras implementadas + 1 hallazgo descartado por decisión previa', estado: 'Aceptada', fecha: '2026-06-12', ruta: 'decisiones/adr/DEC-0055-auditoria-followup-post-refactor.md'

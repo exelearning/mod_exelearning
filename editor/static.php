@@ -25,6 +25,8 @@
 require('../../../config.php');
 require_once($CFG->dirroot . '/mod/exelearning/lib.php');
 
+use mod_exelearning\local\editor_paths;
+
 // Support both slash arguments (PATH_INFO) and query params.
 // Slash arguments: /static.php/{cmid}/{filepath} (used as <base> href for editor).
 // Query params: /static.php?id={cmid}&file={filepath} (legacy fallback).
@@ -124,8 +126,9 @@ $staticdir = exelearning_get_embedded_editor_local_static_dir();
 $filepath = realpath($staticdir . '/' . $file);
 $staticroot = realpath($staticdir);
 
-// Ensure the resolved path is within the static directory.
-if ($filepath === false || $staticroot === false || strpos($filepath, $staticroot) !== 0) {
+// Ensure the resolved path is within the static directory (strict containment:
+// a sibling like "{staticroot}-evil" must not pass).
+if ($filepath === false || $staticroot === false || !editor_paths::is_within($filepath, $staticroot)) {
     send_header_404();
     die('File not found');
 }
@@ -140,8 +143,10 @@ header('Content-Length: ' . filesize($filepath));
 header('Cache-Control: public, max-age=604800'); // Cache for 1 week.
 header('X-Frame-Options: SAMEORIGIN');
 
-if (basename($file) === 'preview-sw.js') {
-    header('Service-Worker-Allowed: /');
-}
+// No 'Service-Worker-Allowed' header is emitted for preview-sw.js: the embedded
+// editor never registers a service worker (editor/index.php shims
+// navigator.serviceWorker.register to a no-op for preview-sw.js), so widening the
+// SW control scope to '/' was both unused and unnecessarily broad. See
+// docs/EMBEDDED_EDITOR.md ("Service worker") for the rationale.
 
 readfile($filepath);
