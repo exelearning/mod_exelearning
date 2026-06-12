@@ -44,7 +44,7 @@ final class package_manager_extract_test extends advanced_testcase {
      * Stores a built ZIP in the 'package' filearea at itemid 0.
      *
      * @param int $contextid
-     * @param array<string,string> $entries Map of zip entry name => string content.
+     * @param array $entries Map of zip entry name => string content.
      * @param string $filename
      * @return void
      */
