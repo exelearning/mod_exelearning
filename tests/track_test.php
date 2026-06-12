@@ -476,4 +476,68 @@ final class track_test extends advanced_testcase {
         $this->assertEqualsWithDelta(100.0, $this->published_grade($instance, $student->id, 1), 0.0001);
         $this->assertEqualsWithDelta(0.0, $this->published_grade($instance, $student->id, 2), 0.0001);
     }
+
+    /**
+     * In OVERALL mode ingest() publishes the aggregated overall column (DEC-0038).
+     */
+    public function test_ingest_overall_mode_publishes_overall_column(): void {
+        [$instance, $student] = $this->create_activity_with_student(['grademodel' => 0]);
+        [$course, $cm] = $this->course_and_cm($instance);
+        $obj1 = $this->objectid_for($instance, 1);
+
+        $payload = [
+            'session' => 'sessOverall',
+            'cmi' => ['cmi.core.score.raw' => '70', 'cmi.core.score.max' => '100'],
+            'itemscores' => [$obj1 => ['scorepct' => 70.0, 'weighted' => 100.0, 'title' => 'a']],
+        ];
+
+        $result = track::ingest($instance, $course, $cm, $student->id, $payload, false);
+
+        $this->assertTrue($result['ok']);
+        $this->assertEqualsWithDelta(70.0, $this->published_grade($instance, $student->id, 0), 0.0001);
+    }
+
+    /**
+     * With no objectid map, ingest() falls back to the legacy suspend_data path.
+     */
+    public function test_ingest_legacy_suspend_data_path(): void {
+        [$instance, $student] = $this->create_activity_with_student();
+        [$course, $cm] = $this->course_and_cm($instance);
+
+        $payload = [
+            'session' => 'sessLegacy',
+            'cmi' => [
+                'cmi.core.score.raw' => '50',
+                'cmi.core.score.max' => '100',
+                'cmi.suspend_data'   => '1. "Item 1"; Score: 50%; Weight: 100%.',
+            ],
+        ];
+
+        $result = track::ingest($instance, $course, $cm, $student->id, $payload, false);
+        $this->assertTrue($result['ok']);
+    }
+
+    /**
+     * A map mixing a registered objectid with an unknown one keeps the known
+     * score and drops the unknown (the registered-objectid filter).
+     */
+    public function test_ingest_filters_unknown_objectid_in_mixed_map(): void {
+        [$instance, $student] = $this->create_activity_with_student();
+        [$course, $cm] = $this->course_and_cm($instance);
+        $obj1 = $this->objectid_for($instance, 1);
+
+        $payload = [
+            'session' => 'sessMixed',
+            'cmi' => ['cmi.core.score.raw' => '80', 'cmi.core.score.max' => '100'],
+            'itemscores' => [
+                $obj1            => ['scorepct' => 80.0, 'weighted' => 100.0, 'title' => 'a'],
+                'fake-unknown-1' => ['scorepct' => 100.0, 'weighted' => 100.0, 'title' => 'x'],
+            ],
+        ];
+
+        $result = track::ingest($instance, $course, $cm, $student->id, $payload, false);
+
+        $this->assertTrue($result['ok']);
+        $this->assertEqualsWithDelta(80.0, $this->published_grade($instance, $student->id, 1), 0.0001);
+    }
 }
