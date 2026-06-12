@@ -26,11 +26,19 @@ composer.json
 composer.lock
 composer.phar
 
+# JavaScript unit-test tooling (Vitest). js/scorm_tracker.js is runtime (injected by
+# view.php) and ships; these dev-only Node files have no place in an installed plugin.
+package.json
+package-lock.json
+vitest.config.mjs
+tests/js/*
+
 # Internal documentation (README.md is shipped)
 CLAUDE.md
 AGENTS.md
 DEVELOPMENT.md
 CHANGELOG.md
 
-# Build artifacts
+# Build artifacts (coverage/ is gitignored but git ls-files -o would still pick it up)
 mod_exelearning-*.zip
+coverage
