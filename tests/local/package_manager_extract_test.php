@@ -41,14 +41,16 @@ require_once($CFG->dirroot . '/mod/exelearning/lib.php');
  */
 final class package_manager_extract_test extends advanced_testcase {
     /**
-     * Stores a built ZIP in the 'package' filearea at itemid 0.
+     * Stores a built ZIP in the 'package' filearea at the given itemid.
      *
      * @param int $contextid
      * @param array $entries Map of zip entry name => string content.
      * @param string $filename
+     * @param int $itemid Package itemid (default 0; a higher value stages a replacement
+     *                    revision that get_stored_package() picks up as the newest).
      * @return void
      */
-    private function store_package_zip(int $contextid, array $entries, string $filename): void {
+    private function store_package_zip(int $contextid, array $entries, string $filename, int $itemid = 0): void {
         $stage = make_request_directory();
         $files = [];
         foreach ($entries as $name => $content) {
@@ -64,7 +66,7 @@ final class package_manager_extract_test extends advanced_testcase {
             'contextid' => $contextid,
             'component' => 'mod_exelearning',
             'filearea'  => 'package',
-            'itemid'    => 0,
+            'itemid'    => $itemid,
             'filepath'  => '/',
             'filename'  => $filename,
         ], $zip);
@@ -75,19 +77,39 @@ final class package_manager_extract_test extends advanced_testcase {
      *
      * @param int $contextid
      * @param string $filename
+     * @param int $itemid Package itemid (default 0).
      * @return void
      */
-    private function store_corrupt_package(int $contextid, string $filename): void {
+    private function store_corrupt_package(int $contextid, string $filename, int $itemid = 0): void {
         $blob = make_request_directory() . '/' . $filename;
         file_put_contents($blob, 'this is not a real zip archive');
         get_file_storage()->create_file_from_pathname([
             'contextid' => $contextid,
             'component' => 'mod_exelearning',
             'filearea'  => 'package',
-            'itemid'    => 0,
+            'itemid'    => $itemid,
             'filepath'  => '/',
             'filename'  => $filename,
         ], $blob);
+    }
+
+    /**
+     * Stores the real evaluable .elpx fixture (a valid package) at the given itemid.
+     *
+     * @param int $contextid
+     * @param int $itemid Package itemid.
+     * @return void
+     */
+    private function store_fixture_package(int $contextid, int $itemid): void {
+        global $CFG;
+        get_file_storage()->create_file_from_pathname([
+            'contextid' => $contextid,
+            'component' => 'mod_exelearning',
+            'filearea'  => 'package',
+            'itemid'    => $itemid,
+            'filepath'  => '/',
+            'filename'  => 'valid.elpx',
+        ], $CFG->dirroot . '/mod/exelearning/research/fixtures/elpx/actividad-evaluable.elpx');
     }
 
     /**
@@ -183,5 +205,169 @@ final class package_manager_extract_test extends advanced_testcase {
             $this->assertStringContainsString('migrateextractfailed', $e->errorcode);
         }
         $this->assertDebuggingCalled();
+    }
+
+    /**
+     * A corrupt replacement (non-archive) must NOT destroy the previously extracted,
+     * still-valid content: extract_stored() scopes its wipe to the target revision and
+     * rolls back its own partial revision on failure, leaving the prior revision intact
+     * (issue 73).
+     */
+    public function test_corrupt_replacement_preserves_previous_content(): void {
+        [$contextid] = $this->create_target();
+        $fs = get_file_storage();
+
+        // Revision 1: a valid package, extracted and servable.
+        $this->store_fixture_package($contextid, 0);
+        package_manager::extract_stored($contextid, 1);
+        $this->assertNotFalse($fs->get_file($contextid, 'mod_exelearning', 'content', 1, '/', 'index.html'));
+
+        // Revision 2: a corrupt replacement as the newest package.
+        $this->store_corrupt_package($contextid, 'broken.elpx', 2);
+        try {
+            package_manager::extract_stored($contextid, 2);
+            $this->fail('A corrupt replacement must throw');
+        } catch (\moodle_exception $e) {
+            $this->assertStringContainsString('migrateextractfailed', $e->errorcode);
+        }
+        $this->assertDebuggingCalled();
+
+        // Previous revision preserved; failed revision rolled back to nothing.
+        $this->assertNotFalse($fs->get_file($contextid, 'mod_exelearning', 'content', 1, '/', 'index.html'));
+        $this->assertEmpty($fs->get_area_files($contextid, 'mod_exelearning', 'content', 2, 'id', false));
+    }
+
+    /**
+     * A replacement that extracts but carries no index.html is rejected too, again
+     * without destroying the previous revision (issue 73).
+     */
+    public function test_missing_index_replacement_preserves_previous_content(): void {
+        [$contextid] = $this->create_target();
+        $fs = get_file_storage();
+
+        $this->store_fixture_package($contextid, 0);
+        package_manager::extract_stored($contextid, 1);
+        $this->assertNotFalse($fs->get_file($contextid, 'mod_exelearning', 'content', 1, '/', 'index.html'));
+
+        // Revision 2: a structurally valid ZIP but with no servable index.html.
+        $this->store_package_zip($contextid, ['content.xml' => '<ode/>'], 'noindex.elpx', 2);
+        try {
+            package_manager::extract_stored($contextid, 2);
+            $this->fail('A package without index.html must throw');
+        } catch (\moodle_exception $e) {
+            $this->assertStringContainsString('migrateextractfailed', $e->errorcode);
+        }
+
+        $this->assertNotFalse($fs->get_file($contextid, 'mod_exelearning', 'content', 1, '/', 'index.html'));
+        $this->assertEmpty($fs->get_area_files($contextid, 'mod_exelearning', 'content', 2, 'id', false));
+    }
+
+    /**
+     * A successful extraction is non-destructive to sibling revisions: the engine keeps
+     * both revisions and leaves pruning to the orchestrator, which only prunes after the
+     * DB pointer has moved (issue 73).
+     */
+    public function test_successful_extraction_keeps_sibling_revisions(): void {
+        [$contextid] = $this->create_target();
+        $fs = get_file_storage();
+
+        $this->store_fixture_package($contextid, 0);
+        package_manager::extract_stored($contextid, 1);
+
+        $this->store_fixture_package($contextid, 2);
+        package_manager::extract_stored($contextid, 2);
+
+        $this->assertNotFalse($fs->get_file($contextid, 'mod_exelearning', 'content', 1, '/', 'index.html'));
+        $this->assertNotFalse($fs->get_file($contextid, 'mod_exelearning', 'content', 2, '/', 'index.html'));
+    }
+
+    /**
+     * Re-extracting the same revision (the view.php self-heal path) is idempotent: it
+     * clears only that revision and rebuilds it, never throwing on a valid package.
+     */
+    public function test_reextract_same_revision_is_idempotent(): void {
+        [$contextid] = $this->create_target();
+        $fs = get_file_storage();
+
+        $this->store_fixture_package($contextid, 0);
+        package_manager::extract_stored($contextid, 1);
+        package_manager::extract_stored($contextid, 1);
+
+        $this->assertNotFalse($fs->get_file($contextid, 'mod_exelearning', 'content', 1, '/', 'index.html'));
+    }
+
+    /**
+     * The editor orchestration (store_and_activate_revision) must NOT advance the stored
+     * revision nor destroy the previous package + content when the staged package is
+     * corrupt: it throws before moving the pointer (issue 73).
+     */
+    public function test_store_and_activate_corrupt_preserves_old_package_and_content(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $course = $this->getDataGenerator()->create_course();
+        /** @var \mod_exelearning_generator $generator */
+        $generator = $this->getDataGenerator()->get_plugin_generator('mod_exelearning');
+        $instance = $generator->create_instance(['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('exelearning', $instance->id);
+        $contextid = (int) \context_module::instance($cm->id)->id;
+        $fs = get_file_storage();
+
+        // Baseline: revision 1 with extracted content and a stored package.
+        $this->assertNotFalse($fs->get_file($contextid, 'mod_exelearning', 'content', 1, '/', 'index.html'));
+        $oldpackage = package_manager::get_stored_package($contextid);
+        $this->assertNotNull($oldpackage);
+        $olditemid = (int) $oldpackage->get_itemid();
+        $oldname = $oldpackage->get_filename();
+
+        // Stage a corrupt replacement at the next revision, as editor/save.php would.
+        $this->store_corrupt_package($contextid, 'broken.elpx', 2);
+        $exelearning = $DB->get_record('exelearning', ['id' => $instance->id], '*', MUST_EXIST);
+        try {
+            package_manager::store_and_activate_revision($contextid, $exelearning, 2);
+            $this->fail('A corrupt activation must throw');
+        } catch (\moodle_exception $e) {
+            $this->assertStringContainsString('migrateextractfailed', $e->errorcode);
+        }
+        $this->assertDebuggingCalled();
+
+        // Pointer unchanged; previous package + content intact; staged content rolled back.
+        $this->assertSame(1, (int) $DB->get_field('exelearning', 'revision', ['id' => $instance->id]));
+        $this->assertNotFalse($fs->get_file($contextid, 'mod_exelearning', 'content', 1, '/', 'index.html'));
+        $this->assertNotFalse($fs->get_file($contextid, 'mod_exelearning', 'package', $olditemid, '/', $oldname));
+        $this->assertEmpty($fs->get_area_files($contextid, 'mod_exelearning', 'content', 2, 'id', false));
+    }
+
+    /**
+     * A valid editor activation swaps to the new revision, serves the new content and
+     * prunes the superseded content + package revisions (issue 73).
+     */
+    public function test_store_and_activate_valid_swaps_and_prunes(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $course = $this->getDataGenerator()->create_course();
+        /** @var \mod_exelearning_generator $generator */
+        $generator = $this->getDataGenerator()->get_plugin_generator('mod_exelearning');
+        $instance = $generator->create_instance(['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('exelearning', $instance->id);
+        $contextid = (int) \context_module::instance($cm->id)->id;
+        $fs = get_file_storage();
+
+        // Stage a valid replacement at revision 2.
+        $this->store_fixture_package($contextid, 2);
+        $exelearning = $DB->get_record('exelearning', ['id' => $instance->id], '*', MUST_EXIST);
+        package_manager::store_and_activate_revision($contextid, $exelearning, 2);
+
+        $this->assertSame(2, (int) $DB->get_field('exelearning', 'revision', ['id' => $instance->id]));
+        $this->assertNotFalse($fs->get_file($contextid, 'mod_exelearning', 'content', 2, '/', 'index.html'));
+        $this->assertFalse($fs->get_file($contextid, 'mod_exelearning', 'content', 1, '/', 'index.html'));
+
+        // Only the activated package revision remains.
+        $itemids = [];
+        foreach ($fs->get_area_files($contextid, 'mod_exelearning', 'package', false, 'itemid', false) as $file) {
+            $itemids[(int) $file->get_itemid()] = true;
+        }
+        $this->assertSame([2 => true], $itemids);
     }
 }

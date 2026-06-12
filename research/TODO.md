@@ -28,6 +28,11 @@ siendo `status.yaml` + `tareas/backlog/`.
 
 ## Cerrado
 
+- [x] issue 73 / DEC-0057 / RIE-019: extracción de paquete no-destructiva
+      (stage→validate→swap) COMPLETADA (2026-06-13). `extract_stored` borra solo
+      `content/{revision}` + rollback de la revisión parcial; reemplazo estacionado y
+      validado antes de mover el puntero de BD y podar la revisión anterior; editor de
+      irrecuperable a recuperable. Promueve `maturity` BETA→STABLE. 263 tests verdes.
 - [x] TAREA-012 / RIE-001: investigación de aislamiento del `.elpx` COMPLETADA
       (DEC-0019, 2026-06-02). Core no aísla (mod_scorm sin sandbox; core_h5p curado);
       mod_exelearning ya es el mejor aislado de los tres; no hay origen separado en core

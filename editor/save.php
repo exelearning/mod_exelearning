@@ -110,26 +110,22 @@ try {
         $exelearning->entryname = $mainfile->get_filename();
     }
 
-    $exelearning->revision = $newrevision;
     $exelearning->timemodified = time();
     $exelearning->usermodified = $USER->id;
-    $DB->update_record('exelearning', $exelearning);
 
-    // Delete old package revisions only after successful save.
-    $packagefiles = $fs->get_area_files($context->id, 'mod_exelearning', 'package', false, 'itemid, filepath, filename', false);
-    foreach ($packagefiles as $storedfile) {
-        if ((int)$storedfile->get_itemid() !== $newrevision) {
-            $storedfile->delete();
-        }
-    }
-
-    // Re-extract the freshly saved package to the content filearea (with the
-    // SCORM loader shim) and re-scan its gradable iDevices. Editing in the
-    // embedded editor can add or remove gradable iDevices, so the gradebook
-    // columns must be re-synced: new iDevices create columns, removed ones are
-    // marked deleted (grade history preserved). Both helpers locate the package
-    // at any itemid, so they pick up the new revision stored above.
-    exelearning_extract_stored_package($context->id, (int)$exelearning->revision);
+    // Extract and validate the staged revision, then advance the stored pointer and prune
+    // the superseded revision — all only on success (issue 73). A corrupt save throws here
+    // (rolling back the staged content) BEFORE the pointer moves, so the previous package +
+    // content (and revision) stay intact; the catch below drops the just-stored package, so
+    // the activity remains servable and recoverable instead of being left empty. Editing in
+    // the embedded editor can add or remove gradable iDevices, so the gradebook columns are
+    // re-synced afterwards: new iDevices create columns, removed ones are marked deleted
+    // (grade history preserved).
+    \mod_exelearning\local\package_manager::store_and_activate_revision(
+        $context->id,
+        $exelearning,
+        $newrevision
+    );
     $delta = exelearning_sync_grade_items($exelearning->id, $context->id);
     // If editing changed the gradable set (added/removed/edited-options) and
     // attempts exist, warn that prior grades are not recomputed (DEC-0021). The

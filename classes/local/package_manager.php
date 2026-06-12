@@ -81,19 +81,32 @@ final class package_manager {
             return;
         }
 
-        // 1) Persist the ZIP in 'package/0/'.
-        $fs->delete_area_files($context->id, 'mod_exelearning', 'package');
+        // 1) Stage the uploaded ZIP at 'package/{revision}/', NOT at itemid 0 (issue 73).
+        // Staging at the new revision keeps the previously stored package (a different
+        // itemid) untouched, so a corrupt replacement never overwrites the last good
+        // source. The superseded package itemid is pruned by the caller only AFTER the
+        // new revision validates (see exelearning_update_instance). get_stored_package()
+        // is itemid-agnostic and returns the newest itemid, so the staged one wins here.
+        $revision = (int) $data->revision;
         file_save_draft_area_files(
             $data->package,
             $context->id,
             'mod_exelearning',
             'package',
-            0,
+            $revision,
             ['subdirs' => 0, 'maxfiles' => 1]
         );
 
-        // 2) Extract the newly saved ZIP to the content filearea.
-        self::extract_stored($context->id, (int) $data->revision);
+        // 2) Extract and validate the staged revision. On a corrupt/empty archive
+        // extract_stored() throws (after rolling back its own partial content); drop the
+        // staged package itemid so the previous package stays the newest one and the
+        // activity keeps serving its last validated revision.
+        try {
+            self::extract_stored($context->id, $revision);
+        } catch (\Throwable $e) {
+            $fs->delete_area_files($context->id, 'mod_exelearning', 'package', $revision);
+            throw $e;
+        }
     }
 
     /**
@@ -173,8 +186,12 @@ final class package_manager {
         $data = (object) ['revision' => $revision];
         $context = (object) ['id' => $contextid];
 
-        // 3) Clear previous content and extract to the current revision.
-        $fs->delete_area_files($context->id, 'mod_exelearning', 'content');
+        // 3) Clear ONLY the target revision and extract into it (issue 73). Passing the
+        // itemid scopes the wipe to content/{revision}/, so sibling revisions — in
+        // particular the last validated one — survive until the caller prunes them after
+        // this revision is proven servable. Scoping it here also makes a re-run or the
+        // view.php self-heal of the same revision idempotent.
+        $fs->delete_area_files($context->id, 'mod_exelearning', 'content', (int) $data->revision);
 
         $packer = get_file_packer('application/zip');
         $package->extract_to_storage(
@@ -203,6 +220,11 @@ final class package_manager {
             'index.html'
         );
         if (!$entry) {
+            // Roll back this revision's partial/empty extraction so no non-servable shell
+            // is left behind, and leave every other revision untouched: the previous
+            // validated content (and the DB revision pointer that still points at it)
+            // survives a corrupt replacement (issue 73).
+            $fs->delete_area_files($context->id, 'mod_exelearning', 'content', (int) $data->revision);
             throw new \moodle_exception('migrateextractfailed', 'mod_exelearning');
         }
 
@@ -262,6 +284,82 @@ final class package_manager {
         // `body.hasClass('exe-scorm')` condition, which is absent here (we serve a web
         // export). We drop that condition from their save guard at serve time.
         idevice_patch::patch($context->id, (int) $data->revision);
+    }
+
+    /**
+     * Extracts the staged package, then advances the DB revision pointer and prunes the
+     * superseded revision — all only after the new revision validates (issue 73).
+     *
+     * Shared by the embedded editor (editor/save.php), which has already stored the new
+     * package at `package/{newrevision}/`. extract_stored() validates the new revision and
+     * throws on a corrupt/empty archive (rolling back its own partial content) BEFORE the
+     * pointer moves, so a failed save leaves the previous package + content (and the stored
+     * revision) intact; the caller drops the staged package in its own catch. On success
+     * the pointer is moved first and the old revision is pruned only afterwards, so no
+     * concurrent reader ever sees a gap (the pointed-at revision always has content).
+     *
+     * @param int $contextid Module context id.
+     * @param \stdClass $exelearning Instance row (mutated: revision is set and persisted).
+     * @param int $newrevision The staged revision to activate.
+     */
+    public static function store_and_activate_revision(int $contextid, \stdClass $exelearning, int $newrevision): void {
+        global $DB;
+
+        // Validate the staged revision; throws (leaving every other revision intact) if corrupt.
+        self::extract_stored($contextid, $newrevision);
+
+        // Validated: advance the stored pointer, then prune the superseded revision.
+        $exelearning->revision = $newrevision;
+        $DB->update_record('exelearning', $exelearning);
+        self::prune_content_revisions($contextid, $newrevision);
+        $package = self::get_stored_package($contextid);
+        if ($package instanceof \stored_file) {
+            self::prune_package_revisions($contextid, (int) $package->get_itemid());
+        }
+    }
+
+    /**
+     * Deletes every 'content' revision except the one to keep (issue 73).
+     *
+     * Called by the orchestrators AFTER the DB revision pointer has advanced, so the kept
+     * revision is the active one and removing the rest never strands a serving request.
+     *
+     * @param int $contextid Module context id.
+     * @param int $keeprevision The content itemid (revision) to preserve.
+     */
+    public static function prune_content_revisions(int $contextid, int $keeprevision): void {
+        self::prune_filearea_itemids($contextid, 'content', $keeprevision);
+    }
+
+    /**
+     * Deletes every 'package' itemid except the one to keep (issue 73).
+     *
+     * @param int $contextid Module context id.
+     * @param int $keepitemid The package itemid to preserve (the current stored package).
+     */
+    public static function prune_package_revisions(int $contextid, int $keepitemid): void {
+        self::prune_filearea_itemids($contextid, 'package', $keepitemid);
+    }
+
+    /**
+     * Removes every itemid of a filearea except the one to keep.
+     *
+     * @param int $contextid Module context id.
+     * @param string $filearea The filearea ('content' or 'package').
+     * @param int $keepitemid The itemid to preserve.
+     */
+    private static function prune_filearea_itemids(int $contextid, string $filearea, int $keepitemid): void {
+        $fs = get_file_storage();
+        $files = $fs->get_area_files($contextid, 'mod_exelearning', $filearea, false, 'itemid', false);
+        $pruned = [];
+        foreach ($files as $file) {
+            $itemid = (int) $file->get_itemid();
+            if ($itemid === $keepitemid || isset($pruned[$itemid])) {
+                continue;
+            }
+            $pruned[$itemid] = true;
+            $fs->delete_area_files($contextid, 'mod_exelearning', $filearea, $itemid);
+        }
     }
 
     /**

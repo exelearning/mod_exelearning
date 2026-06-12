@@ -236,13 +236,17 @@ final class migration_service {
         require_once($CFG->dirroot . '/mod/exelearning/lib.php');
 
         $fs = get_file_storage();
-        $fs->delete_area_files($contextid, 'mod_exelearning', 'package');
+        // Stage at package/{revision}/ for symmetry with the form/editor paths (issue 73).
+        // The target is a freshly created activity, so there is no prior content to preserve;
+        // scope the wipe to this itemid (idempotent re-run) rather than the whole filearea.
+        $revision = (int) $instance->revision;
+        $fs->delete_area_files($contextid, 'mod_exelearning', 'package', $revision);
         $fs->create_file_from_pathname(
             [
                 'contextid' => $contextid,
                 'component' => 'mod_exelearning',
                 'filearea'  => 'package',
-                'itemid'    => 0,
+                'itemid'    => $revision,
                 'filepath'  => '/',
                 'filename'  => 'imported.elpx',
             ],
