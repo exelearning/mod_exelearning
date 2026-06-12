@@ -35,6 +35,14 @@
 define('EXELEARNING_GRADEMODEL_OVERALL', 0); // Overall grade only (itemnumber=0).
 define('EXELEARNING_GRADEMODEL_PERITEM', 1); // One column per gradable iDevice (default).
 
+// DEC-0052: custom completion rule `completionstatusrequired`. The activity is
+// marked complete when the user's attempt reaches a required status. The column is
+// nullable; NULL disables the rule. A module-level rule (one state per module),
+// aligned with Moodle's completion abstraction (DEC-0049 rejected per-iDevice).
+define('EXELEARNING_COMPLETIONSTATUS_PASSED', 1); // Require a passed attempt.
+define('EXELEARNING_COMPLETIONSTATUS_COMPLETED', 2); // Require a completed attempt.
+define('EXELEARNING_COMPLETIONSTATUS_ANY', 3); // Require a passed OR completed attempt.
+
 /**
  * Features supported by this module.
  *
@@ -54,7 +62,7 @@ function exelearning_supports($feature) {
         case FEATURE_COMPLETION_TRACKS_VIEWS:
             return true;
         case FEATURE_COMPLETION_HAS_RULES:
-            return false;
+            return true;
         case FEATURE_GRADE_HAS_GRADE:
             return true;
         case FEATURE_GRADE_OUTCOMES:
@@ -109,6 +117,12 @@ function exelearning_add_instance($data, $mform = null) {
     }
     if (!isset($data->gradecat)) {
         $data->gradecat = 0;
+    }
+    // Custom completion rule (DEC-0052): NULL disables the rule. mod_form's
+    // data_postprocessing() already normalises the submitted value to an int or
+    // null; default to null when the caller does not provide it.
+    if (!isset($data->completionstatusrequired)) {
+        $data->completionstatusrequired = null;
     }
 
     $data->id = $DB->insert_record('exelearning', $data);
@@ -173,6 +187,12 @@ function exelearning_update_instance($data, $mform = null) {
     }
     if (!isset($data->gradecat)) {
         $data->gradecat = 0;
+    }
+    // Custom completion rule (DEC-0052): NULL disables the rule. mod_form's
+    // data_postprocessing() sets this to an int or null; default to null when the
+    // caller does not provide it so an update never leaves a stray stale value.
+    if (!isset($data->completionstatusrequired)) {
+        $data->completionstatusrequired = null;
     }
 
     $DB->update_record('exelearning', $data);
@@ -240,6 +260,46 @@ function exelearning_delete_instance($id) {
     $DB->delete_records('exelearning', ['id' => $id]);
 
     return true;
+}
+
+/**
+ * Returns information to be displayed on the course page and the custom completion
+ * rule configuration for the activity (DEC-0052).
+ *
+ * Exposes the stored completionstatusrequired field so
+ * \mod_exelearning\completion\custom_completion can read the rule's required status
+ * from $cm->customdata. Mirrors mod_scorm's scorm_get_coursemodule_info().
+ *
+ * @param stdClass $coursemodule The course module record.
+ * @return cached_cm_info|false An object with the cached information, or false if the
+ *         instance is missing.
+ */
+function exelearning_get_coursemodule_info($coursemodule) {
+    global $DB;
+
+    $dbparams = ['id' => $coursemodule->instance];
+    $fields = 'id, name, intro, introformat, completionstatusrequired';
+    if (!$exelearning = $DB->get_record('exelearning', $dbparams, $fields)) {
+        return false;
+    }
+
+    $result = new cached_cm_info();
+    $result->name = $exelearning->name;
+
+    if ($coursemodule->showdescription) {
+        // Convert intro to html. Do not filter cached version, filters run at display time.
+        $result->content = format_module_intro('exelearning', $exelearning, $coursemodule->id, false);
+    }
+
+    // Populate the custom completion rules as key => value pairs, but only when the
+    // completion mode is 'automatic'. A NULL value means the rule is disabled, in
+    // which case activity_custom_completion treats it as not available.
+    if ($coursemodule->completion == COMPLETION_TRACKING_AUTOMATIC) {
+        $result->customdata['customcompletionrules']['completionstatusrequired'] =
+            $exelearning->completionstatusrequired;
+    }
+
+    return $result;
 }
 
 /**

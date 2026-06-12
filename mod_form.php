@@ -288,6 +288,19 @@ class mod_exelearning_mod_form extends moodleform_mod {
             }
         }
 
+        // Custom completion (DEC-0052): seed the enabling checkbox from the stored
+        // status. A non-null completionstatusrequired means the rule is active, so
+        // tick the checkbox and reflect the saved status in the select.
+        $suffix = $this->get_suffix();
+        $statusvalue = $defaultvalues['completionstatusrequired' . $suffix] ?? null;
+        if ($statusvalue !== null && $statusvalue !== '') {
+            $defaultvalues['completionstatusenabled' . $suffix] = 1;
+            $defaultvalues['completionstatusrequired' . $suffix] = (int) $statusvalue;
+        } else {
+            $defaultvalues['completionstatusenabled' . $suffix] = 0;
+            $defaultvalues['completionstatusrequired' . $suffix] = EXELEARNING_COMPLETIONSTATUS_ANY;
+        }
+
         // Reflect the real grade category in the selector. The stored gradecat is
         // authoritative, but fall back to the overall grade item's actual category
         // when it is unset (activity created before the gradecat column, or moved
@@ -357,5 +370,88 @@ class mod_exelearning_mod_form extends moodleform_mod {
         }
 
         return $errors;
+    }
+
+    /**
+     * Adds the custom completion rule for the activity (DEC-0052).
+     *
+     * A single module-level rule: the activity is marked complete when the user's
+     * attempt reaches a required status. A checkbox enables the rule and a select
+     * picks the required status (passed / completed / passed or completed).
+     *
+     * @return array Names of the added form elements.
+     */
+    public function add_completion_rules() {
+        $mform = $this->_form;
+        $suffix = $this->get_suffix();
+
+        $statusenabledel = 'completionstatusenabled' . $suffix;
+        $statusrequiredel = 'completionstatusrequired' . $suffix;
+
+        $group = [];
+        $group[] =& $mform->createElement(
+            'checkbox',
+            $statusenabledel,
+            '',
+            get_string('completionstatusrequired', 'mod_exelearning')
+        );
+        $group[] =& $mform->createElement(
+            'select',
+            $statusrequiredel,
+            '',
+            [
+                EXELEARNING_COMPLETIONSTATUS_ANY       => get_string('completionstatus_any', 'mod_exelearning'),
+                EXELEARNING_COMPLETIONSTATUS_PASSED    => get_string('completionstatus_passed', 'mod_exelearning'),
+                EXELEARNING_COMPLETIONSTATUS_COMPLETED => get_string('completionstatus_completed', 'mod_exelearning'),
+            ]
+        );
+        $mform->setType($statusrequiredel, PARAM_INT);
+
+        $groupel = 'completionstatusgroup' . $suffix;
+        $mform->addGroup($group, $groupel, get_string('completionstatusgroup', 'mod_exelearning'), ' ', false);
+        $mform->addHelpButton($groupel, 'completionstatusrequired', 'mod_exelearning');
+        $mform->hideIf($statusrequiredel, $statusenabledel, 'notchecked');
+        $mform->setDefault($statusrequiredel, EXELEARNING_COMPLETIONSTATUS_ANY);
+
+        return [$groupel];
+    }
+
+    /**
+     * Whether the custom completion rule is enabled (DEC-0052).
+     *
+     * @param array $data Submitted form data.
+     * @return bool True when the status-required rule is enabled.
+     */
+    public function completion_rule_enabled($data) {
+        $suffix = $this->get_suffix();
+        return !empty($data['completionstatusenabled' . $suffix]);
+    }
+
+    /**
+     * Normalises the custom completion data before the instance is saved (DEC-0052).
+     *
+     * Stores the selected status when the rule is enabled and automatic completion
+     * is active, otherwise stores NULL so the rule is treated as disabled.
+     *
+     * @param stdClass $data The form data to be modified.
+     * @return void
+     */
+    public function data_postprocessing($data) {
+        parent::data_postprocessing($data);
+
+        $suffix = $this->get_suffix();
+        $enabledel = 'completionstatusenabled' . $suffix;
+        $requiredel = 'completionstatusrequired' . $suffix;
+
+        if (!empty($data->completionunlocked)) {
+            $completion = $data->{'completion' . $suffix} ?? COMPLETION_TRACKING_NONE;
+            $autocompletion = ($completion == COMPLETION_TRACKING_AUTOMATIC);
+
+            if (!empty($data->{$enabledel}) && $autocompletion) {
+                $data->{$requiredel} = (int) ($data->{$requiredel} ?? EXELEARNING_COMPLETIONSTATUS_ANY);
+            } else {
+                $data->{$requiredel} = null;
+            }
+        }
     }
 }

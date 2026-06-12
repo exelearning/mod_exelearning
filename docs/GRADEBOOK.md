@@ -94,6 +94,34 @@ complete on passing the activity as a whole (`lib.php:1142-1145`). The plugin re
 `grademax`, otherwise "require passing grade" completion is unreachable (`mod_form.php:338-343`; strings
 `err_grademinmax`, `err_gradepassrange` at `lang/en/exelearning.php:90-91`).
 
+## Completion by status (custom completion rule, DEC-0052)
+
+Besides the grade-based conditions above, the activity exposes **one custom completion rule**,
+`completionstatusrequired`, so it can be marked complete when the user's attempt reaches a required status —
+closing the "completion rules" gap versus `mod_exescorm` (which advertises `FEATURE_COMPLETION_HAS_RULES=true`).
+`exelearning_supports(FEATURE_COMPLETION_HAS_RULES)` returns `true` (`lib.php`).
+
+- **Config storage**: a nullable `completionstatusrequired` column on the `exelearning` table (`db/install.xml`;
+  upgrade stage 17, `2026061202`). `NULL` disables the rule; `1` = passed, `2` = completed, `3` = passed **or**
+  completed (any). Constants `EXELEARNING_COMPLETIONSTATUS_PASSED|COMPLETED|ANY` in `lib.php`.
+- **Form**: `mod_form::add_completion_rules()` adds an enabling checkbox plus a status selector under the activity
+  completion section; `completion_rule_enabled()` reports it, and `data_postprocessing()` stores the selected status
+  (or `NULL`) only when automatic completion is active.
+- **Course-module info**: `exelearning_get_coursemodule_info()` exposes
+  `$cm->customdata['customcompletionrules']['completionstatusrequired']` (only when completion is automatic), mirroring
+  `scorm_get_coursemodule_info()`.
+- **State**: `\mod_exelearning\completion\custom_completion::get_state()` returns `COMPLETION_COMPLETE` when the user
+  has a row in `exelearning_attempt` whose `status` matches the required value(s) (`passed`/`completed`), else
+  `COMPLETION_INCOMPLETE`. `track::ingest()` already recalculates completion after each commit.
+- **Backup**: `completionstatusrequired` is in the backed-up instance fields
+  (`backup/moodle2/backup_exelearning_stepslib.php`), so the rule survives backup/restore.
+
+This rule is **module-level** (one state per module), fully aligned with Moodle's completion abstraction. It does not
+conflict with DEC-0049, which rejected *per-iDevice* completion (multiple states per module). Scope is deliberately
+limited to status: a score-based completion is already covered by completion-by-grade (DEC-0038), so a
+`completionscorerequired` would create two overlapping mechanisms; `completionstatusallscos` (a multi-SCO concept) is
+alien to eXe.
+
 ## When grading is disabled (`gradeenabled=0`, DEC-0029)
 
 `gradeenabled` is the master grading switch (`db/install.xml:26`, default 1). When unchecked, the mod_form
@@ -142,4 +170,4 @@ The Grading and Attempts sections of the activity form (`mod_form.php:78-227`), 
   the dual SCORM 1.2 + xAPI pipeline).
 - `docs/PRIVACY_BACKUP_FILES.md` — backup/restore of `exelearning_grade_item` and attempt data
   (`backup/moodle2/backup_exelearning_stepslib.php`).
-- `research/decisiones/adr/` — DEC-0008, DEC-0010, DEC-0017, DEC-0021, DEC-0029, DEC-0038 (and the new DEC-0047).
+- `research/decisiones/adr/` — DEC-0008, DEC-0010, DEC-0017, DEC-0021, DEC-0029, DEC-0038, DEC-0047, DEC-0052.
