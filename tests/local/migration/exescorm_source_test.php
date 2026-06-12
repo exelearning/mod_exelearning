@@ -116,11 +116,11 @@ final class exescorm_source_test extends advanced_testcase {
     }
 
     /**
-     * Externally hosted types are unsupported even before touching any stored file.
+     * Externally hosted and synchronized types are unsupported before touching any file.
      */
-    public function test_external_types_are_unsupported(): void {
+    public function test_external_and_synced_types_are_unsupported(): void {
         $src = new exescorm_source();
-        foreach (['external', 'aiccurl'] as $type) {
+        foreach (['external', 'aiccurl', 'localsync'] as $type) {
             // No stored package at all: classification must not depend on file access.
             $source = $this->make_source_row(['contextid' => 0, 'exescormtype' => $type]);
             $this->assertSame(
@@ -130,6 +130,23 @@ final class exescorm_source_test extends advanced_testcase {
             );
             $this->assertNull($src->resolve_elpx($source));
         }
+    }
+
+    /**
+     * A synchronized source is unsupported even when a local package snapshot exists:
+     * migrating it would break the sync relationship with its external URL (DEC-0050).
+     */
+    public function test_localsync_is_unsupported_even_with_local_package(): void {
+        [, $ctxid] = $this->create_empty_target();
+        // Store a perfectly valid local package: classification must still refuse it.
+        $this->store_sibling_package($ctxid, 'mod_exescorm', $this->fixture(), 'synced.elpx', 0);
+        $source = $this->make_source_row([
+            'contextid' => $ctxid, 'exescormtype' => 'localsync', 'reference' => 'https://example.org/pkg.zip',
+        ]);
+
+        $src = new exescorm_source();
+        $this->assertSame(migration_result::STATUS_UNSUPPORTED, $src->classify($source)->status);
+        $this->assertNull($src->resolve_elpx($source));
     }
 
     /**

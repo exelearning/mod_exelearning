@@ -30,7 +30,8 @@ namespace mod_exelearning\local\migration\source;
  * The package lives at itemid 0. The stored file can itself BE an .elpx (embedded
  * editor flow: mod_exescorm skips SCORM parsing when its reference ends in .elpx,
  * see mod_exescorm/lib.php), or a SCORM zip that may embed one or more .elpx. Types
- * that keep no local package (external SCORM / AICC URLs) are unsupported.
+ * that keep no static local package — external SCORM / AICC URLs and synchronized
+ * (localsync) sources, whose snapshot keeps re-syncing from a URL — are unsupported.
  */
 final class exescorm_source implements source_interface {
     /**
@@ -51,6 +52,16 @@ final class exescorm_source implements source_interface {
      * @var string
      */
     private const TYPE_AICCURL = 'aiccurl';
+
+    /**
+     * Periodically-synced package type: although mod_exescorm keeps a local snapshot
+     * at package/0, the activity stays in sync with an external URL, so migrating it
+     * to a static eXeLearning snapshot would break that relationship. Treated as
+     * non-migratable (DEC-0050). Mirrors EXESCORM_TYPE_LOCALSYNC (mod_exescorm/lib.php).
+     *
+     * @var string
+     */
+    private const TYPE_LOCALSYNC = 'localsync';
 
     /**
      * The bare module name.
@@ -103,8 +114,9 @@ final class exescorm_source implements source_interface {
      * @return classification
      */
     public function classify(\stdClass $source): classification {
-        if (in_array($source->exescormtype, [self::TYPE_EXTERNAL, self::TYPE_AICCURL], true)) {
-            // No locally stored package: nothing to copy.
+        if (in_array($source->exescormtype, [self::TYPE_EXTERNAL, self::TYPE_AICCURL, self::TYPE_LOCALSYNC], true)) {
+            // External source (no local package) or a synchronized source (whose local
+            // snapshot keeps re-syncing from a URL): nothing we can safely migrate.
             return classification::unsupported();
         }
 
