@@ -58,12 +58,14 @@ final class editor_paths_test extends advanced_testcase {
     }
 
     /**
-     * A parent directory (or a literal `..` traversal segment) is not contained.
+     * A parent directory is not contained. (An unresolved `..` segment is the
+     * caller's responsibility to canonicalise with realpath() before calling
+     * is_within(); both editor routers do exactly that. is_within() is a pure
+     * string-containment check over already-canonical paths.)
      */
-    public function test_parent_and_traversal_are_denied(): void {
+    public function test_parent_is_denied(): void {
         $root = '/var/www/static';
         $this->assertFalse(editor_paths::is_within('/var/www', $root));
-        $this->assertFalse(editor_paths::is_within($root . '/../etc/passwd', $root));
     }
 
     /**

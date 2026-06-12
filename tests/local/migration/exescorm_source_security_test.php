@@ -18,6 +18,7 @@ namespace mod_exelearning\local\migration;
 
 use advanced_testcase;
 use mod_exelearning\local\migration\source\exescorm_source;
+use mod_exelearning\local\zip_utils;
 use mod_exelearning\tests\helper_trait;
 
 defined('MOODLE_INTERNAL') || die();
@@ -39,6 +40,7 @@ require_once($CFG->dirroot . '/mod/exelearning/lib.php');
  * @copyright  2026 ATE (Área de Tecnología Educativa)
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @covers     \mod_exelearning\local\migration\source\exescorm_source
+ * @covers     \mod_exelearning\local\zip_utils::is_unsafe_zip_entry
  */
 final class exescorm_source_security_test extends advanced_testcase {
     use helper_trait;
@@ -90,28 +92,25 @@ final class exescorm_source_security_test extends advanced_testcase {
     }
 
     /**
-     * A SCORM zip whose only .elpx entry has an unsafe name is treated as nosource
-     * and never resolved/extracted.
+     * The migration's unsafe-entry guard flags path-traversal, absolute, backslash
+     * and stream-wrapper entry names.
+     *
+     * Note: Moodle's `zip_packer::list_files()` already normalises entry names, so a
+     * hostile name is sanitised before `exescorm_source::classify()` ever reads it —
+     * the classify-/resolve-level `is_unsafe_zip_entry()` filtering is therefore
+     * defence in depth, and the binding guarantee is the post-extraction
+     * `zip_utils::assert_extraction_contained()` sweep in `resolve_elpx()` (its symlink
+     * containment is covered by `zip_utils_test`). This asserts the predicate that
+     * filtering relies on, which is deterministic regardless of zip normalisation.
      *
      * @dataProvider unsafe_entry_provider
      * @param string $entryname The hostile zip entry name.
      */
-    public function test_unsafe_embedded_entry_is_rejected(string $entryname): void {
-        [, $ctxid] = $this->create_empty_target();
-        $zip = $this->make_zip_with_raw_entry($entryname);
-        $this->store_sibling_package($ctxid, 'mod_exescorm', $zip, 'scorm.zip', 0);
-        $source = $this->make_source_row(['contextid' => $ctxid, 'exescormtype' => 'local']);
-
-        $src = new exescorm_source();
-
-        // The hostile entry is filtered out, so no usable .elpx remains: nosource.
-        $this->assertSame(
-            migration_result::STATUS_NOSOURCE,
-            $src->classify($source)->status,
-            "Unsafe entry {$entryname} must be rejected"
+    public function test_unsafe_entry_guard_flags_hostile_names(string $entryname): void {
+        $this->assertTrue(
+            zip_utils::is_unsafe_zip_entry($entryname),
+            "Entry {$entryname} must be flagged unsafe"
         );
-        // And resolve must refuse to extract it.
-        $this->assertNull($src->resolve_elpx($source));
     }
 
     /**

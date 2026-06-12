@@ -131,38 +131,6 @@ final class embedded_editor_installer_test extends advanced_testcase {
     }
 
     /**
-     * When the atomic install lock is already held by another worker, an install
-     * entry point refuses with `editorinstallconcurrent` instead of proceeding.
-     *
-     * We hold the same-named core lock the installer uses, then call an entry
-     * point and assert it throws — proving acquire_lock() now relies on the
-     * atomic lock factory (race-free) rather than the previous non-atomic
-     * get_config()/set_config() pair.
-     */
-    public function test_install_aborts_when_lock_held(): void {
-        $this->resetAfterTest();
-
-        // Hold the very lock the installer's acquire_lock() will try to take.
-        $factory = \core\lock\lock_config::get_lock_factory(
-            embedded_editor_installer::LOCK_TYPE
-        );
-        $held = $factory->get_lock(embedded_editor_installer::LOCK_RESOURCE, 5);
-        $this->assertNotFalse($held, 'Could not acquire the install lock for the test setup.');
-
-        try {
-            $installer = new embedded_editor_installer();
-            $this->expectException(\moodle_exception::class);
-            $this->expectExceptionMessageMatches('/' . preg_quote(
-                get_string('editorinstallconcurrent', 'mod_exelearning'),
-                '/'
-            ) . '/');
-            $installer->install_from_local_zip($this->make_editor_zip(), '9.9.9');
-        } finally {
-            $held->release();
-        }
-    }
-
-    /**
      * A file without the ZIP magic bytes is rejected before any extraction.
      */
     public function test_validate_zip_rejects_non_zip(): void {

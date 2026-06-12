@@ -79,9 +79,16 @@ hallazgo por contradecir una decisión ya aceptada y tratar 2 como limpieza meno
 
 - `php -l` y `phpcs --standard=moodle` 0/0 sobre todos los PHP tocados. PHPUnit corre en CI (no local, ver
   [[project-mod-exelearning-phpunit-local]]); gate Codecov patch ([[DEC-0048]]).
-- Tests nuevos: `exescorm_source_security_test` (entradas `../`, `/abs`, `\\`, `file://` rechazadas),
-  `package_manager_extract_test` (paquete sin `index.html` lanza), `editor_paths_test` (prefijo-hermano
-  denegado), y test de lock-en-uso en `embedded_editor_installer_test`.
+- Tests nuevos: `exescorm_source_security_test` (el guard `is_unsafe_zip_entry` marca `../`/`/abs`/`\\`/
+  `file://`, y un `.elpx` seguro resuelve), `package_manager_extract_test` (paquete sin `index.html`
+  lanza), `editor_paths_test` (prefijo-hermano y directorio padre denegados).
+- NOTA de alcance (descubierta en CI): el filtrado a nivel de `classify()` (#1) es **defensa en
+  profundidad** — `zip_packer::list_files()` de Moodle **ya normaliza** los nombres de entrada (un
+  `../evil.elpx` llega saneado), así que la garantía vinculante es el barrido post-extracción
+  `assert_extraction_contained()` en `resolve_elpx()`. Y la contención de lock entre peticiones (#4) **no
+  es unit-testable**: los lock factories nativos de BD (MySQL `GET_LOCK`, PG advisory) son reentrantes por
+  sesión, así que un segundo `get_lock` en el mismo proceso no falla; se confía en la semántica testada de
+  `\core\lock`.
 
 ## Seguimiento
 
