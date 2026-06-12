@@ -9,14 +9,20 @@
 # requirement, add `codecov/project` to the required status checks in the GitHub
 # branch-protection rule for `main` (Settings -> Branches).
 #
-# The PHP upload stays unflagged on purpose: in CI the plugin lives under
-# mod/exelearning/, so a flag path filter like `classes/` matches nothing and yields
-# "No coverage data available". The coverage scope is already limited in
-# tests/coverage.php. moodle-plugin-ci installs the plugin under moodle/mod/exelearning/,
-# so the coverage report paths are prefixed with that. Strip it so coverage maps onto
-# the repository tree (classes/, lib.php) instead of phantom paths — otherwise Codecov
-# shows 0 files / no percentage. (The `javascript` flag added below is unaffected: the
-# jsunit job checks out at the repo root, so its js/ paths need no fix.)
+# Both languages upload under a flag now: the PHP coverage job tags `php`, the jsunit job
+# tags `javascript`. Flagging both keeps each visible as its own flag/component in the
+# dashboard and PR comment (an unflagged report is absent from those breakdowns even though
+# it still counts toward the total).
+#
+# moodle-plugin-ci installs the plugin under moodle/mod/exelearning/, so the PHP report paths
+# are prefixed with that. Strip it so coverage maps onto the repository tree (classes/,
+# lib.php) instead of phantom paths — otherwise Codecov shows 0 files / no percentage. This
+# `fixes` strip runs before the `php` flag is associated, so the flag picks up the
+# repo-relative paths (the `php` flag below deliberately has no `paths:` filter: an earlier
+# filter like `classes/` matched nothing and yielded "No coverage data available"; without a
+# filter the flag simply includes every file in the PHP upload). The coverage scope is
+# already limited in tests/coverage.php. The `javascript` flag is unaffected: the jsunit job
+# checks out at the repo root, so its js/ paths need no fix.
 fixes:
   - "moodle/mod/exelearning/::"
 
@@ -33,18 +39,37 @@ coverage:
         # New/changed lines in a PR must be at least 80% covered.
         target: 80%
 
-# The Vitest coverage of the grade-critical SCORM tracker (js/scorm_tracker.js) is
-# uploaded by the jsunit job under this flag, so it is tracked apart from the PHP figure.
+# PHP (PHPUnit, whole plugin) and JS (Vitest, the grade-critical SCORM tracker
+# js/scorm_tracker.js) upload under their own flag so each is tracked separately. The `php`
+# flag has no `paths:` filter on purpose (see the note on `fixes` above); `carryforward: true`
+# on both means a commit that has not finished/skipped one job's upload reuses that flag's
+# coverage from the parent commit instead of momentarily showing only the other language
+# (the PHP coverage job is slow — full Moodle install + PHPUnit + Behat — so it lands well
+# after the fast jsunit job).
 flags:
+  php:
+    carryforward: true
   javascript:
     paths:
       - js/
     carryforward: true
 
-# Surface JS coverage as its own component in the PR comment and gate its patch lines,
-# mirroring the PHP project/patch gates above.
+# Surface each language as its own component in the dashboard and PR comment, and gate it
+# with project/patch statuses mirroring the repo-wide gates above. PHP and JS each get a
+# `codecov/project/<component>` and `codecov/patch/<component>` check; add them to the `main`
+# branch-protection required checks to make them blocking.
 component_management:
   individual_components:
+    - component_id: php
+      name: PHP (server-side)
+      flag_regexes:
+        - php
+      statuses:
+        - type: project
+          target: auto
+          threshold: 0.5%
+        - type: patch
+          target: 80%
     - component_id: javascript
       name: JavaScript (SCORM tracker)
       flag_regexes:
@@ -56,7 +81,8 @@ component_management:
         - type: patch
           target: 80%
 
-# Show the coverage percentage and the diff in the PR comment.
+# Show the coverage percentage and the diff in the PR comment, with a per-flag and
+# per-component breakdown so PHP and JS both appear.
 comment:
-  layout: "condensed_header, diff, components, files"
+  layout: "condensed_header, diff, flags, components, files"
   require_changes: false
