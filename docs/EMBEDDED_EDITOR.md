@@ -88,11 +88,23 @@ php-wasm runtime, gated on the `MOODLE_PLAYGROUND` constant
 
 ### Concurrent-install lock
 
-Each install acquires a config lock `embedded_editor_installing`
-(`acquire_lock()` `:824-830`, `release_lock()` `:835-837`). A second install while
-one is in progress throws `editorinstallconcurrent`. The lock is considered stale
-after `INSTALL_LOCK_TIMEOUT = 300` seconds (`:59`), which also bounds the PHP time
-limit and the download timeout.
+Each install acquires an **atomic** Moodle lock via
+`\core\lock\lock_config::get_lock_factory('mod_exelearning')->get_lock('editor_install', 5)`
+(`acquire_lock()`/`release_lock()`), mirroring the pattern used in
+`classes/local/track.php`. A second install while one is in progress fails to
+acquire the lock and throws `editorinstallconcurrent`; the lock is released in
+`release_lock()` (called from a `finally` in each `install_*` entry point). The
+lock factory's check-and-claim is atomic, closing the race the previous
+`get_config()`/`set_config()` pair left open (two callers could both read "no
+lock" before either wrote one).
+
+The `embedded_editor_installing` config timestamp is **retained** but demoted to a
+cross-request *progress marker*: it is written while the atomic lock is held and
+read by `manage_embedded_editor::get_status()` to report `installing` /
+`install_stale` to the admin UI (a per-request core lock is not visible to a
+separate status-poll request, so the timestamp still drives that signal). It is
+considered stale after `INSTALL_LOCK_TIMEOUT = 300` seconds (`:59`), which also
+bounds the PHP time limit and the download timeout.
 
 ### External API and capabilities
 
@@ -147,6 +159,22 @@ The client-side overlay is `amd/src/editor_modal.js`. A delegated click on a
 `[data-action="mod_exelearning/editor-open"]` button (`:722-739`) opens a
 full-screen overlay containing an `<iframe>` whose `src` is the editor URL
 (`open()` `:643-715`).
+
+### Service worker
+
+The static editor ships a `preview-sw.js` service worker, but **the embedded
+editor never registers it**: `editor/index.php` shims
+`navigator.serviceWorker.register` so any request for `preview-sw.js` resolves to
+a no-op instead of registering (`editor/index.php:224-241`). This avoids the
+console-spamming registration errors seen where the `static.php` router is proxied
+or cached (e.g. moodle-playground) and returns a 404 for that path.
+
+Because registration is blocked, `editor/static.php` **does not** emit a
+`Service-Worker-Allowed: /` header when serving `preview-sw.js`. That header only
+widens the scope a service worker is *allowed to control*; with no registration it
+was unused, and broadcasting an unnecessarily broad (`/`) control scope is avoided.
+Removing it changes no working flow — the worker is never activated — and narrows
+the surface a future or proxied registration could claim.
 
 ### Protocol messages
 
