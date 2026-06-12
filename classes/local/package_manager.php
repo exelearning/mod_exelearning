@@ -186,7 +186,14 @@ final class package_manager {
             '/'
         );
 
-        // 4) Ensure index.html is set as mainfile (for the file browser).
+        // 4) Centralised valid-extraction guard. extract_to_storage() returns false on a
+        // corrupt/empty archive WITHOUT throwing, so the content area is silently left
+        // with no servable index.html. A genuine eXeLearning v4 package always extracts
+        // an index.html entry at the root; its absence means the archive was corrupt or
+        // not a real package, so fail loudly here rather than record an empty shell. This
+        // is the single extraction engine behind every entry point (form upload, editor
+        // save, view self-heal and migration via the lib.php delegator), so guarding it
+        // here covers them all.
         $entry = $fs->get_file(
             $context->id,
             'mod_exelearning',
@@ -195,17 +202,20 @@ final class package_manager {
             '/',
             'index.html'
         );
-        if ($entry) {
-            file_set_sortorder(
-                $context->id,
-                'mod_exelearning',
-                'content',
-                (int) $data->revision,
-                '/',
-                'index.html',
-                1
-            );
+        if (!$entry) {
+            throw new \moodle_exception('migrateextractfailed', 'mod_exelearning');
         }
+
+        // Ensure index.html is set as mainfile (for the file browser).
+        file_set_sortorder(
+            $context->id,
+            'mod_exelearning',
+            'content',
+            (int) $data->revision,
+            '/',
+            'index.html',
+            1
+        );
 
         // 5) If the package (web export) does not include libs/SCORM_API_wrapper.js,
         // inject it from the plugin's assets/ directory. eXeLearning v4 only bundles
