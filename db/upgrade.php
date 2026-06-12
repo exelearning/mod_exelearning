@@ -425,26 +425,6 @@ function xmldb_exelearning_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026060401, 'exelearning');
     }
 
-    // Stage 13 (2026060402): migration audit/idempotency table for the sibling
-    // migration tool (issue #13 #3, DEC-0026). Maps each migrated source course
-    // module to the eXeLearning activity created from it, so re-running the tool
-    // skips already-migrated activities. Numbered above the grade-category stage
-    // (2026060401) so it also runs on sites already upgraded to that version.
-    if ($oldversion < 2026060402) {
-        $table = new xmldb_table('exelearning_migration');
-        if (!$dbman->table_exists($table)) {
-            $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
-            $table->add_field('sourcecomponent', XMLDB_TYPE_CHAR, '64', null, XMLDB_NOTNULL, null, null);
-            $table->add_field('sourcecmid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
-            $table->add_field('targetcmid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
-            $table->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
-            $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
-            $table->add_index('sourcecomponent_sourcecmid', XMLDB_INDEX_UNIQUE, ['sourcecomponent', 'sourcecmid']);
-            $dbman->create_table($table);
-        }
-        upgrade_mod_savepoint(true, 2026060402, 'exelearning');
-    }
-
     // Stage 14 (2026060800): drop the hidden overall grade item in per-iDevice
     // mode (DEC-0038, supersedes the DEC-0035 exclusion above). The hidden overall
     // (itemnumber=0) still showed as a greyed "extra grade" column to teachers
@@ -473,6 +453,27 @@ function xmldb_exelearning_upgrade($oldversion) {
         }
 
         upgrade_mod_savepoint(true, 2026060800, 'exelearning');
+    }
+
+    // Stage 15 (2026061200): migration audit/idempotency table for the sibling
+    // migration tool (issue #13 #3, DEC-0026). Maps each migrated source course
+    // module to the eXeLearning activity created from it, so re-running the tool
+    // skips already-migrated activities. Numbered above every prior stage so it
+    // also runs on sites already upgraded past 2026060800 (otherwise the table
+    // would only ever be created on fresh installs via install.xml).
+    if ($oldversion < 2026061200) {
+        $table = new xmldb_table('exelearning_migration');
+        if (!$dbman->table_exists($table)) {
+            $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+            $table->add_field('sourcecomponent', XMLDB_TYPE_CHAR, '64', null, XMLDB_NOTNULL, null, null);
+            $table->add_field('sourcecmid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+            $table->add_field('targetcmid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+            $table->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+            $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+            $table->add_index('sourcecomponent_sourcecmid', XMLDB_INDEX_UNIQUE, ['sourcecomponent', 'sourcecmid']);
+            $dbman->create_table($table);
+        }
+        upgrade_mod_savepoint(true, 2026061200, 'exelearning');
     }
 
     return true;
