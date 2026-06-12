@@ -108,6 +108,15 @@ final class backup_restore_test extends advanced_testcase {
         \mod_exelearning\local\attempts::record_item($instance->id, $student->id, 1, 0, 70.0, 100.0, 'completed', 'sx');
         \mod_exelearning\local\attempts::record_item($instance->id, $student->id, 1, 1, 80.0, 100.0, 'completed', 'sx');
 
+        // Stamp a known contenthash on a source grade item: it backs the
+        // stale-grades warning (DEC-0021) and must round-trip through backup.
+        $DB->set_field(
+            'exelearning_grade_item',
+            'contenthash',
+            sha1('plan003-fixture'),
+            ['exelearningid' => $instance->id, 'itemnumber' => 1]
+        );
+
         // Roundtrip.
         $newcourseid = $this->backup_and_restore($course);
 
@@ -125,6 +134,13 @@ final class backup_restore_test extends advanced_testcase {
         $restoredobjectids = array_values(array_map(fn($r) => $r->objectid, $restoreditems));
         sort($restoredobjectids);
         $this->assertSame($srcobjectids, $restoredobjectids);
+
+        // The stamped contenthash round-tripped: the stale-grades warning
+        // metadata (DEC-0021) survives backup/restore instead of going NULL.
+        $restoredrow = $DB->get_record('exelearning_grade_item', [
+            'exelearningid' => $restoredinstance->id, 'itemnumber' => 1,
+        ], '*', MUST_EXIST);
+        $this->assertSame(sha1('plan003-fixture'), $restoredrow->contenthash);
 
         // The student's attempts came across with user data.
         $attempts = $DB->get_records('exelearning_attempt', [
