@@ -106,6 +106,66 @@ trait helper_trait {
     }
 
     /**
+     * Creates a fake sibling activity so list_sources() can be tested without the
+     * sibling plugin installed: a minimal sibling table, a {modules} registration, a
+     * course, the activity row, a real course module and its context.
+     *
+     * @param string $module 'exeweb' or 'exescorm'.
+     * @param array $activityfields Values for the activity row (e.g. name, revision,
+     *                              exescormtype, reference).
+     * @return \stdClass {courseid, cmid, instanceid, moduleid}.
+     */
+    protected function make_fake_sibling_activity(string $module, array $activityfields = []): \stdClass {
+        global $DB;
+        $dbman = $DB->get_manager();
+
+        // Minimal sibling table covering the columns the enumeration query reads.
+        $table = new \xmldb_table($module);
+        if (!$dbman->table_exists($table)) {
+            $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+            $table->add_field('course', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+            $table->add_field('name', XMLDB_TYPE_CHAR, '255', null, XMLDB_NOTNULL, null, null);
+            $table->add_field('intro', XMLDB_TYPE_TEXT, null, null, null, null, null);
+            $table->add_field('introformat', XMLDB_TYPE_INTEGER, '4', null, XMLDB_NOTNULL, null, '0');
+            $table->add_field('revision', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+            $table->add_field('exescormtype', XMLDB_TYPE_CHAR, '20', null, null, null, null);
+            $table->add_field('reference', XMLDB_TYPE_CHAR, '255', null, null, null, null);
+            $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+            $dbman->create_table($table);
+        }
+
+        // Register the module so cm.module resolves.
+        $moduleid = $DB->get_field('modules', 'id', ['name' => $module]);
+        if (!$moduleid) {
+            $moduleid = $DB->insert_record('modules', (object) ['name' => $module, 'visible' => 1]);
+        }
+
+        $course = $this->getDataGenerator()->create_course();
+        $activity = (object) array_merge([
+            'course' => $course->id, 'name' => 'Fake activity', 'intro' => '',
+            'introformat' => FORMAT_HTML, 'revision' => 1,
+        ], $activityfields);
+        $instanceid = $DB->insert_record($module, $activity);
+
+        $section = $DB->get_record('course_sections', ['course' => $course->id, 'section' => 0], '*', MUST_EXIST);
+        $cmid = $DB->insert_record('course_modules', (object) [
+            'course' => $course->id, 'module' => $moduleid, 'instance' => $instanceid,
+            'section' => $section->id, 'added' => 1, 'visible' => 1, 'visibleold' => 1,
+            'visibleoncoursepage' => 1, 'groupmode' => 0, 'groupingid' => 0, 'completion' => 0,
+            'completionview' => 0, 'completionexpected' => 0, 'completionpassgrade' => 0,
+            'deletioninprogress' => 0,
+        ]);
+        \context_module::instance($cmid);
+
+        return (object) [
+            'courseid'   => (int) $course->id,
+            'cmid'       => (int) $cmid,
+            'instanceid' => (int) $instanceid,
+            'moduleid'   => (int) $moduleid,
+        ];
+    }
+
+    /**
      * Builds a source row matching source_interface::list_sources() output.
      *
      * @param array $overrides Values to override on the default row.

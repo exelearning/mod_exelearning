@@ -99,6 +99,22 @@ final class exeweb_source_test extends advanced_testcase {
     }
 
     /**
+     * list_sources() enumerates site-wide exeweb activities with their revision.
+     */
+    public function test_list_sources_returns_site_activities(): void {
+        $this->resetAfterTest();
+        $fake = $this->make_fake_sibling_activity('exeweb', ['name' => 'Web One', 'revision' => 4]);
+
+        $rows = (new exeweb_source())->list_sources();
+
+        $this->assertCount(1, $rows);
+        $this->assertSame($fake->cmid, (int) $rows[0]->cmid);
+        $this->assertSame('Web One', $rows[0]->name);
+        $this->assertSame(4, (int) $rows[0]->revision);
+        $this->assertNull($rows[0]->migrationid);
+    }
+
+    /**
      * The handler exposes its identity and grade behaviour (exeweb has no grades).
      */
     public function test_identity_and_grade_behaviour(): void {

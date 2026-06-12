@@ -248,6 +248,34 @@ final class migration_service_test extends advanced_testcase {
     }
 
     /**
+     * A source that classifies OK but resolves to no .elpx (corruption/race between
+     * classify and resolve) is reported as nosource and creates no module.
+     */
+    public function test_migrate_one_resolve_null_is_nosource(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $course = $this->getDataGenerator()->create_course();
+        $baseline = $DB->count_records('exelearning');
+
+        $src = $this->make_stub([], fn($s) => classification::ok(), fn($s) => null);
+        $source = $this->make_source_row(['cmid' => 555, 'course' => (int) $course->id]);
+
+        $result = migration_service::migrate_one($src, $source);
+        $this->assertSame(migration_result::STATUS_NOSOURCE, $result->status);
+        $this->assertSame($baseline, $DB->count_records('exelearning'));
+    }
+
+    /**
+     * get_available_sources() returns only installed siblings (none in CI).
+     */
+    public function test_get_available_sources_excludes_uninstalled_siblings(): void {
+        $this->resetAfterTest();
+        // The mod_exeweb / mod_exescorm plugins are not installed in CI, so none are available.
+        $this->assertSame([], migration_service::get_available_sources());
+    }
+
+    /**
      * preflight() buckets sources without extracting any package.
      */
     public function test_preflight_buckets_and_never_extracts(): void {

@@ -119,6 +119,48 @@ final class events_test extends advanced_testcase {
     }
 
     /**
+     * Each event renders a non-empty description and a valid URL.
+     */
+    public function test_event_descriptions_and_urls(): void {
+        [$instance, $ctxid] = $this->create_empty_target();
+        $course = $this->getDataGenerator()->create_course();
+        $coursectx = \context_course::instance($course->id);
+
+        $events = [
+            migration_started::create([
+                'context' => \context_system::instance(),
+                'other'   => ['sourcecomponent' => 'mod_exeweb', 'total' => 3],
+            ]),
+            activity_migrated::create([
+                'context'  => \context::instance_by_id($ctxid),
+                'objectid' => (int) $instance->id,
+                'other'    => ['sourcecomponent' => 'mod_exeweb', 'sourcecmid' => 7],
+            ]),
+            activity_skipped::create([
+                'context' => $coursectx,
+                'other'   => ['sourcecomponent' => 'mod_exescorm', 'sourcecmid' => 8, 'reason' => 'unsupported'],
+            ]),
+            migration_failed::create([
+                'context' => $coursectx,
+                'other'   => ['sourcecomponent' => 'mod_exeweb', 'sourcecmid' => 9, 'error' => 'boom'],
+            ]),
+        ];
+
+        foreach ($events as $event) {
+            $this->assertNotEmpty($event->get_description());
+            $this->assertInstanceOf(\moodle_url::class, $event->get_url());
+            $this->assertNotEmpty($event::get_name());
+        }
+
+        // The migrated event maps its object for backup/restore but not the source ids.
+        $this->assertSame(
+            ['db' => 'exelearning', 'restore' => 'exelearning'],
+            activity_migrated::get_objectid_mapping()
+        );
+        $this->assertFalse(activity_migrated::get_other_mapping());
+    }
+
+    /**
      * Each event rejects missing required `other` keys.
      */
     public function test_events_validate_required_other_keys(): void {

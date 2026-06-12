@@ -149,6 +149,24 @@ final class exescorm_source_test extends advanced_testcase {
     }
 
     /**
+     * list_sources() enumerates site-wide exescorm activities with type and reference.
+     */
+    public function test_list_sources_returns_site_activities(): void {
+        $this->resetAfterTest();
+        $fake = $this->make_fake_sibling_activity('exescorm', [
+            'name' => 'Scorm One', 'exescormtype' => 'local', 'reference' => 'pkg.zip',
+        ]);
+
+        $rows = (new exescorm_source())->list_sources();
+
+        $this->assertCount(1, $rows);
+        $this->assertSame($fake->cmid, (int) $rows[0]->cmid);
+        $this->assertSame('Scorm One', $rows[0]->name);
+        $this->assertSame('local', $rows[0]->exescormtype);
+        $this->assertSame('pkg.zip', $rows[0]->reference);
+    }
+
+    /**
      * The handler exposes its identity and grade behaviour (exescorm migrates overall).
      */
     public function test_identity_and_grade_behaviour(): void {
