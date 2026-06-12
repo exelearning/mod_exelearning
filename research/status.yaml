@@ -352,6 +352,20 @@ decisiones_bloqueantes:
       (solapa con completion-by-grade DEC-0038/DEC-0010) y completionstatusallscos (multi-SCO
       ajeno a eXe). No conflictúa con DEC-0049 (que rechazó completion per-iDevice): esta regla
       es un estado por módulo. Backup conserva el campo. Riesgos RIE-014/RIE-015.
+  DEC-0055:
+    titulo: "Auditoría follow-up post-refactor (#71): 8 mejoras + 1 descartado por decisión previa"
+    estado: Aceptada
+    ruta: decisiones/adr/DEC-0055-auditoria-followup-post-refactor.md
+    fecha: 2026-06-12
+    relacionados: [DEC-0054, DEC-0016, DEC-0019, DEC-0018, DEC-0050]
+    notas: >-
+      Seguimiento de la auditoría tras fusionar DEC-0051..0054. 8 mejoras: validar entrada .elpx en
+      migración exescorm (zip_utils), guard central de extracción servible (package_manager lanza
+      migrateextractfailed, RIE-019), lock atómico core\lock en el instalador del editor, quitar
+      Service-Worker-Allowed:/, helper editor_paths::is_within compartido, refs de docs post-refactor
+      (~27), privacidad.md a estado real, docblock is_import_blocked. DESCARTADO #2 (track sin lock):
+      contradice DEC-0018/RIE-011 (degradado deliberado, paridad con core). Minor: licencias.md y
+      composer lint --ignore.
 tareas:
   TAREA-001:
     fecha: 2026-05-28
@@ -730,3 +744,18 @@ riesgos:
     relacionados:
       - DEC-0052
       - DEC-0048
+  RIE-019:
+    titulo: "El guard central de extracción servible (DEC-0055 #3) ahora lanza en todas las vías, no solo migración"
+    severidad: baja
+    probabilidad: baja
+    estado: mitigado
+    mitigacion: >-
+      package_manager::extract_stored() lanza migrateextractfailed si tras extraer no hay index.html.
+      Antes solo migración lo comprobaba; ahora también el self-heal de view.php y editor/save.php.
+      MITIGADO: es el fallo-ruidoso buscado ante paquete corrupto; todos los fixtures (.elpx reales +
+      zip inline de lib_test) contienen index.html, así que ningún paquete válido lo dispara. Cubierto
+      por tests/local/package_manager_extract_test.php.
+    relacionados:
+      - DEC-0055
+      - DEC-0050
+      - DEC-0054
