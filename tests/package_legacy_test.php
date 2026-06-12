@@ -188,4 +188,23 @@ final class package_legacy_test extends advanced_testcase {
         // The content.xml is found after the 'pkg/' prefix is stripped.
         $this->assertSame([], exelearning_package_legacy::validate_file_list($list));
     }
+
+    /**
+     * validate_package() rejects a file that is not a valid package archive.
+     */
+    public function test_validate_package_rejects_non_package(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $file = get_file_storage()->create_file_from_string([
+            'contextid' => \context_system::instance()->id,
+            'component' => 'mod_exelearning',
+            'filearea'  => 'test',
+            'itemid'    => 0,
+            'filepath'  => '/',
+            'filename'  => 'bad.txt',
+        ], 'not a package');
+
+        $this->assertArrayHasKey('packagefile', exelearning_package_legacy::validate_package($file));
+    }
 }

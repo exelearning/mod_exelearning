@@ -438,4 +438,47 @@ final class styles_service_test extends advanced_testcase {
         $this->assertTrue(styles_service::delete_uploaded('rich'));
         $this->assertDirectoryDoesNotExist(styles_service::get_style_dir('rich'));
     }
+
+    /**
+     * validate_zip() rejects an archive whose files do not share the config.xml
+     * root directory.
+     */
+    public function test_validate_zip_rejects_mixed_roots(): void {
+        $this->resetAfterTest();
+        $zippath = make_temp_directory('mod_exelearning') . '/mixed-' . random_string(6) . '.zip';
+        $zip = new \ZipArchive();
+        $zip->open($zippath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+        $zip->addFromString('theme/config.xml', '<config><name>X</name></config>');
+        $zip->addFromString('rogue.css', 'body{}');
+        $zip->close();
+
+        $this->expectException(\moodle_exception::class);
+        styles_service::validate_zip($zippath);
+    }
+
+    /**
+     * list_builtin_themes() parses the active editor's data/bundle.json manifest.
+     */
+    public function test_list_builtin_themes_from_bundle(): void {
+        $this->resetAfterTest();
+
+        // Install an editor carrying a themes manifest.
+        $src = make_temp_directory('mod_exelearning/bt-' . random_string(6));
+        make_writable_directory($src . '/app');
+        make_writable_directory($src . '/data');
+        file_put_contents($src . '/index.html', 'x');
+        file_put_contents($src . '/data/bundle.json', json_encode([
+            'themes' => ['themes' => [
+                ['name' => 'intef', 'title' => 'INTEF', 'version' => '1.0'],
+                ['name' => 'base', 'title' => 'Base'],
+            ]],
+        ]));
+        (new \mod_exelearning\local\embedded_editor_installer())->safe_install($src);
+
+        $ids = array_column(styles_service::list_builtin_themes(), 'id');
+        $this->assertContains('intef', $ids);
+        $this->assertContains('base', $ids);
+
+        remove_dir(\mod_exelearning\local\embedded_editor_source_resolver::get_moodledata_dir());
+    }
 }

@@ -516,4 +516,28 @@ final class track_test extends advanced_testcase {
         $result = track::ingest($instance, $course, $cm, $student->id, $payload, false);
         $this->assertTrue($result['ok']);
     }
+
+    /**
+     * A map mixing a registered objectid with an unknown one keeps the known
+     * score and drops the unknown (the registered-objectid filter).
+     */
+    public function test_ingest_filters_unknown_objectid_in_mixed_map(): void {
+        [$instance, $student] = $this->create_activity_with_student();
+        [$course, $cm] = $this->course_and_cm($instance);
+        $obj1 = $this->objectid_for($instance, 1);
+
+        $payload = [
+            'session' => 'sessMixed',
+            'cmi' => ['cmi.core.score.raw' => '80', 'cmi.core.score.max' => '100'],
+            'itemscores' => [
+                $obj1            => ['scorepct' => 80.0, 'weighted' => 100.0, 'title' => 'a'],
+                'fake-unknown-1' => ['scorepct' => 100.0, 'weighted' => 100.0, 'title' => 'x'],
+            ],
+        ];
+
+        $result = track::ingest($instance, $course, $cm, $student->id, $payload, false);
+
+        $this->assertTrue($result['ok']);
+        $this->assertEqualsWithDelta(80.0, $this->published_grade($instance, $student->id, 1), 0.0001);
+    }
 }
