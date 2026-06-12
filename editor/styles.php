@@ -35,6 +35,7 @@
 require('../../../config.php');
 require_once($CFG->libdir . '/filelib.php');
 
+use mod_exelearning\local\editor_paths;
 use mod_exelearning\local\styles_service;
 
 $pathinfo = !empty($_SERVER['PATH_INFO']) ? $_SERVER['PATH_INFO']
@@ -103,7 +104,7 @@ $baseprefix = realpath($styledir);
 
 if (
     $baseprefix === false || $fullpath === false
-    || strpos($fullpath, $baseprefix . DIRECTORY_SEPARATOR) !== 0
+    || !editor_paths::is_within($fullpath, $baseprefix)
 ) {
     send_header_404();
     die('File not found');
