@@ -94,5 +94,24 @@
       </INDEXES>
     </TABLE>
 
+    <TABLE NAME="exelearning_migration" COMMENT="Audit/idempotency map of activities migrated from mod_exeweb/mod_exescorm into mod_exelearning (issue #13 #3, DEC-0026).">
+      <FIELDS>
+        <FIELD NAME="id"              TYPE="int"  LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="sourcecomponent" TYPE="char" LENGTH="64" NOTNULL="true" SEQUENCE="false" COMMENT="Frankenstyle of the source module, e.g. mod_exeweb or mod_exescorm."/>
+        <FIELD NAME="sourcecmid"      TYPE="int"  LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Course module id of the migrated source activity."/>
+        <FIELD NAME="targetcmid"      TYPE="int"  LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Course module id of the created eXeLearning activity."/>
+        <FIELD NAME="userid"          TYPE="int"  LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="User who ran the migration (0 for pre-upgrade rows)."/>
+        <FIELD NAME="timecreated"     TYPE="int"  LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified"    TYPE="int"  LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="userid" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="sourcecomponent_sourcecmid" UNIQUE="true" FIELDS="sourcecomponent, sourcecmid"/>
+      </INDEXES>
+    </TABLE>
+
   </TABLES>
 </XMLDB>

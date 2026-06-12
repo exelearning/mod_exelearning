@@ -425,7 +425,7 @@ function xmldb_exelearning_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026060401, 'exelearning');
     }
 
-    // Stage 13 (2026060800): drop the hidden overall grade item in per-iDevice
+    // Stage 14 (2026060800): drop the hidden overall grade item in per-iDevice
     // mode (DEC-0038, supersedes the DEC-0035 exclusion above). The hidden overall
     // (itemnumber=0) still showed as a greyed "extra grade" column to teachers
     // (moodle/grade:viewhidden) and was reported as confusing. PERITEM now shows
@@ -453,6 +453,48 @@ function xmldb_exelearning_upgrade($oldversion) {
         }
 
         upgrade_mod_savepoint(true, 2026060800, 'exelearning');
+    }
+
+    // Stage 15 (2026061200): migration audit/idempotency table for the sibling
+    // migration tool (issue #13 #3, DEC-0026). Maps each migrated source course
+    // module to the eXeLearning activity created from it, so re-running the tool
+    // skips already-migrated activities. Numbered above every prior stage so it
+    // also runs on sites already upgraded past 2026060800 (otherwise the table
+    // would only ever be created on fresh installs via install.xml).
+    if ($oldversion < 2026061200) {
+        $table = new xmldb_table('exelearning_migration');
+        if (!$dbman->table_exists($table)) {
+            $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+            $table->add_field('sourcecomponent', XMLDB_TYPE_CHAR, '64', null, XMLDB_NOTNULL, null, null);
+            $table->add_field('sourcecmid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+            $table->add_field('targetcmid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+            $table->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+            $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+            $table->add_index('sourcecomponent_sourcecmid', XMLDB_INDEX_UNIQUE, ['sourcecomponent', 'sourcecmid']);
+            $dbman->create_table($table);
+        }
+        upgrade_mod_savepoint(true, 2026061200, 'exelearning');
+    }
+
+    // Stage 16 (2026061201): audit columns for the migration map (DEC-0050). Records
+    // the admin who ran the tool and a timemodified for future re-run bookkeeping.
+    // Pre-upgrade rows are backfilled (userid 0, timemodified = timecreated).
+    if ($oldversion < 2026061201) {
+        $table = new xmldb_table('exelearning_migration');
+
+        $field = new xmldb_field('userid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0', 'targetcmid');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+            $dbman->add_key($table, new xmldb_key('userid', XMLDB_KEY_FOREIGN, ['userid'], 'user', ['id']));
+        }
+
+        $field = new xmldb_field('timemodified', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0', 'timecreated');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+            $DB->execute("UPDATE {exelearning_migration} SET timemodified = timecreated");
+        }
+
+        upgrade_mod_savepoint(true, 2026061201, 'exelearning');
     }
 
     return true;

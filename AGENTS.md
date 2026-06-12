@@ -74,7 +74,12 @@ Cerradas: **TAREA-012 / RIE-001** investigación (DEC-0019); **TAREA-009 / RIE-0
   (issue #13 #4).
 - **UI** (DEC-0024): botón "Editar con eXe" a la derecha + botón pantalla completa;
   `amd/src/fullscreen.js` reescrito (ES6, Fullscreen API sobre el iframe) (issue #13 #6).
-- Pendiente issue #13: **#3 importar** desde `mod_exeweb`/`mod_exescorm` → PR aparte.
+- **Migración masiva** (DEC-0026, reescribe DEC-0025; PR stacked): herramienta en Ajustes
+  (`admin/migrate.php`, cap `mod/exelearning:migrate`) que copia TODAS las actividades
+  `mod_exeweb`/`mod_exescorm` del sitio a nuevas actividades eXeLearning (`add_moduleinfo`),
+  con barra de progreso y avisos; no destructiva; exescorm→calificación general; idempotente
+  (tabla `exelearning_migration`). Motor `import_service::import_package` reutilizado de
+  DEC-0025 (issue #13 #3). Completa el issue #13.
 
 ### Hecho en sesión 2026-06-04 (ADRs documentales, claude-opus-4-8)
 - **Ingesta dual SCORM 1.2 + xAPI** (DEC-0032, Propuesta): PR1 documental; xAPI ingiere
@@ -147,7 +152,7 @@ Cerradas: **TAREA-012 / RIE-001** investigación (DEC-0019); **TAREA-009 / RIE-0
 | DEC-0023 | **Aceptada** (2026-06-03) | Deep-link del gradebook al iDevice vía `grade.php` (itemnumber→objectid→ancla) → issue #13 #4 |
 | DEC-0024 | **Aceptada** (2026-06-03) | Crear `.elpx` desde cero (paquete opcional) + pantalla completa → issue #13 #1 y #6 |
 | DEC-0025 | **Superseded** by DEC-0026 | Importar por-actividad desde `mod_exeweb`/`mod_exescorm` (motor reutilizado por DEC-0026) |
-| DEC-0026 | **Aceptada** (2026-06-03) | Migración masiva de `mod_exeweb`/`mod_exescorm` desde los Ajustes del plugin → issue #13 #3 |
+| DEC-0026 | **Aceptada** (2026-06-03) | Migración masiva desde Ajustes (admin, site-wide, no destructiva, progreso, exescorm→nota general) → issue #13 #3 |
 | DEC-0027 | **Aceptada** (2026-06-03) | Aceptar `.zip` (con `content.xml`) además de `.elpx` en la subida |
 | DEC-0028 | **Aceptada** (2026-06-03) | Enlaces del gradebook: análisis y destino del 'grade analysis' → issue #13 #4 |
 | DEC-0029 | **Aceptada** (2026-06-03) | Interruptor 'Calificable' por actividad (`gradeenabled`) → issue #13 |
@@ -171,6 +176,7 @@ Cerradas: **TAREA-012 / RIE-001** investigación (DEC-0019); **TAREA-009 / RIE-0
 | DEC-0047 | **Aceptada** (2026-06-11) | Clasificación funcional: mantener `MOD_ARCHETYPE_ASSIGNMENT` + `MOD_PURPOSE_ASSESSMENT` (sin cambio de código); `supports()` no ve la instancia → el archetype/purpose no puede variar por `gradeenabled` (DEC-0029); `gradeenabled=0` es "modo recurso" dentro de un módulo evaluable. Cierra la observación del informe comparativo (`docs/AUDIT_FOLLOWUP.md`) |
 | DEC-0048 | **Aceptada** (2026-06-12) | Estrategia de cobertura de tests: mockear la red con `\curl::mock_response()` + mock parcial de `download_to_temp()` en vez de excluir; no excluir del scope código testeable (`excludelistfiles` vacío); xdebug/Codecov es la medida autoritativa (pcov local subacredita llamadas anidadas — artefacto, no límite); gate `codecov project: target: auto` (trinquete). Cobertura honesta 85.71%→87.2% (PR #65) |
 | DEC-0049 | **Aceptada** (2026-06-12) | Auditoría estándar de repositorio (2026-06-11, tras DEC-0016/DEC-0044): 9 mejoras P1–P3 implementadas (PRs #46–#54: hardening XML de estilos, thirdpartylibs en el ZIP, fidelidad backup/restore, lock de intentos, participación vs grademethod, recálculo de notas en lote, `zip_utils`, descarga del informe, Behat) + registro de **hallazgos descartados** y opciones de dirección para no re-auditar |
+| DEC-0050 | **Aceptada** (2026-06-12) | La herramienta de migración exeweb/exescorm vive en `mod_exelearning` (destino, dueño de los internals); orígenes como fuentes legacy de solo lectura tras `source_interface`. Endurecimiento de la rama issue #13: fix `mod_exeweb` itemid=revision (antes leía 0 → todo `nosource`); clasificación `mod_exescorm` (`.elpx` directo / 1 embebido / 0=nosource / >1=ambiguous / external+aiccurl+localsync=unsupported, `localsync` excluido por sincronización aunque tenga snapshot local); limpieza compensatoria con `course_delete_module` ante fallo parcial (sin transacción, caveat recycle bin); preservación de metadatos del cm (idnumber **nunca** se copia); validación post-extracción anti shell-vacío (`migrateextractfailed`); eventos (started/migrated/skipped/failed, patrón DEC-0041); columnas `userid`/`timemodified` (upgrade 2026061201); preflight + `\core\progress\display`. Refactor a `classes/local/migration/` (elimina `import_service`). CLI diferido |
 
 ## Restricciones inmutables
 
