@@ -366,6 +366,20 @@ decisiones_bloqueantes:
       (~27), privacidad.md a estado real, docblock is_import_blocked. DESCARTADO #2 (track sin lock):
       contradice DEC-0018/RIE-011 (degradado deliberado, paridad con core). Minor: licencias.md y
       composer lint --ignore.
+  DEC-0057:
+    titulo: "Extracción de paquete no-destructiva: validar la nueva revisión antes de podar la anterior (issue 73)"
+    estado: Aceptada
+    ruta: decisiones/adr/DEC-0057-extraccion-no-destructiva.md
+    fecha: 2026-06-13
+    relacionados: [DEC-0054, DEC-0044, DEC-0030, DEC-0055]
+    notas: >-
+      Patrón stage->validate->swap: extract_stored borra solo content/{revision} y hace rollback de su
+      propia revisión parcial; save_and_extract estaciona el package en itemid=revision; nuevo
+      store_and_activate_revision (editor) y prune_content/package_revisions; update_instance reordena
+      extraer-validar->commit->podar. Un reemplazo corrupto preserva el último contenido válido en TODAS
+      las vías (el editor pasa de irrecuperable a recuperable). Resuelve RIE-019. Promueve maturity
+      BETA->STABLE (consecuencia, no decisión aparte; version sentinel intacto, DEC-0030). 263 tests
+      verdes (make test). Tests nuevos: 6 en package_manager_extract_test, 2 en lib_test.
 tareas:
   TAREA-001:
     fecha: 2026-05-28
@@ -748,14 +762,21 @@ riesgos:
     titulo: "El guard central de extracción servible (DEC-0055 #3) ahora lanza en todas las vías, no solo migración"
     severidad: baja
     probabilidad: baja
-    estado: mitigado
+    estado: resuelto
     mitigacion: >-
       package_manager::extract_stored() lanza migrateextractfailed si tras extraer no hay index.html.
       Antes solo migración lo comprobaba; ahora también el self-heal de view.php y editor/save.php.
       MITIGADO: es el fallo-ruidoso buscado ante paquete corrupto; todos los fixtures (.elpx reales +
       zip inline de lib_test) contienen index.html, así que ningún paquete válido lo dispara. Cubierto
       por tests/local/package_manager_extract_test.php.
+    resolucion: >-
+      RESUELTO por DEC-0057 (issue 73, 2026-06-13): el fallo ruidoso ya no es destructivo. extract_stored
+      borra solo content/{revision} y hace rollback de su propia revisión parcial; el reemplazo se
+      estaciona y valida antes de mover el puntero de BD y podar la revisión anterior. La revisión válida
+      previa se preserva por diseño, no por suerte del fixture. El caso irrecuperable del editor queda
+      cerrado.
     relacionados:
       - DEC-0055
       - DEC-0050
       - DEC-0054
+      - DEC-0057

@@ -195,10 +195,29 @@ function exelearning_update_instance($data, $mform = null) {
         $data->completionstatusrequired = null;
     }
 
+    $contextid = context_module::instance($data->coursemodule)->id;
+
+    // Extract and validate the new revision BEFORE advancing the stored pointer (issue 73):
+    // a corrupt replacement throws here and leaves the DB row and the previous content
+    // untouched, so the activity keeps serving its last validated revision.
+    exelearning_save_and_extract_package($data);
     $DB->update_record('exelearning', $data);
 
-    exelearning_save_and_extract_package($data);
-    $contextid = context_module::instance($data->coursemodule)->id;
+    // The new revision is now validated and active. Prune the superseded content/package
+    // revisions only after the pointer has moved (so no concurrent view sees a gap), and
+    // only when the new revision actually produced servable content (a programmatic update
+    // with no package field skips extraction and relies on the view.php self-heal).
+    $fs = get_file_storage();
+    if ($fs->get_file($contextid, 'mod_exelearning', 'content', (int) $data->revision, '/', 'index.html')) {
+        \mod_exelearning\local\package_manager::prune_content_revisions($contextid, (int) $data->revision);
+        if (($storedpackage = exelearning_get_stored_package($contextid)) !== null) {
+            \mod_exelearning\local\package_manager::prune_package_revisions(
+                $contextid,
+                (int) $storedpackage->get_itemid()
+            );
+        }
+    }
+
     $delta = exelearning_sync_grade_items($data->id, $contextid);
 
     // A pure grading model/method change leaves the stored attempts valid, but

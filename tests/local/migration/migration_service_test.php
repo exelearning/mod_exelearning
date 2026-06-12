@@ -88,7 +88,8 @@ final class migration_service_test extends advanced_testcase {
         migration_service::install_package($this->fixture(), $instance, $ctxid);
 
         $fs = get_file_storage();
-        $this->assertTrue($fs->file_exists($ctxid, 'mod_exelearning', 'package', 0, '/', 'imported.elpx'));
+        // The imported .elpx is staged at package/{revision}/ (issue 73), not itemid 0.
+        $this->assertTrue($fs->file_exists($ctxid, 'mod_exelearning', 'package', (int) $instance->revision, '/', 'imported.elpx'));
         $this->assertNotEmpty($fs->get_file(
             $ctxid,
             'mod_exelearning',

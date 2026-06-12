@@ -367,6 +367,102 @@ final class lib_test extends advanced_testcase {
     }
 
     /**
+     * Replacing the package with a corrupt upload via the settings form must NOT advance
+     * the stored revision nor destroy the previously extracted content (issue 73). The
+     * update extracts and validates the new revision BEFORE committing the pointer, so a
+     * corrupt replacement throws and the activity keeps serving its last good content.
+     *
+     * @covers ::exelearning_update_instance
+     */
+    public function test_update_instance_corrupt_replacement_keeps_revision_and_content(): void {
+        global $DB, $USER;
+
+        $instance = $this->create_activity();
+        $cm = get_coursemodule_from_instance('exelearning', $instance->id);
+        $context = \context_module::instance($cm->id);
+        $fs = get_file_storage();
+
+        // Baseline: revision 1, extracted and servable.
+        $this->assertSame(1, (int) $DB->get_field('exelearning', 'revision', ['id' => $instance->id]));
+        $this->assertNotFalse($fs->get_file($context->id, 'mod_exelearning', 'content', 1, '/', 'index.html'));
+
+        // A filemanager draft carrying a corrupt (non-archive) "package".
+        $usercontext = \context_user::instance($USER->id);
+        $draftid = file_get_unused_draft_itemid();
+        $fs->create_file_from_string([
+            'contextid' => $usercontext->id,
+            'component' => 'user',
+            'filearea'  => 'draft',
+            'itemid'    => $draftid,
+            'filepath'  => '/',
+            'filename'  => 'broken.elpx',
+        ], 'this is not a real zip archive');
+
+        $data = (object) [
+            'instance'     => $instance->id,
+            'coursemodule' => $cm->id,
+            'package'      => $draftid,
+        ];
+        try {
+            exelearning_update_instance($data);
+            $this->fail('A corrupt replacement must throw');
+        } catch (\moodle_exception $e) {
+            $this->assertStringContainsString('migrateextractfailed', $e->errorcode);
+        }
+        $this->assertDebuggingCalled();
+
+        // Stored pointer unchanged; previous content still servable.
+        $this->assertSame(1, (int) $DB->get_field('exelearning', 'revision', ['id' => $instance->id]));
+        $this->assertNotFalse($fs->get_file($context->id, 'mod_exelearning', 'content', 1, '/', 'index.html'));
+    }
+
+    /**
+     * A valid replacement via the settings form advances the stored revision, serves the
+     * new content and prunes the superseded content + package revisions (issue 73).
+     *
+     * @covers ::exelearning_update_instance
+     */
+    public function test_update_instance_valid_replacement_advances_and_prunes(): void {
+        global $CFG, $DB, $USER;
+
+        $instance = $this->create_activity();
+        $cm = get_coursemodule_from_instance('exelearning', $instance->id);
+        $context = \context_module::instance($cm->id);
+        $fs = get_file_storage();
+
+        // A filemanager draft holding a valid replacement (the real fixture).
+        $usercontext = \context_user::instance($USER->id);
+        $draftid = file_get_unused_draft_itemid();
+        $fs->create_file_from_pathname([
+            'contextid' => $usercontext->id,
+            'component' => 'user',
+            'filearea'  => 'draft',
+            'itemid'    => $draftid,
+            'filepath'  => '/',
+            'filename'  => 'replacement.elpx',
+        ], $CFG->dirroot . '/mod/exelearning/research/fixtures/elpx/actividad-evaluable.elpx');
+
+        $data = (object) [
+            'instance'     => $instance->id,
+            'coursemodule' => $cm->id,
+            'package'      => $draftid,
+        ];
+        exelearning_update_instance($data);
+
+        // Pointer advanced; new content servable; previous revision pruned.
+        $this->assertSame(2, (int) $DB->get_field('exelearning', 'revision', ['id' => $instance->id]));
+        $this->assertNotFalse($fs->get_file($context->id, 'mod_exelearning', 'content', 2, '/', 'index.html'));
+        $this->assertFalse($fs->get_file($context->id, 'mod_exelearning', 'content', 1, '/', 'index.html'));
+
+        // Only the new package revision remains.
+        $itemids = [];
+        foreach ($fs->get_area_files($context->id, 'mod_exelearning', 'package', false, 'itemid', false) as $file) {
+            $itemids[(int) $file->get_itemid()] = true;
+        }
+        $this->assertCount(1, $itemids);
+    }
+
+    /**
      * A grade item name is built from the activity name (up to char 255) plus the
      * author-controlled page title from content.xml plus the iDevice type, so it
      * can exceed the char(255) column. It must be clamped, not thrown as a

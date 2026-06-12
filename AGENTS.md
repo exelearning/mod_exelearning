@@ -211,6 +211,19 @@ Cerradas: **TAREA-012 / RIE-001** investigación (DEC-0019); **TAREA-009 / RIE-0
 
 ## Normas de codificación
 
+- **SIEMPRE añadir tests con cada cambio.** Todo cambio de comportamiento (feature,
+  fix, refactor) DEBE llegar con tests unitarios que cubran el caso feliz **y** los
+  bordes/regresiones (p.ej. fallo de extracción que preserva el estado previo). PHP →
+  PHPUnit en `tests/` (junto a `@covers`); JS → Vitest en `tests/js/`. Preferir TDD
+  donde sea unit-testable. Correr localmente con `make test ARGS=mod/exelearning/tests/<archivo>.php`
+  (varios archivos separados por espacio; **no** apuntar al directorio entero —el
+  `vendor/phpunit` del plugin colisiona) y `make test-js`. Si el entorno PHPUnit dice
+  "initialised for different version", ejecutar
+  `docker compose exec moodle php /var/www/html/admin/tool/phpunit/cli/init.php`. NOTA:
+  los tests del editor embebido (`embedded_editor_installer_test`,
+  `manage_embedded_editor_test`) extraen un tarball-fixture que corrompe `/etc/passwd`
+  del contenedor (`openat etc/passwd`) — si pasa, `docker compose up -d --force-recreate moodle`
+  y re-init; correrlos aislados.
 - **Comentarios de código en INGLÉS.** Todo `.php`/`.js` del plugin. La carpeta
   `research/` (ADRs, fichas, diario, notas) va en **español**. Las librerías de
   terceros vendoradas (`assets/scorm/*`, wrappers SCORM/pipwerks) no se tocan.
