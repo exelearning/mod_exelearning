@@ -476,5 +476,26 @@ function xmldb_exelearning_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026061200, 'exelearning');
     }
 
+    // Stage 16 (2026061201): audit columns for the migration map (DEC-0050). Records
+    // the admin who ran the tool and a timemodified for future re-run bookkeeping.
+    // Pre-upgrade rows are backfilled (userid 0, timemodified = timecreated).
+    if ($oldversion < 2026061201) {
+        $table = new xmldb_table('exelearning_migration');
+
+        $field = new xmldb_field('userid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0', 'targetcmid');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+            $dbman->add_key($table, new xmldb_key('userid', XMLDB_KEY_FOREIGN, ['userid'], 'user', ['id']));
+        }
+
+        $field = new xmldb_field('timemodified', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0', 'timecreated');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+            $DB->execute("UPDATE {exelearning_migration} SET timemodified = timecreated");
+        }
+
+        upgrade_mod_savepoint(true, 2026061201, 'exelearning');
+    }
+
     return true;
 }
