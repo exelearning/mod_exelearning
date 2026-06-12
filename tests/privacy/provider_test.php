@@ -194,4 +194,23 @@ final class provider_test extends provider_testcase {
         provider::get_users_in_context($userlist);
         $this->assertCount(0, $userlist->get_userids());
     }
+
+    /**
+     * Export and per-user deletion skip non-module contexts without touching data.
+     */
+    public function test_export_and_delete_skip_non_module_context(): void {
+        global $DB;
+        $system = \context_system::instance();
+        $user = $this->getDataGenerator()->create_user();
+        $before = $DB->count_records('exelearning_attempt');
+
+        $approved = new approved_contextlist($user, $this->component, [$system->id]);
+        provider::export_user_data($approved);
+        provider::delete_data_for_user($approved);
+
+        $userlist = new approved_userlist($system, $this->component, [$user->id]);
+        provider::delete_data_for_users($userlist);
+
+        $this->assertSame($before, $DB->count_records('exelearning_attempt'));
+    }
 }
