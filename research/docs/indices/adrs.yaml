@@ -48,3 +48,4 @@ items:
   - id: 'DEC-0046', titulo: 'Inyecciones SCORM-loader y teacher-mode: corrección en el plugin vs upstream en eXeLearning', estado: 'Aceptada', fecha: '2026-06-10', ruta: 'decisiones/adr/DEC-0046-inyecciones-scorm-teacher-mode-plugin-vs-upstream.md'
   - id: 'DEC-0047', titulo: 'Clasificación funcional del módulo: mantener MOD_ARCHETYPE_ASSIGNMENT + MOD_PURPOSE_ASSESSMENT', estado: 'Aceptada', fecha: '2026-06-11', ruta: 'decisiones/adr/DEC-0047-clasificacion-funcional-archetype-purpose.md'
   - id: 'DEC-0048', titulo: 'Estrategia de cobertura de tests: mockear en lugar de excluir, medir con xdebug y gatear con trinquete', estado: 'Aceptada', fecha: '2026-06-12', ruta: 'decisiones/adr/DEC-0048-estrategia-cobertura-tests.md'
+  - id: 'DEC-0049', titulo: 'Auditoría estándar de repositorio (2026-06-11): 9 mejoras implementadas + hallazgos descartados', estado: 'Aceptada', fecha: '2026-06-12', ruta: 'decisiones/adr/DEC-0049-auditoria-estandar-mejoras-2026-06.md'
