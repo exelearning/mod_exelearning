@@ -218,6 +218,10 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: ateeducacion/mod_exelearning
           files: ./coverage.xml
+          # Flag the PHP report so it is tracked as its own flag/component
+          # (the JS job uploads under `javascript`); without a flag PHP would be
+          # absent from the Flags/Components breakdown and the PR comment.
+          flags: php
           # Upload only our report; do not scan the Moodle tree (it contains
           # deliberately malformed XML fixtures that break Codecov processing).
           disable_search: true
@@ -238,6 +242,7 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./junit.xml
+          flags: php
           # Only parse our JUnit file; the Moodle tree ships malformed XML
           # fixtures that otherwise fail Test Analytics processing.
           disable_search: true
