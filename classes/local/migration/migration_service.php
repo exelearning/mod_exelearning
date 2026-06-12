@@ -189,11 +189,7 @@ final class migration_service {
             $message = $e->getMessage();
             if ($targetcmid !== null) {
                 try {
-                    require_once($CFG->dirroot . '/course/lib.php');
-                    // Removes the cm, instance, context fileareas and grade items. The
-                    // recycle bin may back up the half-built module and could itself
-                    // throw, so degrade to a reported orphan rather than crash the run.
-                    course_delete_module($targetcmid);
+                    self::delete_course_module($targetcmid, (int) $source->course);
                 } catch (\Throwable $cleanup) {
                     $message .= ' / cleanup failed: ' . $cleanup->getMessage();
                 }
@@ -271,5 +267,27 @@ final class migration_service {
             throw new \moodle_exception('migrateextractfailed', 'mod_exelearning');
         }
         exelearning_sync_grade_items($instance->id, $contextid);
+    }
+
+    /**
+     * Deletes a course module across supported Moodle versions.
+     *
+     * Removes the cm, instance, context fileareas and grade items. Moodle 5.2
+     * deprecated course_delete_module() (MDL-86856) in favour of the course-format
+     * cm actions, so the new API is used when its delete() method is present and the
+     * global function on 4.5–5.1. The caller guards against the recycle-bin hook.
+     *
+     * @param int $cmid Course module id to delete.
+     * @param int $courseid Course the module belongs to.
+     * @return void
+     */
+    private static function delete_course_module(int $cmid, int $courseid): void {
+        global $CFG;
+        require_once($CFG->dirroot . '/course/lib.php');
+        if (method_exists('\core_courseformat\local\cmactions', 'delete')) {
+            \core_courseformat\formatactions::cm($courseid)->delete($cmid);
+        } else {
+            course_delete_module($cmid);
+        }
     }
 }
