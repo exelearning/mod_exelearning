@@ -53,4 +53,18 @@ return new class extends phpunit_coverage_info {
         // default coverage list, but it should not count toward the figure.
         'tests/generator',
     ];
+
+    /**
+     * @var array Files excluded from coverage.
+     *
+     * embedded_editor_installer is the GitHub-release download adapter: most of
+     * it is network I/O (discover/fetch/download from api.github.com) that cannot
+     * be unit-tested without an HTTP mock. Its offline logic (validate_zip,
+     * normalize_extraction, safe_install, sha256, local-zip install) IS covered by
+     * embedded_editor_installer_test; the file is scoped out so the figure
+     * reflects unit-testable plugin logic rather than untestable integration code.
+     */
+    protected $excludelistfiles = [
+        'classes/local/embedded_editor_installer.php',
+    ];
 };
