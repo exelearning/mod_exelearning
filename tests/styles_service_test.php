@@ -423,7 +423,7 @@ final class styles_service_test extends advanced_testcase {
 
         styles_service::install_from_zip($zippath, 'rich.zip');
 
-        // build_theme_registry_override() scans the icons/ folder.
+        // The registry override scans the icons/ folder.
         $override = styles_service::build_theme_registry_override();
         $entry = null;
         foreach ($override['uploaded'] as $u) {
@@ -434,7 +434,7 @@ final class styles_service_test extends advanced_testcase {
         $this->assertNotNull($entry);
         $this->assertNotEmpty($entry['icons']);
 
-        // delete_uploaded() recurses into icons/ and sub/.
+        // Deletion recurses into icons/ and sub/.
         $this->assertTrue(styles_service::delete_uploaded('rich'));
         $this->assertDirectoryDoesNotExist(styles_service::get_style_dir('rich'));
     }
