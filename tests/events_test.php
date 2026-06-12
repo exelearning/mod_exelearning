@@ -120,4 +120,13 @@ final class events_test extends advanced_testcase {
         $this->assertInstanceOf(course_module_instance_list_viewed::class, $events[0]);
         $this->assertSame('r', $events[0]->crud);
     }
+
+    /**
+     * The restore objectid mappings are declared for each event.
+     */
+    public function test_event_objectid_mappings(): void {
+        $this->assertIsArray(attempt_deleted::get_objectid_mapping());
+        $this->assertIsArray(report_viewed::get_objectid_mapping());
+        $this->assertIsArray(\mod_exelearning\event\course_module_viewed::get_objectid_mapping());
+    }
 }

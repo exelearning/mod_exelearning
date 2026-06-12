@@ -36,6 +36,7 @@ require_once($CFG->dirroot . '/mod/exelearning/lib.php');
  * @covers     ::exelearning_pluginfile
  * @covers     ::exelearning_extend_settings_navigation
  * @covers     ::exelearning_navigation_before_key
+ * @covers     ::exelearning_update_instance
  */
 final class lib_callbacks_test extends advanced_testcase {
     /**
@@ -177,5 +178,54 @@ final class lib_callbacks_test extends advanced_testcase {
         exelearning_extend_settings_navigation(new \settings_navigation($PAGE), $node);
 
         $this->assertNotEmpty($node->get('exelearningreport'));
+    }
+
+    /**
+     * exelearning_update_instance() bumps the revision and re-extracts the
+     * package (exercising save_and_extract_package + extract + SCORM injection).
+     */
+    public function test_update_instance_reextracts_and_bumps_revision(): void {
+        global $CFG, $USER, $DB;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $course = $this->getDataGenerator()->create_course();
+        $instance = $this->getDataGenerator()->get_plugin_generator('mod_exelearning')
+            ->create_instance(['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('exelearning', $instance->id);
+        $oldrev = (int) $DB->get_field('exelearning', 'revision', ['id' => $instance->id]);
+
+        // A non-empty draft = a real re-upload, which re-extracts the content.
+        $draftid = file_get_unused_draft_itemid();
+        get_file_storage()->create_file_from_pathname([
+            'contextid' => \context_user::instance($USER->id)->id,
+            'component' => 'user',
+            'filearea'  => 'draft',
+            'itemid'    => $draftid,
+            'filepath'  => '/',
+            'filename'  => 'pkg.elpx',
+        ], $CFG->dirroot . '/mod/exelearning/research/fixtures/elpx/actividad-evaluable.elpx');
+
+        $data = (object) [
+            'instance'     => $instance->id,
+            'coursemodule' => $cm->id,
+            'course'       => $course->id,
+            'name'         => 'Updated activity',
+            'package'      => $draftid,
+            'grademodel'   => 1,
+            'gradeenabled' => 1,
+        ];
+
+        $this->assertTrue(exelearning_update_instance($data));
+
+        $newrev = (int) $DB->get_field('exelearning', 'revision', ['id' => $instance->id]);
+        $this->assertSame($oldrev + 1, $newrev);
+        $this->assertNotFalse(get_file_storage()->get_file(
+            \context_module::instance($cm->id)->id,
+            'mod_exelearning',
+            'content',
+            $newrev,
+            '/',
+            'index.html'
+        ));
     }
 }
