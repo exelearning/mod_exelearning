@@ -288,6 +288,20 @@ decisiones_bloqueantes:
       scrambled-list.js:551 al extraer (exelearning_patch_idevice_save_guards en lib.php),
       str_replace idempotente que degrada a no-op. Verificado: Formulario persiste 100%
       con body web-site (sin exe-scorm), sin regresiones.
+  DEC-0053:
+    titulo: "Integración con la búsqueda global de Moodle (área de búsqueda + indexado de ficheros)"
+    estado: Aceptada
+    ruta: decisiones/adr/DEC-0053-busqueda-global.md
+    fecha: 2026-06-12
+    relacionados: [DEC-0049, DEC-0048]
+    notas: >-
+      Cierra el hueco de densidad de plataforma frente a mod_exescorm (que hereda el área
+      de mod_scorm): classes/search/activity.php extends core_search\base_activity, con
+      uses_file_indexing()=true y get_search_fileareas()=['intro','content'] para indexar
+      tanto el intro como el contenido eXe ya extraído al filearea content. 100% ficheros
+      nuevos (no toca lib.php). La base resuelve contexto/visibilidad/permisos. Opciones
+      adyacentes DIFERIDAS: core\activity_dates (no hay ventanas timeopen/timeclose en
+      mod_form.php) y los indicadores de analítica (solo útiles con modelos activos).
 
 tareas:
   TAREA-001:
@@ -608,3 +622,19 @@ riesgos:
       - DEC-0036
       - REPO-006
       - FTE-013
+  RIE-017:
+    titulo: "Indexado de contenido no visible o fuga de información vía búsqueda global"
+    severidad: baja
+    probabilidad: baja
+    estado: mitigado
+    mitigacion: >-
+      El área de búsqueda (DEC-0053, classes/search/activity.php) indexa los filearea
+      intro/content. Si indexara contenido que un usuario no debería ver, el buscador podría
+      filtrar fragmentos. MITIGADO: no se sobrescribe check_access(); la base
+      core_search\base_activity reverifica uservisible por módulo antes de devolver
+      resultados, y los filearea intro/content ya se sirven bajo
+      require_capability('mod/exelearning:view') en exelearning_pluginfile. Cubierto por
+      tests/search_test.php (check_access admin/alumno × visible/oculto/borrado).
+    relacionados:
+      - DEC-0053
+      - DEC-0049
