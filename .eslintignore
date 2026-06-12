@@ -4,3 +4,7 @@ node_modules/
 vendor/
 amd/build/
 **/*.min.js
+# SCORM tracker + its Vitest suite: intentionally ES5 (inline <script>, dual CJS/browser
+# export) and ESM test globals; linted/tested by Vitest, not Moodle's grunt eslint.
+js/
+tests/js/

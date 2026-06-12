@@ -9,13 +9,14 @@
 # requirement, add `codecov/project` to the required status checks in the GitHub
 # branch-protection rule for `main` (Settings -> Branches).
 #
-# No `flags` here on purpose: in CI the plugin lives under mod/exelearning/, so a
-# flag path filter like `classes/` matches nothing and yields "No coverage data
-# available". The coverage scope is already limited in tests/coverage.php.
-# moodle-plugin-ci installs the plugin under moodle/mod/exelearning/, so the
-# coverage report paths are prefixed with that. Strip it so coverage maps onto
-# the repository tree (classes/, lib.php) instead of phantom paths — otherwise
-# Codecov shows 0 files / no percentage.
+# The PHP upload stays unflagged on purpose: in CI the plugin lives under
+# mod/exelearning/, so a flag path filter like `classes/` matches nothing and yields
+# "No coverage data available". The coverage scope is already limited in
+# tests/coverage.php. moodle-plugin-ci installs the plugin under moodle/mod/exelearning/,
+# so the coverage report paths are prefixed with that. Strip it so coverage maps onto
+# the repository tree (classes/, lib.php) instead of phantom paths — otherwise Codecov
+# shows 0 files / no percentage. (The `javascript` flag added below is unaffected: the
+# jsunit job checks out at the repo root, so its js/ paths need no fix.)
 fixes:
   - "moodle/mod/exelearning/::"
 
@@ -31,6 +32,29 @@ coverage:
       default:
         # New/changed lines in a PR must be at least 80% covered.
         target: 80%
+
+# The Vitest coverage of the grade-critical SCORM tracker (js/scorm_tracker.js) is
+# uploaded by the jsunit job under this flag, so it is tracked apart from the PHP figure.
+flags:
+  javascript:
+    paths:
+      - js/
+    carryforward: true
+
+# Surface JS coverage as its own component in the PR comment and gate its patch lines,
+# mirroring the PHP project/patch gates above.
+component_management:
+  individual_components:
+    - component_id: javascript
+      name: JavaScript (SCORM tracker)
+      flag_regexes:
+        - javascript
+      statuses:
+        - type: project
+          target: auto
+          threshold: 0.5%
+        - type: patch
+          target: 80%
 
 # Show the coverage percentage and the diff in the PR comment.
 comment:

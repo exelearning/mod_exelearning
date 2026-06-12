@@ -388,154 +388,23 @@ if (!$mainfile) {
         '/mod/exelearning/track.php',
         ['id' => $cm->id, 'sesskey' => sesskey(), 'mode' => $mode]
     ))->out(false);
-    $shimjs = <<<JS
-(function () {
-    var errCode = '0', cmi = {}, dirty = false, autoTimer = null;
-    // Unique token per page load: groups the auto-commits into a single attempt.
-    var session = '%SESSION%';
-    // Per-iDevice routing by stable objectid (DEC-0017 / RIE-007). eXeLearning v4
-    // keys cmi.suspend_data by the page-local DOM index N, which collides across
-    // the package's separate HTML pages. We instead resolve each scored iDevice to
-    // its objectid (the .idevice_node element id, equal to <odeIdeviceId> and to
-    // our exelearning_grade_item.objectid) by reading the iframe DOM at the moment
-    // of scoring, and send objectid => result. Same-origin access is the same
-    // technique the teacher-mode hider uses (lib.php).
-    var prevSuspend = {};   // Last parsed cmi.suspend_data, keyed by page-local N.
-    var itemScores = {};    // objectid => { scorepct, weighted, title }.
-    // Parse cmi.suspend_data exactly like \mod_exelearning\local\track::parse_suspend_data.
-    function parseSuspend(s) {
-        var out = {};
-        if (!s) { return out; }
-        // The score/weight numbers accept a comma decimal separator (es_ES/fr_FR/de_DE
-        // "60,5%"); normalised to a dot before parseFloat. Mirrors the PHP parser in
-        // \mod_exelearning\local\track::parse_suspend_data.
-        var re = /^(\d+)\.\s"([^"]*)";\s[^:]+:\s([\d.,]+)%;\s[^:]+:\s([\d.,]+)%\.?$/;
-        var parts = String(s).split(/\.\t/);
-        for (var i = 0; i < parts.length; i++) {
-            var line = parts[i].replace(/^\s+|\s+$/g, '');
-            if (!line) { continue; }
-            var m = line.match(re);
-            if (m) {
-                out[parseInt(m[1], 10)] = {
-                    title: m[2],
-                    scorepct: Math.max(0, Math.min(100, parseFloat(m[3].replace(',', '.')))),
-                    weighted: parseFloat(m[4].replace(',', '.'))
-                };
-            }
-        }
-        return out;
-    }
-    // Map page-local index N (1-based) to the iDevice objectid, read live from the
-    // currently loaded iframe page. Reproduces eXeLearning's own
-    // $('.idevice_node').index(el)+1 ordering, so N resolves to the right objectid.
-    function resolveObjectMap() {
-        try {
-            var fr = document.getElementById('exelearningobject');
-            var doc = fr && fr.contentDocument;
-            if (!doc) { return null; }
-            var nodes = doc.querySelectorAll('.idevice_node');
-            if (!nodes || !nodes.length) { return null; }
-            var map = {};
-            for (var i = 0; i < nodes.length; i++) {
-                if (nodes[i].id) { map[i + 1] = nodes[i].id; }
-            }
-            return map;
-        } catch (e) { return null; }
-    }
-    // On each suspend_data write, capture only the entries that changed (the iDevice
-    // just scored, always on the currently loaded page) and stamp them by objectid.
-    // Stale cross-page entries left in the collided suspend_data are skipped because
-    // they do not resolve against the current page's DOM — that is what fixes the
-    // multi-page collision.
-    function captureItemScores(s) {
-        var newD = parseSuspend(s);
-        var domMap = resolveObjectMap();
-        for (var n in newD) {
-            if (!newD.hasOwnProperty(n)) { continue; }
-            var prev = prevSuspend[n], cur = newD[n];
-            var changed = !prev || prev.scorepct !== cur.scorepct || prev.weighted !== cur.weighted;
-            if (changed && domMap && domMap[n]) {
-                itemScores[domMap[n]] = { scorepct: cur.scorepct, weighted: cur.weighted, title: cur.title };
-            }
-        }
-        prevSuspend = newD;
-    }
-    function send(sync) {
-        if (!dirty) { return true; }
-        var snapshot = JSON.stringify(cmi);
-        var payload = JSON.stringify({ id: %CMID%, session: session, cmi: cmi, itemscores: itemScores });
-        try {
-            var xhr = new XMLHttpRequest();
-            // Synchronous in LMSFinish (student closes the tab); async otherwise.
-            xhr.open('POST', '%TRACKURL%', sync !== true);
-            xhr.setRequestHeader('Content-Type', 'application/json');
-            if (sync === true) {
-                xhr.send(payload);
-                // Synchronous: the status is known now. Keep dirty on failure so
-                // the buffered score is retried instead of being silently lost.
-                if (xhr.status >= 200 && xhr.status < 300) { dirty = false; return true; }
-                return false;
-            }
-            // Async: clear dirty ONLY after the server confirms a 2xx response,
-            // and only if no newer value was buffered meanwhile. On failure dirty
-            // stays set so the next autocommit / beforeunload re-sends it (a failed
-            // autocommit must never silently drop a grade write to the gradebook).
-            xhr.onload = function () {
-                if (xhr.status >= 200 && xhr.status < 300
-                        && JSON.stringify(cmi) === snapshot) {
-                    dirty = false;
-                }
-            };
-            xhr.onerror = function () { errCode = '101'; };
-            xhr.send(payload);
-            return true;
-        } catch (e) { errCode = '101'; return false; }
-    }
-    // Autocommit: tras 500 ms sin nuevas SetValue, persistir.
-    function schedule() {
-        if (autoTimer) clearTimeout(autoTimer);
-        autoTimer = setTimeout(function () { send(false); }, 500);
-    }
-    window.API = {
-        LMSInitialize:   function () { return 'true'; },
-        LMSFinish:       function () { send(true); return 'true'; },
-        LMSCommit:       function () { return send(true) ? 'true' : 'false'; },
-        LMSGetValue:     function (k) { return cmi[k] || ''; },
-        LMSSetValue:     function (k, v) {
-            cmi[k] = String(v); dirty = true;
-            // Resolve per-iDevice scores to stable objectids while the scoring
-            // page is still loaded in the iframe (DEC-0017).
-            if (k === 'cmi.suspend_data') {
-                captureItemScores(cmi[k]);
-                schedule();
-            }
-            // Autocommit on critical keys so the grade reaches the gradebook
-            // even if eXeLearning does not call Commit explicitly.
-            if (k === 'cmi.core.score.raw' || k === 'cmi.core.lesson_status'
-                    || k === 'cmi.score.raw' || k === 'cmi.completion_status'
-                    || k === 'cmi.success_status') {
-                schedule();
-            }
-            return 'true';
-        },
-        LMSGetLastError: function () { return errCode; },
-        LMSGetErrorString:  function () { return ''; },
-        LMSGetDiagnostic:   function () { return ''; },
-    };
-    // Persist when the tab is closed (synchronous).
-    window.addEventListener('beforeunload', function () {
-        if (autoTimer) clearTimeout(autoTimer);
-        send(true);
-    });
-})();
-JS;
-    $attemptsession = random_string(20);
-    $shimjs = str_replace(
-        ['%TRACKURL%', '%CMID%', '%SESSION%'],
-        [addslashes($trackurl), (int) $cm->id, $attemptsession],
-        $shimjs
+    // The tracker logic is a single source of truth in js/scorm_tracker.js, also
+    // unit-tested with Vitest (tests/js/scorm_tracker.test.js). It is injected inline
+    // (not as an AMD module) so window.API is defined synchronously before the package
+    // iframe's pipwerks findAPI() runs — an async AMD load would race the SCO and break
+    // grading. Config (cmid, track URL, per-page attempt token) is passed as JSON to the
+    // createScormApi() factory instead of string-substituted placeholders.
+    $scormcfg = json_encode(
+        [
+            'cmid' => (int) $cm->id,
+            'trackurl' => $trackurl,
+            'session' => random_string(20),
+        ],
+        JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
     );
-    echo html_writer::tag('script', $shimjs);
+    $trackerjs = file_get_contents(__DIR__ . '/js/scorm_tracker.js');
+    $bootjs = "\n(function () { window.API = window.exeScormTracker.createScormApi($scormcfg).api; })();";
+    echo html_writer::tag('script', $trackerjs . $bootjs);
 
     // Fullscreen control (issue #13 #6, DEC-0024): a right-aligned button above the
     // player. The iframe already advertises allow="fullscreen"; amd/src/fullscreen.js

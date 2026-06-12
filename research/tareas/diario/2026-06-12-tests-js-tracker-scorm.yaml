@@ -1,0 +1,40 @@
+fecha: 2026-06-12
+sesion: tests-js-tracker-scorm-vitest
+agente: claude-code
+resumen: >-
+  Validación y planificación de testing del JavaScript del plugin como se hace con el PHP
+  (incluida subida a Codecov). Conclusión: merece la pena acotado al tracker SCORM (lógica
+  de calificaciones), no a la UI. El runner oficial de Moodle 5.3 (Jest) solo cubre ESM en
+  public/ y excluye AMD; el editor eXeLearning del propio monorepo ya usa Vitest. Se elige
+  Vitest + happy-dom + cobertura v8 + junit, se extrae el shim SCORM de view.php a un
+  módulo de fuente única (js/scorm_tracker.js) inyectado inline para preservar window.API
+  síncrono, y se añade un job jsunit separado con flag/componente javascript en Codecov.
+  19/19 tests verde, 99,2 % de líneas del módulo; php -l y phpcs en verde.
+acciones:
+  - "Extracción (DEC-0056): la lógica del HEREDOC de view.php pasa a js/scorm_tracker.js como funciones puras (parseSuspend, resolveObjectMap(doc), captureItemScores(newParsed, prevParsed, domMap), buildPayload) + fábrica createScormApi(config) con inyección de dependencias (xhrFactory, setTimeout/clearTimeout, getScoringDocument, bindUnload). Expuesto por module.exports (Vitest) y window.exeScormTracker (navegador) desde un único cuerpo."
+  - "view.php: se sustituye el shim heredoc + str_replace(%CMID%/%TRACKURL%/%SESSION%) + addslashes por file_get_contents(js/scorm_tracker.js) + bootstrap inline que asigna window.API = createScormApi(cfg).api. Config pasada como JSON (json_encode con JSON_HEX_*). window.API queda síncrono antes del iframe (no AMD async → no race con pipwerks findAPI). php -l limpio, phpcs --standard=moodle exit 0."
+  - "tests/js/scorm_tracker.test.js (19 verde): coma decimal 60,5%, clamp 0–100, split .\\t multilínea, líneas mal formadas ignoradas; resolveObjectMap con happy-dom (mapa N→objectid, nodos sin id, doc nulo); captureItemScores ruteo por objectid y descarte de entradas rancias cross-página (DEC-0017); máquina de estados: autocommit en claves de score/status, dirty RETENIDO tras POST fallido (no perder notas), LMSFinish síncrono, flush en beforeunload + destroy(), payload {id,session,cmi,itemscores}."
+  - "Tooling: package.json (devDeps vitest/happy-dom/@vitest/coverage-v8), vitest.config.mjs (environment happy-dom, include tests/js/**, coverage v8 include js/**, reporters text+lcovonly+cobertura). Cobertura local 99,2 % líneas de js/scorm_tracker.js."
+  - "CI: job jsunit separado en .github/workflows/ci.yml (Node 22, npm ci, vitest run --coverage + reporter junit), fuera de la matriz PHP de 22 jobs (es Node puro). Sube lcov.info y junit-js.xml a Codecov con flag javascript."
+  - "Codecov: flag javascript (paths js/, carryforward) + component_management con componente javascript (project auto + patch 80 %) para no diluir el trinquete PHP de DEC-0048. Comentario aclarado: el flag JS no necesita el fixes: del upload PHP (checkout en raíz)."
+  - "DX/docs: Makefile target test-js; .gitignore añade coverage/ y junit-js.xml; ADR DEC-0056."
+evidencia:
+  - "research/decisiones/adr/DEC-0056-tests-js-tracker-scorm-vitest.md"
+  - "js/scorm_tracker.js"
+  - "view.php (inyección inline del tracker)"
+  - "tests/js/scorm_tracker.test.js"
+  - "vitest.config.mjs, package.json"
+  - ".github/workflows/ci.yml (job jsunit), codecov.yml (flag/componente javascript)"
+  - "Makefile (test-js), .gitignore"
+pendientes:
+  - "Verificar grading de punta a punta tras el refactor de view.php (Behat mod_exelearning.feature + prueba manual EXEDEMO con alumno1)."
+  - "Confirmar en CI: job jsunit verde y Codecov pintando el componente javascript; si el número default se diluye, flaggear también el upload PHP."
+  - "Opcional: fixtures compartidos PHP↔JS para asegurar paridad parseSuspend ↔ parse_suspend_data (evitar drift entre espejos)."
+relacionados:
+  - DEC-0056
+  - DEC-0048
+  - DEC-0017
+  - DEC-0018
+  - DEC-0032
+  - REPO-001
+  - REPO-004
