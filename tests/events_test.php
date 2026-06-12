@@ -76,6 +76,7 @@ final class events_test extends advanced_testcase {
         $this->assertSame($context->id, $events[0]->contextid);
         $this->assertSame($this->student->id, $events[0]->relateduserid);
         $this->assertStringContainsString('3', $events[0]->get_description());
+        $this->assertInstanceOf(\moodle_url::class, $events[0]->get_url());
     }
 
     public function test_attempt_deleted_requires_attemptid(): void {
@@ -104,6 +105,7 @@ final class events_test extends advanced_testcase {
         $this->assertSame('r', $events[0]->crud);
         $this->assertSame(report_viewed::LEVEL_TEACHING, $events[0]->edulevel);
         $this->assertStringContainsString('report', strtolower($events[0]->get_description()));
+        $this->assertInstanceOf(\moodle_url::class, $events[0]->get_url());
     }
 
     public function test_instance_list_viewed_event(): void {
@@ -117,5 +119,14 @@ final class events_test extends advanced_testcase {
         $this->assertCount(1, $events);
         $this->assertInstanceOf(course_module_instance_list_viewed::class, $events[0]);
         $this->assertSame('r', $events[0]->crud);
+    }
+
+    /**
+     * The restore objectid mappings are declared for each event.
+     */
+    public function test_event_objectid_mappings(): void {
+        $this->assertIsArray(attempt_deleted::get_objectid_mapping());
+        $this->assertIsArray(report_viewed::get_objectid_mapping());
+        $this->assertIsArray(\mod_exelearning\event\course_module_viewed::get_objectid_mapping());
     }
 }

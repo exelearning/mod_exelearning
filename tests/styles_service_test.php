@@ -143,4 +143,363 @@ final class styles_service_test extends advanced_testcase {
             '<!DOCTYPE config SYSTEM "config.dtd"><config><name>ok</name></config>'
         );
     }
+
+    /**
+     * Build a minimal valid style ZIP (config.xml + one CSS) and return its path.
+     *
+     * @param string $name Style name for config.xml.
+     * @return string
+     */
+    private function make_style_zip(string $name): string {
+        $zippath = make_temp_directory('mod_exelearning') . '/style-' . random_string(6) . '.zip';
+        $zip = new \ZipArchive();
+        $zip->open($zippath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+        $zip->addFromString('config.xml', '<config><name>' . $name . '</name><title>' . $name
+            . '</title><version>1.0</version></config>');
+        $zip->addFromString('style.css', 'body { color: red; }');
+        $zip->close();
+        return $zippath;
+    }
+
+    /**
+     * install_from_zip() extracts the style, records it in the registry and lists it.
+     */
+    public function test_install_from_zip_registers_style(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $entry = styles_service::install_from_zip($this->make_style_zip('My Style'), 'My Style.zip');
+
+        $this->assertSame('my-style', $entry['id']);
+        $this->assertSame('My Style', $entry['title']);
+        $this->assertTrue($entry['enabled']);
+        $this->assertNotEmpty($entry['css_files']);
+
+        $this->assertArrayHasKey('my-style', styles_service::get_registry()['uploaded']);
+        $slugs = array_column(styles_service::list_uploaded_styles(), 'id');
+        $this->assertContains('my-style', $slugs);
+    }
+
+    /**
+     * The registry round-trips through plugin config.
+     */
+    public function test_registry_roundtrip(): void {
+        $this->resetAfterTest();
+
+        $empty = styles_service::get_registry();
+        $this->assertSame([], $empty['uploaded']);
+        $this->assertSame([], $empty['disabled_builtins']);
+
+        styles_service::save_registry([
+            'uploaded' => ['foo' => ['title' => 'Foo']],
+            'disabled_builtins' => ['bar'],
+        ]);
+
+        $loaded = styles_service::get_registry();
+        $this->assertArrayHasKey('foo', $loaded['uploaded']);
+        $this->assertSame(['bar'], $loaded['disabled_builtins']);
+    }
+
+    /**
+     * allocate_unique_slug() avoids colliding with an already-registered slug.
+     */
+    public function test_allocate_unique_slug(): void {
+        $this->resetAfterTest();
+
+        $this->assertSame('my-style', styles_service::allocate_unique_slug('My Style'));
+
+        styles_service::save_registry(['uploaded' => ['my-style' => []], 'disabled_builtins' => []]);
+        $this->assertNotSame('my-style', styles_service::allocate_unique_slug('My Style'));
+    }
+
+    /**
+     * The storage path and public URL builders use the normalised slug.
+     */
+    public function test_path_builders(): void {
+        $this->assertStringEndsWith('/mod_exelearning/styles', styles_service::get_storage_dir());
+        $this->assertStringEndsWith('/mod_exelearning/styles/my-style', styles_service::get_style_dir('My Style'));
+        $this->assertStringContainsString(
+            '/mod/exelearning/editor/styles.php/my-style',
+            styles_service::get_style_url('My Style')
+        );
+    }
+
+    /**
+     * set_uploaded_enabled() toggles the flag and reports unknown slugs.
+     */
+    public function test_set_uploaded_enabled(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        styles_service::install_from_zip($this->make_style_zip('Theme A'), 'a.zip');
+
+        $this->assertTrue(styles_service::set_uploaded_enabled('theme-a', false));
+        $this->assertFalse(styles_service::get_registry()['uploaded']['theme-a']['enabled']);
+        $this->assertTrue(styles_service::set_uploaded_enabled('theme-a', true));
+        $this->assertTrue(styles_service::get_registry()['uploaded']['theme-a']['enabled']);
+
+        $this->assertFalse(styles_service::set_uploaded_enabled('does-not-exist', false));
+    }
+
+    /**
+     * set_builtin_enabled() adds/removes the id from disabled_builtins.
+     */
+    public function test_set_builtin_enabled(): void {
+        $this->resetAfterTest();
+
+        styles_service::set_builtin_enabled('intef', false);
+        $this->assertContains('intef', styles_service::get_registry()['disabled_builtins']);
+
+        styles_service::set_builtin_enabled('intef', true);
+        $this->assertNotContains('intef', styles_service::get_registry()['disabled_builtins']);
+    }
+
+    /**
+     * delete_uploaded() removes the registry entry and the extracted files.
+     */
+    public function test_delete_uploaded(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        styles_service::install_from_zip($this->make_style_zip('Theme B'), 'b.zip');
+        $dir = styles_service::get_style_dir('theme-b');
+        $this->assertDirectoryExists($dir);
+
+        $this->assertTrue(styles_service::delete_uploaded('theme-b'));
+        $this->assertArrayNotHasKey('theme-b', styles_service::get_registry()['uploaded']);
+        $this->assertDirectoryDoesNotExist($dir);
+
+        $this->assertFalse(styles_service::delete_uploaded('does-not-exist'));
+    }
+
+    /**
+     * is_import_blocked() defaults to false and follows the admin setting.
+     */
+    public function test_is_import_blocked(): void {
+        $this->resetAfterTest();
+
+        $this->assertFalse(styles_service::is_import_blocked());
+        set_config('stylesblockimport', 1, 'exelearning');
+        $this->assertTrue(styles_service::is_import_blocked());
+    }
+
+    /**
+     * build_theme_registry_override() lists enabled uploaded styles and omits
+     * disabled ones.
+     */
+    public function test_build_theme_registry_override(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        styles_service::install_from_zip($this->make_style_zip('Theme C'), 'c.zip');
+
+        $override = styles_service::build_theme_registry_override();
+        $this->assertArrayHasKey('disabledBuiltins', $override);
+        $this->assertArrayHasKey('blockImportInstall', $override);
+        $this->assertSame('base', $override['fallbackTheme']);
+        $this->assertContains('theme-c', array_column($override['uploaded'], 'id'));
+
+        // A disabled style drops out of the override.
+        styles_service::set_uploaded_enabled('theme-c', false);
+        $this->assertNotContains(
+            'theme-c',
+            array_column(styles_service::build_theme_registry_override()['uploaded'], 'id')
+        );
+    }
+
+    /**
+     * validate_zip() rejects an empty file and a non-ZIP file.
+     */
+    public function test_validate_zip_rejects_bad_archives(): void {
+        $this->resetAfterTest();
+
+        $empty = make_temp_directory('mod_exelearning') . '/empty-' . random_string(6) . '.zip';
+        file_put_contents($empty, '');
+        try {
+            styles_service::validate_zip($empty);
+            $this->fail('Expected an exception for an empty archive.');
+        } catch (\moodle_exception $e) {
+            $this->assertNotEmpty($e->getMessage());
+        }
+
+        $notzip = make_temp_directory('mod_exelearning') . '/bad-' . random_string(6) . '.zip';
+        file_put_contents($notzip, 'this is not a zip archive');
+        $this->expectException(\moodle_exception::class);
+        styles_service::validate_zip($notzip);
+    }
+
+    /**
+     * validate_zip() requires a config.xml and rejects disallowed file types.
+     */
+    public function test_validate_zip_rejects_missing_config_and_bad_ext(): void {
+        $this->resetAfterTest();
+
+        // No config.xml.
+        $noconf = make_temp_directory('mod_exelearning') . '/noconf-' . random_string(6) . '.zip';
+        $zip = new \ZipArchive();
+        $zip->open($noconf, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+        $zip->addFromString('style.css', 'body{}');
+        $zip->close();
+        try {
+            styles_service::validate_zip($noconf);
+            $this->fail('Expected an exception for a missing config.xml.');
+        } catch (\moodle_exception $e) {
+            $this->assertNotEmpty($e->getMessage());
+        }
+
+        // Disallowed extension.
+        $badext = make_temp_directory('mod_exelearning') . '/badext-' . random_string(6) . '.zip';
+        $zip = new \ZipArchive();
+        $zip->open($badext, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+        $zip->addFromString('config.xml', '<config><name>X</name></config>');
+        $zip->addFromString('evil.php', '<?php echo 1;');
+        $zip->close();
+        $this->expectException(\moodle_exception::class);
+        styles_service::validate_zip($badext);
+    }
+
+    /**
+     * install_from_zip() rejects a package with no CSS file.
+     */
+    public function test_install_from_zip_requires_css(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $nocss = make_temp_directory('mod_exelearning') . '/nocss-' . random_string(6) . '.zip';
+        $zip = new \ZipArchive();
+        $zip->open($nocss, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+        $zip->addFromString('config.xml', '<config><name>No CSS</name></config>');
+        $zip->addFromString('readme.txt', 'just text');
+        $zip->close();
+
+        $this->expectException(\moodle_exception::class);
+        styles_service::install_from_zip($nocss, 'nocss.zip');
+    }
+
+    /**
+     * list_uploaded_files() and list_uploaded_styles() surface an installed style.
+     */
+    public function test_list_uploaded_files_and_styles(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        styles_service::install_from_zip($this->make_style_zip('Listed'), 'listed.zip');
+
+        $this->assertContains('style.css', styles_service::list_uploaded_files('listed'));
+        $this->assertContains('listed', array_column(styles_service::list_uploaded_styles(), 'id'));
+    }
+
+    /**
+     * get_registry() tolerates a malformed persisted value.
+     */
+    public function test_get_registry_tolerates_malformed_json(): void {
+        $this->resetAfterTest();
+        set_config(styles_service::CONFIG_REGISTRY, 'not valid json', 'exelearning');
+
+        $registry = styles_service::get_registry();
+        $this->assertSame([], $registry['uploaded']);
+        $this->assertSame([], $registry['disabled_builtins']);
+    }
+
+    /**
+     * validate_zip() rejects an archive over the configured size cap.
+     */
+    public function test_validate_zip_rejects_oversize(): void {
+        $this->resetAfterTest();
+        set_config('styles_max_zip_size', 1, 'exelearning');
+
+        $this->expectException(\moodle_exception::class);
+        styles_service::validate_zip($this->make_style_zip('Too Big'));
+    }
+
+    /**
+     * validate_zip() rejects an archive with more than one config.xml.
+     */
+    public function test_validate_zip_rejects_multiple_config(): void {
+        $this->resetAfterTest();
+        $zippath = make_temp_directory('mod_exelearning') . '/multi-' . random_string(6) . '.zip';
+        $zip = new \ZipArchive();
+        $zip->open($zippath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+        $zip->addFromString('config.xml', '<config><name>A</name></config>');
+        $zip->addFromString('sub/config.xml', '<config><name>B</name></config>');
+        $zip->addFromString('style.css', 'body{}');
+        $zip->close();
+
+        $this->expectException(\moodle_exception::class);
+        styles_service::validate_zip($zippath);
+    }
+
+    /**
+     * A style with an icons/ folder and a subdirectory exercises icon scanning,
+     * recursive CSS discovery and recursive deletion.
+     */
+    public function test_style_with_icons_and_subdir(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $zippath = make_temp_directory('mod_exelearning') . '/rich-' . random_string(6) . '.zip';
+        $zip = new \ZipArchive();
+        $zip->open($zippath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+        $zip->addFromString('config.xml', '<config><name>Rich</name></config>');
+        $zip->addFromString('style.css', 'body{}');
+        $zip->addFromString('sub/extra.css', '.x{}');
+        $zip->addFromString('icons/icon.svg', '<svg xmlns="http://www.w3.org/2000/svg"/>');
+        $zip->close();
+
+        styles_service::install_from_zip($zippath, 'rich.zip');
+
+        // The registry override scans the icons/ folder.
+        $override = styles_service::build_theme_registry_override();
+        $entry = null;
+        foreach ($override['uploaded'] as $u) {
+            if ($u['id'] === 'rich') {
+                $entry = $u;
+            }
+        }
+        $this->assertNotNull($entry);
+        $this->assertNotEmpty($entry['icons']);
+
+        // Deletion recurses into icons/ and sub/.
+        $this->assertTrue(styles_service::delete_uploaded('rich'));
+        $this->assertDirectoryDoesNotExist(styles_service::get_style_dir('rich'));
+    }
+
+    /**
+     * validate_zip() rejects an archive whose files do not share the config.xml
+     * root directory.
+     */
+    public function test_validate_zip_rejects_mixed_roots(): void {
+        $this->resetAfterTest();
+        $zippath = make_temp_directory('mod_exelearning') . '/mixed-' . random_string(6) . '.zip';
+        $zip = new \ZipArchive();
+        $zip->open($zippath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+        $zip->addFromString('theme/config.xml', '<config><name>X</name></config>');
+        $zip->addFromString('rogue.css', 'body{}');
+        $zip->close();
+
+        $this->expectException(\moodle_exception::class);
+        styles_service::validate_zip($zippath);
+    }
+
+    /**
+     * list_builtin_themes() parses the active editor's data/bundle.json manifest.
+     */
+    public function test_list_builtin_themes_from_bundle(): void {
+        $this->resetAfterTest();
+
+        // Install an editor carrying a themes manifest.
+        $src = make_temp_directory('mod_exelearning/bt-' . random_string(6));
+        make_writable_directory($src . '/app');
+        make_writable_directory($src . '/data');
+        file_put_contents($src . '/index.html', 'x');
+        file_put_contents($src . '/data/bundle.json', json_encode([
+            'themes' => ['themes' => [
+                ['name' => 'intef', 'title' => 'INTEF', 'version' => '1.0'],
+                ['name' => 'base', 'title' => 'Base'],
+            ]],
+        ]));
+        (new \mod_exelearning\local\embedded_editor_installer())->safe_install($src);
+
+        $ids = array_column(styles_service::list_builtin_themes(), 'id');
+        $this->assertContains('intef', $ids);
+        $this->assertContains('base', $ids);
+
+        remove_dir(\mod_exelearning\local\embedded_editor_source_resolver::get_moodledata_dir());
+    }
 }

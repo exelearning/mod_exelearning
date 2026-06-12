@@ -85,9 +85,11 @@ jobs:
           - moodle-branch: 'MOODLE_500_STABLE'
             php: '8.3'
             database: 'pgsql'
-            # Single combination that also generates code coverage and uploads
-            # it to Codecov (pcov is fast and matches the CI php version).
-            coverage: 'pcov'
+            # Single combination that also generates code coverage and uploads it
+            # to Codecov. Uses xdebug rather than pcov: pcov systematically fails
+            # to credit some executed lines (e.g. lib.php's package extraction and
+            # SCORM injection), understating coverage; xdebug reports them.
+            coverage: 'xdebug'
           - moodle-branch: 'MOODLE_500_STABLE'
             php: '8.3'
             database: 'mariadb'

@@ -1,18 +1,35 @@
 # Codecov configuration for mod_exelearning.
-# The project/patch status checks report the coverage percentage against an 80%
-# target (not informational, so the figure shows on every commit/PR), like
-# exelearning/exelearning. See https://docs.codecov.com/docs/codecovyml-reference
+# The project/patch status checks report the coverage percentage on every
+# commit/PR (not informational, so the figure shows and the check passes/fails),
+# like exelearning/exelearning. See https://docs.codecov.com/docs/codecovyml-reference
+#
+# The project gate uses `target: auto`: it locks coverage in at whatever level
+# `main` currently reaches and FAILS any PR that drops below it (minus a small
+# noise threshold) — a ratchet that can only go up. To enforce it as a merge
+# requirement, add `codecov/project` to the required status checks in the GitHub
+# branch-protection rule for `main` (Settings -> Branches).
 #
 # No `flags` here on purpose: in CI the plugin lives under mod/exelearning/, so a
 # flag path filter like `classes/` matches nothing and yields "No coverage data
 # available". The coverage scope is already limited in tests/coverage.php.
+# moodle-plugin-ci installs the plugin under moodle/mod/exelearning/, so the
+# coverage report paths are prefixed with that. Strip it so coverage maps onto
+# the repository tree (classes/, lib.php) instead of phantom paths — otherwise
+# Codecov shows 0 files / no percentage.
+fixes:
+  - "moodle/mod/exelearning/::"
+
 coverage:
   status:
     project:
       default:
-        target: 80%
+        # Lock in the level main reaches; fail PRs that regress beyond the noise
+        # threshold. This is the "requirement at whatever level we achieve" gate.
+        target: auto
+        threshold: 0.5%
     patch:
       default:
+        # New/changed lines in a PR must be at least 80% covered.
         target: 80%
 
 # Show the coverage percentage and the diff in the PR comment.
