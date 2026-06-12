@@ -35,6 +35,8 @@ require_once($CFG->libdir . '/gradelib.php');
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @covers     ::exelearning_recalculate_user_grades
  * @covers     ::exelearning_update_instance
+ * @covers     \mod_exelearning\grades\grade_sync
+ * @covers     \mod_exelearning\grades\grade_recalculator
  */
 final class grademodel_test extends advanced_testcase {
     /**

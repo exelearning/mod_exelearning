@@ -30,6 +30,9 @@ use advanced_testcase;
  * @covers     ::exelearning_inject_scorm_loader
  * @covers     ::exelearning_get_stored_package
  * @covers     ::exelearning_package_has_content_xml
+ * @covers     \mod_exelearning\local\package_manager
+ * @covers     \mod_exelearning\local\scorm\scorm_injector
+ * @covers     \mod_exelearning\local\scorm\idevice_patch
  */
 final class lib_extract_test extends advanced_testcase {
     /**
