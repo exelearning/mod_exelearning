@@ -169,6 +169,7 @@ Cerradas: **TAREA-012 / RIE-001** investigación (DEC-0019); **TAREA-009 / RIE-0
 | DEC-0045 | **Propuesta** (2026-06-10) | Transformación del paquete en tiempo de servido (`content_transformer` + `pluginfile`): elimina la reescritura del HTML en extracción (deuda nº1 del informe); diferida, salida definitiva es xAPI DEC-0032 |
 | DEC-0046 | **Aceptada** (2026-06-10) | Inyecciones SCORM-loader (`inject_scorm_loader`) y teacher-mode (`require_teacher_mode_hider`): análisis plugin vs upstream eXeLearning (ventajas/inconvenientes); híbrido = fix plugin-side DEC-0045 (amplía alcance al teacher-mode) + opción upstream documentada (sin abrir issues); conservar workaround para `.elpx` heredados |
 | DEC-0047 | **Aceptada** (2026-06-11) | Clasificación funcional: mantener `MOD_ARCHETYPE_ASSIGNMENT` + `MOD_PURPOSE_ASSESSMENT` (sin cambio de código); `supports()` no ve la instancia → el archetype/purpose no puede variar por `gradeenabled` (DEC-0029); `gradeenabled=0` es "modo recurso" dentro de un módulo evaluable. Cierra la observación del informe comparativo (`docs/AUDIT_FOLLOWUP.md`) |
+| DEC-0048 | **Aceptada** (2026-06-12) | Estrategia de cobertura de tests: mockear la red con `\curl::mock_response()` + mock parcial de `download_to_temp()` en vez de excluir; no excluir del scope código testeable (`excludelistfiles` vacío); xdebug/Codecov es la medida autoritativa (pcov local subacredita llamadas anidadas — artefacto, no límite); gate `codecov project: target: auto` (trinquete). Cobertura honesta 85.71%→87.2% (PR #65) |
 
 ## Restricciones inmutables
 
