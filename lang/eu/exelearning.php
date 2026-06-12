@@ -44,6 +44,7 @@ $string['confirmuninstall'] = 'Ziur zaude editore txertatua desinstalatu nahi du
 $string['confirmuninstalltitle'] = 'Berretsi desinstalazioa';
 $string['deleteattempt'] = '~Ezabatu saialdia';
 $string['detecteditems'] = '~Hautemandako iDevice kalifikagarriak:';
+$string['downloadreport'] = '~Deskargatu txostenaren datuak honela:';
 $string['editorbackuperror'] = 'Ezin izan da lehendik zegoen editore-instalazioaren babeskopia sortu.';
 $string['editorbundleddesc'] = 'Pluginak bertsio bat dakar. GitHub-en argitaratutako azken bertsioa instala dezakezu.';
 $string['editorbundledsource'] = 'Pluginarekin batera dator';

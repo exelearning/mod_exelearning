@@ -265,7 +265,8 @@ if (!$mainfile) {
         $userids = array_keys($enrolled);
         $summary = \mod_exelearning\local\attempts::participation_summary(
             $exelearning->id,
-            $userids
+            $userids,
+            (int) ($exelearning->grademethod ?? \mod_exelearning\local\attempts::GRADE_HIGHEST)
         );
 
         $reporturl = new moodle_url('/mod/exelearning/report.php', ['id' => $cm->id]);

@@ -44,6 +44,7 @@ $string['confirmuninstall'] = 'Segur que voleu desinstal·lar l\'editor incrusta
 $string['confirmuninstalltitle'] = 'Confirma la desinstal·lació';
 $string['deleteattempt'] = '~Elimina l\'intent';
 $string['detecteditems'] = '~iDevices qualificables detectats:';
+$string['downloadreport'] = '~Baixa les dades de l\'informe com a';
 $string['editorbackuperror'] = 'No s\'ha pogut fer una còpia de seguretat de la instal·lació existent de l\'editor.';
 $string['editorbundleddesc'] = 'El connector inclou una versió. Podeu instal·lar l\'última versió publicada a GitHub.';
 $string['editorbundledsource'] = 'Inclòs amb el connector';

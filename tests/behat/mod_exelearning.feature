@@ -129,3 +129,16 @@ Feature: View a mod_exelearning activity and its attempts report
     And I follow "View attempts report"
     Then I should see "Student One"
     And I should not see "Student Two"
+
+  # DEC-0007 download: with at least one attempt recorded, the teacher report
+  # offers the core dataformat selector (CSV/Excel/ODS/JSON). The empty-state
+  # scenario above already asserts no selector appears with no attempts. The
+  # objectid is the trueorfalse iDevice registered by the default fixture
+  # (actividad-evaluable.elpx); seeding it gives the report a row to export.
+  Scenario: The attempts report offers a data download selector when attempts exist
+    Given the following eXeLearning SCORM scores exist:
+      | activity | user     | sessiontoken | objectid                        | score |
+      | exe1     | student1 | dl-session   | idevice-1779989968114-sevb8qqdy | 80    |
+    And I am on the "Evaluable unit" "exelearning activity" page logged in as teacher1
+    When I follow "View attempts report"
+    Then I should see "Download report data as"
