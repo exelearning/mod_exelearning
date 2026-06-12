@@ -36,6 +36,12 @@ require_once($CFG->libdir . '/gradelib.php');
  * @covers     ::exelearning_update_instance
  * @covers     ::exelearning_delete_instance
  * @covers     ::exelearning_sync_grade_items
+ * @covers     \mod_exelearning\grades\grade_sync
+ * @covers     \mod_exelearning\grades\grade_item_manager
+ * @covers     \mod_exelearning\grades\completion_validator
+ * @covers     \mod_exelearning\local\package_manager
+ * @covers     \mod_exelearning\local\scorm\idevice_patch
+ * @covers     \mod_exelearning\local\urls
  */
 final class lib_test extends advanced_testcase {
     /**

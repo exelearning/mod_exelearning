@@ -35,6 +35,9 @@ require_once($CFG->libdir . '/gradelib.php');
  * @covers     ::exelearning_remove_all_grade_items
  * @covers     ::exelearning_relax_completion_grade_errors
  * @covers     ::exelearning_apply_grade_category
+ * @covers     \mod_exelearning\grades\grade_sync
+ * @covers     \mod_exelearning\grades\grade_item_manager
+ * @covers     \mod_exelearning\grades\completion_validator
  */
 final class lib_grades_test extends advanced_testcase {
     /**

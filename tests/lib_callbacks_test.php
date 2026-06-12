@@ -37,6 +37,8 @@ require_once($CFG->dirroot . '/mod/exelearning/lib.php');
  * @covers     ::exelearning_extend_settings_navigation
  * @covers     ::exelearning_navigation_before_key
  * @covers     ::exelearning_update_instance
+ * @covers     \mod_exelearning\local\urls
+ * @covers     \mod_exelearning\local\ui\teacher_mode_hider
  */
 final class lib_callbacks_test extends advanced_testcase {
     /**

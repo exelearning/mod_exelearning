@@ -288,6 +288,25 @@ decisiones_bloqueantes:
       scrambled-list.js:551 al extraer (exelearning_patch_idevice_save_guards en lib.php),
       str_replace idempotente que degrada a no-op. Verificado: Formulario persiste 100%
       con body web-site (sin exe-scorm), sin regresiones.
+  DEC-0054:
+    titulo: "Extracción de la lógica de lib.php a clases por responsabilidad (grades/*, local/scorm/*, package_manager, urls)"
+    estado: Aceptada
+    ruta: decisiones/adr/DEC-0054-extraccion-lib-php.md
+    fecha: 2026-06-12
+    relacionados: [DEC-0049, DEC-0046, DEC-0038, DEC-0007, DEC-0016]
+    notas: >-
+      Selecciona el hallazgo "descomposición de lib.php" diferido en DEC-0049. Refactor
+      mecánico sin cambio de comportamiento: lib.php 1751 → 956 líneas; los cuerpos de
+      sync/recálculo/item-management/completion (grades\grade_sync, grade_recalculator,
+      grade_item_manager, completion_validator), de paquete (local\package_manager), de
+      transformación SCORM al servir (local\scorm\scorm_injector, idevice_patch) y de
+      URLs/UI (local\urls, local\ui\teacher_mode_hider) pasan a clases; lib.php conserva
+      delegadores finos con las firmas que Moodle invoca, así que los llamadores externos
+      (view/report/grade/mod_form/editor/external/privacy/migration) no cambian. exelearning_supports()
+      intacto (lo edita otro carril). Paridad cubierta por la suite existente sin tocar asserts;
+      3 unit tests nuevos (grade_item_manager, scorm_injector, package_manager). phpcs 0/0.
+      Riesgo RIE-018 (regresión de cálculo de notas) mitigado por movimiento verbatim + suite +
+      Codecov patch ≥80% (DEC-0048) + CI.
   DEC-0051:
     titulo: "Eventos de ciclo de vida del intento (attempt_started / attempt_completed), uno por intento"
     estado: Aceptada
