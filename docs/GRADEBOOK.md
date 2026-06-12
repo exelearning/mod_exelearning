@@ -5,22 +5,24 @@ How `mod_exelearning` maps a published eXeLearning package onto Moodle grade ite
 ## The two grading models
 
 Grading has exactly two **mutually-exclusive** presentations, selected per instance by `grademodel`
-(`lib.php:33-36`). The legacy "both" mode was removed (DEC-0008, rev. 2026-05-29).
+(constants `EXELEARNING_GRADEMODEL_*`, `lib.php:35-36`). The legacy "both" mode was removed (DEC-0008, rev. 2026-05-29).
 
 | Model | Constant (value) | Gradebook columns | Overall column (`itemnumber=0`)? |
 |---|---|---|---|
 | **PER-ITEM** (default) | `EXELEARNING_GRADEMODEL_PERITEM` (1) | One column per gradable iDevice (`itemnumber` 1..100) | **No** |
 | **OVERALL** | `EXELEARNING_GRADEMODEL_OVERALL` (0) | A single aggregated column (SCORM-style) | **Yes** |
 
-The default is PER-ITEM (`lib.php:36,99`; `db/install.xml:25` `grademodel DEFAULT="1"`).
+The default is PER-ITEM (`EXELEARNING_GRADEMODEL_PERITEM`, `lib.php:36`; default applied in
+`exelearning_add_instance()`/`exelearning_update_instance()`; `db/install.xml:25` `grademodel DEFAULT="1"`).
 
 The two models are now **symmetric**: OVERALL shows only the aggregated column, PER-ITEM shows only the
 per-iDevice columns. There is **no hidden overall stub** in PER-ITEM anymore — a hidden item still showed (greyed)
 to teachers with `moodle/grade:viewhidden` and was reported as a confusing "extra grade", so DEC-0038 removed it.
-`exelearning_sync_grade_items()` enforces this: OVERALL un-hides/creates the overall item (`lib.php:1146-1151`),
-PER-ITEM deletes any stray overall left over from a previous sync or the legacy hidden-stub model
-(`lib.php:1152-1165`). `exelearning_grade_item_update()` carries the same guard so core's unconditional
-regrade calls cannot resurrect a phantom overall column (`lib.php:375-387`; B2b, DEC-0044).
+`exelearning_sync_grade_items()` (delegador en `lib.php` → `\mod_exelearning\grades\grade_sync::sync()`,
+DEC-0054) enforces this: OVERALL un-hides/creates the overall item, PER-ITEM deletes any stray overall
+left over from a previous sync or the legacy hidden-stub model. `exelearning_grade_item_update()`
+(→ `\mod_exelearning\grades\grade_item_manager::update_item()`) carries the same guard so core's
+unconditional regrade calls cannot resurrect a phantom overall column (B2b, DEC-0044).
 
 ## `itemnumber` semantics
 
@@ -37,22 +39,22 @@ implements `core_grades\local\gradeitem\itemnumber_mapping` in `classes/grades/g
 `grade_overall_name` (`lang/en/exelearning.php:203`) and `grade_idevice1_name` … `grade_idevice100_name`
 (`lang/en/exelearning.php:103-114`, 100 entries) **must all exist** or the completion-via-grade dropdown and
 Course-overview column labelling break. Registration stops at the cap — beyond 100 gradable iDevices the extra
-items are not registered as columns (`lib.php:1249-1261`), with a developer-level `debugging()` warning.
+items are not registered as columns (`\mod_exelearning\grades\grade_sync::sync()`), with a developer-level `debugging()` warning.
 
 ## objectid-stable routing (DEC-0017)
 
 Grade items are keyed by the package's stable `objectid` (the `<odeIdeviceId>` from `content.xml`), **not** by the
 page-local index the producer emits — which collides across pages. The `exelearning_grade_item` table stores
 `objectid char(191)` with a UNIQUE `(exelearningid, objectid)` index (`db/install.xml:50,67`), and
-`exelearning_sync_grade_items()` looks up existing rows by `objectid` (`lib.php:1224`), assigning a new monotonic
-`itemnumber` only when an objectid is first seen (`lib.php:1262-1278`).
+`exelearning_sync_grade_items()` (→ `\mod_exelearning\grades\grade_sync::sync()`) looks up existing rows by
+`objectid`, assigning a new monotonic `itemnumber` only when an objectid is first seen.
 
 - **Soft-delete on re-upload**: an iDevice that disappears in a re-upload has its row marked `deleted=1` (preserving
-  grade history) and its gradebook column removed (`lib.php:1319-1335`; `db/install.xml:56`). A re-appearing iDevice
+  grade history) and its gradebook column removed (`\mod_exelearning\grades\grade_sync::sync()`; `db/install.xml:56`). A re-appearing iDevice
   keeps its original `itemnumber`.
 - **Content-hash staleness detection (DEC-0021)**: each row stores `contenthash` (sha1 of the iDevice content block,
   `db/install.xml:57`). An in-place options/scoring edit keeps the `objectid` but changes the hash; the sync flags it
-  as `changed` (`lib.php:1232-1234`) so the teacher can be warned that existing grades are now stale. Existing
+  as `changed` (`\mod_exelearning\grades\grade_sync::sync()`) so the teacher can be warned that existing grades are now stale. Existing
   attempts/grades are **not** recomputed — the scoring runs client-side, so the server cannot re-derive them.
 
 `track::ingest()` accepts only objectids the package exposes for **this** instance and ignores unknown ones — it
@@ -75,10 +77,13 @@ Constants: `classes/local/attempts.php:33-42`. The aggregation itself is `attemp
 (`:279-311`), which reads each attempt's `scaledscore` (a 0..1 value stored as `rawscore/maxscore`,
 `db/install.xml:80`) and returns a single scaled score (or `null` when there are no attempts).
 
-On publish, `exelearning_recalculate_user_grades()` multiplies that scaled score by the instance `grademax`
-(`lib.php:1431`, `rawgrade = scaled * grademax`) and calls `grade_update()` per item, skipping `itemnumber=0` in
-PER-ITEM and `itemnumber>0` in OVERALL (`lib.php:1413-1442`). `exelearning_update_grades()` fans this out across
-every user with attempts (`lib.php:445-451`), and short-circuits when grading is disabled (`lib.php:435-438`).
+On publish, `exelearning_recalculate_user_grades()` (delegador en `lib.php` →
+`\mod_exelearning\grades\grade_recalculator::recalculate_user()`, DEC-0054) multiplies that scaled score by the
+instance `grademax` (`rawgrade = scaled * grademax`) and calls `grade_update()` per item, skipping `itemnumber=0` in
+PER-ITEM and `itemnumber>0` in OVERALL (the batched logic lives in
+`\mod_exelearning\grades\grade_recalculator::recalculate_for_users()`). `exelearning_update_grades()`
+(→ `\mod_exelearning\grades\grade_sync::update_grades()`) fans this out across
+every user with attempts, and short-circuits when grading is disabled.
 
 ## gradepass + completion-by-grade (DEC-0010)
 
@@ -86,9 +91,10 @@ every user with attempts (`lib.php:445-451`), and short-circuits when grading is
 completion-by-grade ("require passing grade", `completionpassgrade`), SCORM-style. `track::ingest()` recalculates
 completion after grading (`classes/local/track.php:220`). Completion-by-grade keeps working the Moodle-native way:
 the teacher points `completiongradeitemnumber` at a per-iDevice item (workshop model) or uses OVERALL mode to
-complete on passing the activity as a whole (`lib.php:1142-1145`). The plugin relaxes core's
+complete on passing the activity as a whole (DEC-0010). The plugin relaxes core's
 `badcompletiongradeitemnumber` rejection for a registered gradable item via
-`exelearning_relax_completion_grade_errors()` (`mod_form.php:328-332`, `lib.php:1471-1518`; B7, DEC-0044).
+`exelearning_relax_completion_grade_errors()` (`mod_form.php:328-332`; delegador en `lib.php` →
+`\mod_exelearning\grades\completion_validator::relax_errors()`, DEC-0054; B7, DEC-0044).
 
 **Validation rule**: `gradepass` must lie in `[grademin, grademax]` (when non-zero), and `grademin` must not exceed
 `grademax`, otherwise "require passing grade" completion is unreachable (`mod_form.php:338-343`; strings
@@ -127,12 +133,14 @@ alien to eXe.
 `gradeenabled` is the master grading switch (`db/install.xml:26`, default 1). When unchecked, the mod_form
 `disabledIf` rules grey out **all** grade and attempt fields — `grademodel, grademax, grademin, gradepass,
 gradedisplaytype, gradecat, maxattempt, grademethod, reviewmode` (`mod_form.php:221-227`). The module then creates
-no grade items and no reports and behaves like a plain resource: `exelearning_sync_grade_items()` removes all grade
-items and detects nothing (`lib.php:1123-1126`), and `exelearning_update_grades()` returns early
-(`lib.php:435-438`). Attempt history (`exelearning_attempt`) is preserved.
+no grade items and no reports and behaves like a plain resource: `exelearning_sync_grade_items()`
+(→ `\mod_exelearning\grades\grade_sync::sync()`) removes all grade items (via
+`\mod_exelearning\grades\grade_item_manager::remove_all()`) and detects nothing, and
+`exelearning_update_grades()` (→ `\mod_exelearning\grades\grade_sync::update_grades()`) returns early.
+Attempt history (`exelearning_attempt`) is preserved.
 
 **Caveat**: `FEATURE_GRADE_HAS_GRADE` is **static** — `exelearning_supports()` returns `true` unconditionally
-(`lib.php:58-59`), regardless of `gradeenabled`. So Moodle still classifies the activity type as gradable even when a
+(`lib.php:66-67`), regardless of `gradeenabled`. So Moodle still classifies the activity type as gradable even when a
 given instance is not. This functional classification mismatch is tracked in the audit follow-up — see the new ADR
 **DEC-0047** (functional classification) and `docs/AUDIT_FOLLOWUP.md`.
 
@@ -142,10 +150,11 @@ An `.elpx` with **3 gradable iDevices**:
 
 - **PER-ITEM** (default) → **3 gradebook columns**, `itemnumber` 1, 2, 3 — one per iDevice, no overall column.
 - **OVERALL** → **1 aggregated column**, `itemnumber=0` — the three iDevice scores are recomputed into a single
-  overall (DEC-0018) and the per-iDevice rows are kept only for the attempts report (`lib.php:1282-1294`).
+  overall (DEC-0018) and the per-iDevice rows are kept only for the attempts report (`\mod_exelearning\grades\grade_sync::sync()`).
 
 Switching an existing instance between the two models deletes and recreates the columns and re-publishes from
-`exelearning_attempt` (`exelearning_update_grades()` → `exelearning_recalculate_user_grades()`).
+`exelearning_attempt` (`exelearning_update_grades()` → `exelearning_recalculate_user_grades()`; i.e.
+`\mod_exelearning\grades\grade_sync::update_grades()` → `\mod_exelearning\grades\grade_recalculator::recalculate_for_users()`).
 
 ## Admin-facing settings summary
 

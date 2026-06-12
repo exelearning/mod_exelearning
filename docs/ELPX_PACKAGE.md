@@ -3,7 +3,9 @@
 > How `mod_exelearning` validates an uploaded eXeLearning v4 package, reads its
 > `content.xml`, and decides which iDevices are gradable — plus the XML/zip security
 > posture that makes a hostile manifest inert. Parsing lives in
-> `classes/local/package.php`; upload/extraction in `lib.php` and `mod_form.php`.
+> `classes/local/package.php`; save/extraction in
+> `classes/local/package_manager.php` (thin `exelearning_*` delegators kept in
+> `lib.php`, DEC-0054); submit-time validation in `mod_form.php`.
 >
 > Decision trail (Spanish ADRs): `research/decisiones/adr/` — DEC-0027 (accept `.zip`
 > with `content.xml`), DEC-0039 (hybrid DOM parser), DEC-0022 (detect by `isScorm`),
@@ -25,13 +27,13 @@ This is fixed by the "Restricciones inmutables" in the root `AGENTS.md:172-174`:
 | Step | Where | Behaviour |
 |------|-------|-----------|
 | Submit-time validation | `mod_form.php:345-357` | The uploaded draft must contain `content.xml`; otherwise the form rejects it with `err_nocontentxml` instead of creating a broken activity (DEC-0027). |
-| `content.xml` presence check | `lib.php:752-764` | `exelearning_package_has_content_xml()` lists the zip entries and returns `true` only when a root `content.xml` exists. |
-| Save + extract | `lib.php:664` | `exelearning_save_and_extract_package()` stores the zip in the `package` filearea and extracts to `content/{revision}/`. |
-| Idempotent re-extract | `lib.php:778-869` | `exelearning_extract_stored_package()` clears prior content and re-extracts via Moodle's file packer; also injects the SCORM loader and patches save guards (serve-time transform, DEC-0045 — see `docs/TRACKING.md`). |
+| `content.xml` presence check | `\mod_exelearning\local\package_manager::validate_content_xml()` (delegador `exelearning_package_has_content_xml()` en `lib.php`) | Lists the zip entries and returns `true` only when a root `content.xml` exists. |
+| Save + extract | `\mod_exelearning\local\package_manager::save_and_extract()` (delegador `exelearning_save_and_extract_package()`) | Stores the zip in the `package` filearea and extracts to `content/{revision}/`. |
+| Idempotent re-extract | `\mod_exelearning\local\package_manager::extract_stored()` (delegador `exelearning_extract_stored_package()`) | Clears prior content and re-extracts via Moodle's file packer; also injects the SCORM loader and patches save guards (serve-time transform, DEC-0045 — see `docs/TRACKING.md`). |
 
 Extraction uses Moodle's `get_file_packer('application/zip')` and
-`stored_file::extract_to_*` (`lib.php:793-801`, and `read_content_xml()` in
-`classes/local/package.php:572-590`). The packer normalises entry paths, so a
+`stored_file::extract_to_storage()` (`\mod_exelearning\local\package_manager::extract_stored()`,
+and `read_content_xml()` in `classes/local/package.php:572-590`). The packer normalises entry paths, so a
 crafted `../` zip entry cannot escape the extraction directory (zip path traversal is
 the packer's responsibility, not re-implemented here).
 
@@ -115,7 +117,7 @@ The regex fallback applies the **same** rule via `idevice_reports_score()`
 
 | Outcome | Condition | Evidence |
 |---------|-----------|----------|
-| **Accepted** | ZIP with a root `content.xml` (`.elpx` or `.zip`) | `lib.php:752-764`; `mod_form.php:345-357` |
+| **Accepted** | ZIP with a root `content.xml` (`.elpx` or `.zip`) | `package_manager::validate_content_xml()`; `mod_form.php:345-357` |
 | **Rejected at upload** | No `content.xml` | `mod_form.php:354-356` → `err_nocontentxml` |
 | **Degraded (regex fallback)** | `content.xml` present but malformed XML | `package.php:160-172` (logs first libxml error) → `package.php:478-533` |
 | **Rejected by parser** | Document declares internal XML entities | `package.php:178-184` (returns `null`, billion-laughs defence) |
@@ -142,7 +144,7 @@ stale" warning; the save is never blocked.
 |--------|--------|------------|------------------------|
 | XXE / external entity | `content.xml` references an external entity or the external DTD | Loaded with `LIBXML_NONET` and **without** `LIBXML_DTDLOAD`/`LIBXML_NOENT`: external DTD never fetched, entities never substituted, no network | `classes/local/package.php:155` |
 | Billion-laughs (entity expansion) | Internal entity subset in the DOCTYPE | Document with internal entities rejected after parse | `classes/local/package.php:178-184` |
-| Zip path traversal during extract | `../` entry names in the archive | Extraction via Moodle's file packer, which normalises entry paths | `lib.php:793-801`; `classes/local/package.php:573-580` |
+| Zip path traversal during extract | `../` entry names in the archive | Extraction via Moodle's file packer, which normalises entry paths | `package_manager::extract_stored()`; `classes/local/package.php:573-580` |
 | Malicious HTML in `htmlView` | Script/markup in package HTML | Package HTML runs only inside the same-origin **sandboxed** iframe (no top-navigation, no modals); the parser reads `htmlView` text but does not render it server-side | iframe `view.php:569-579`; parser reads text only `classes/local/package.php:288-292` |
 
 ## See also

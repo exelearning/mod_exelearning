@@ -118,9 +118,12 @@ report scores, and it is the channel the dual SCORM/xAPI architecture preserves
 (DEC-0032, `tracking-architecture.md`).
 
 The tech debt is the **serve-time HTML injection** into the extracted package:
-`exelearning_inject_scorm_loader()` (`lib.php:906`),
-`exelearning_patch_idevice_save_guards()` (`lib.php:998`) and the teacher-mode hider
-`exelearning_require_teacher_mode_hider()` (`lib.php:880`). Those rewrite the package's
+`exelearning_inject_scorm_loader()` (delegador en `lib.php`) →
+`\mod_exelearning\local\scorm\scorm_injector::inject()`,
+`exelearning_patch_idevice_save_guards()` (delegador) →
+`\mod_exelearning\local\scorm\idevice_patch::patch()` and the teacher-mode hider
+`exelearning_require_teacher_mode_hider()` (delegador) →
+`\mod_exelearning\local\ui\teacher_mode_hider::require_for_iframe()` (DEC-0054). Those rewrite the package's
 own HTML/JS at serve time and are tracked for upstream resolution by **DEC-0045**
 (serve-time transform) and **DEC-0046** (plugin-side vs eXeLearning-upstream injections)
 — `research/decisiones/adr/DEC-0045-transformacion-en-servido.md` and
