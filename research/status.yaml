@@ -380,6 +380,27 @@ decisiones_bloqueantes:
       las vías (el editor pasa de irrecuperable a recuperable). Resuelve RIE-019. Promueve maturity
       BETA->STABLE (consecuencia, no decisión aparte; version sentinel intacto, DEC-0030). 263 tests
       verdes (make test). Tests nuevos: 6 en package_manager_extract_test, 2 en lib_test.
+  DEC-0059:
+    titulo: "Bridge SCORM por postMessage + iframe de origen opaco (modo seguro configurable): RIE-001 Tier 2"
+    estado: Aceptada
+    ruta: decisiones/adr/DEC-0059-bridge-scorm-postmessage-origen-opaco.md
+    fecha: 2026-06-13
+    relacionados: [DEC-0019, RIE-001, AN-008, DEC-0017, DEC-0042]
+    notas: >-
+      Implementa el Tier 2 que DEC-0019 dejó para "su propio ADR" (no lo supersede). Ajuste
+      global mod_exelearning/iframemode (secure por defecto | legacy de respaldo,
+      \mod_exelearning\local\ui\player_iframe, fail-safe a secure). Modo secure: iframe sandbox
+      sin allow-same-origin (origen opaco) ni allow-popups-to-escape-sandbox; el shim window.API
+      vive DENTRO del iframe (js/scorm_bridge_shim.js, copiado a libs/exe_scorm_bridge.js e
+      inyectado por scorm_injector al inicio de <head>), reutiliza js/scorm_tracker.js vía nueva
+      opción transport, resuelve objectid en su propio DOM y postMessea los deltas al relevo del
+      padre (js/scorm_bridge_relay.js), que valida por identidad de ventana + nonce + acción
+      cerrada y hace el POST a track.php (sesskey sólo en el padre; flush por sendBeacon en
+      pagehide). Polyfill de localStorage/sessionStorage en el shim (origen opaco lanza
+      SecurityError; lo usan exe_atools/exe_export/checklist/edicuatex). Linchpin: pipwerks find()
+      mira window.API local primero (SCORM_API_wrapper.js:71-106). Legacy = comportamiento actual
+      byte-a-byte. phpcs 0/0; Vitest 40/40 (24 nuevos); PHPUnit player_iframe_test + Behat en CI.
+      RIE-001 -> mitigado.
 tareas:
   TAREA-001:
     fecha: 2026-05-28
@@ -578,13 +599,39 @@ tareas:
       create_file_from_url + gating por contenthash + curl_security_helper + ajuste admin
       allowexternalurl opt-in) + botón 'Actualizar ahora' + tests/backup/upgrade. Fase 2
       (opcional): updatefreq + db/tasks.php + token para el REST de eXeLearning v4.
+  TAREA-017:
+    fecha: 2026-06-13
+    titulo: "RIE-001 Tier 2: implementar el bridge SCORM por postMessage + iframe de origen opaco (modo seguro)"
+    estado: Done
+    agente: claude-code
+    relacionados:
+      - RIE-001
+      - DEC-0059
+      - DEC-0019
+      - DEC-0017
+    notas: >-
+      Implementado el modo seguro configurable (iframemode secure|legacy, default secure).
+      Ficheros: classes/local/ui/player_iframe.php (modo + tokens sandbox), settings.php
+      (admin_setting_configselect), lang/en/exelearning.php (4 strings), view.php (rama
+      secure/legacy + sandbox por modo + teacher-mode por bridge), js/scorm_tracker.js (opción
+      transport), js/scorm_bridge_shim.js + js/scorm_bridge_relay.js (nuevos),
+      classes/local/scorm/scorm_injector.php (inyección del bridge), classes/local/package_manager.php
+      (copia de scorm_tracker.js + exe_scorm_bridge.js a libs/). Tests: tests/player_iframe_test.php,
+      tests/js/scorm_bridge.test.js. Verificado phpcs 0/0 + Vitest 40/40 + php -l; PHPUnit/Behat en
+      CI/contenedor. Follow-up opcional: M2/M3 (Permissions-Policy/CSP).
 riesgos:
   RIE-001:
     titulo: "XSS cross-component desde paquete eXeLearning malicioso"
     severidad: media
     probabilidad: baja
-    estado: identificado
+    estado: mitigado
     mitigacion: >-
+      MITIGADO (2026-06-13, DEC-0059): el modo seguro por defecto (iframemode=secure) sirve el
+      paquete en un iframe de ORIGEN OPACO (sin allow-same-origin) y releva el scoring SCORM por un
+      canal postMessage validado (identidad de ventana + nonce + acción cerrada), con el sesskey
+      sólo en el padre; el contenido ya no puede leer DOM/cookies/sesión ni forjar peticiones.
+      legacy queda como respaldo opt-in (vuelve al riesgo same-origin). Contexto previo (DEC-0019,
+      sin implementar entonces):
       v1 VIGENTE: sandbox del iframe sin allow-top-navigation / allow-modals (AN-008).
       Investigación TAREA-012 completada en DEC-0019 (2026-06-02): core NO aísla (mod_scorm
       sin sandbox; core_h5p curado), mod_exelearning ya es el mejor aislado de los tres, y
@@ -599,7 +646,9 @@ riesgos:
       - DEC-0003
       - DEC-0004
       - DEC-0019
+      - DEC-0059
       - TAREA-012
+      - TAREA-017
   RIE-007:
     titulo: "suspend_data N (índice local de página) tratado como itemnumber → mis-ruteo y colisión de notas"
     severidad: alta

@@ -155,6 +155,13 @@ editor remains):
   editor's built-in styles, and optionally block users from importing styles
   bundled inside an `.elpx`. A dedicated _Styles_ admin page lists and manages
   them.
+* **Package iframe security mode** (`iframemode`, default **Secure**): in _Secure_
+  mode the eXeLearning package runs in a sandboxed, **opaque-origin** iframe so its
+  JavaScript cannot read or modify the surrounding Moodle page, its cookies or the
+  session; SCORM scoring is relayed to Moodle over a validated `postMessage` bridge.
+  _Legacy_ keeps the previous same-origin behaviour as a compatibility fallback (use
+  it only if a specific package misbehaves under an opaque origin). See
+  [DEC-0059](./research/decisiones/adr/DEC-0059-bridge-scorm-postmessage-origen-opaco.md).
 
 ## Embedded editor management
 
@@ -191,10 +198,15 @@ attempts, and delete attempts from the teacher report (the grade is
 recalculated). Completion can require a passing grade (SCORM-style, see
 [DEC-0010](./research/decisiones/adr/DEC-0010-finalizacion-estilo-scorm.md)).
 
-Grading runtime uses a SCORM 1.2 bridge: a small `window.API` shim installed by
-`view.php` accepts `LMSSetValue` calls from the iDevice's bundled pipwerks
-wrapper and forwards them to `track.php`, which calls Moodle's `grade_update()`.
-xAPI support via `core_xapi` is on the roadmap.
+Grading runtime uses a SCORM 1.2 bridge whose isolation depends on the **package
+iframe security mode**
+([DEC-0059](./research/decisiones/adr/DEC-0059-bridge-scorm-postmessage-origen-opaco.md)).
+In the default **Secure** mode the package runs in an opaque-origin sandboxed iframe:
+a `window.API` shim lives _inside_ the iframe and posts buffered scores to the Moodle
+page over a validated `postMessage` channel; the page (which holds the `sesskey`)
+forwards them to `track.php`, which calls Moodle's `grade_update()`. In **Legacy** mode
+the shim is installed by `view.php` in the same-origin parent and the iDevice's bundled
+pipwerks wrapper reaches it directly. xAPI support via `core_xapi` is on the roadmap.
 
 ## Web services (Mobile API)
 

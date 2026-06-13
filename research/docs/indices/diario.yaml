@@ -20,3 +20,4 @@ items:
   - ruta: 'tareas/diario/2026-06-10-geogebra-issue-29.yaml', fecha: '2026-06-10'
   - ruta: 'tareas/diario/2026-06-12-tests-js-tracker-scorm.yaml', fecha: '2026-06-12'
   - ruta: 'tareas/diario/2026-06-13-reconciliacion-stable-y-behat.yaml', fecha: '2026-06-13'
+  - ruta: 'tareas/diario/2026-06-13-secure-iframe-scorm-bridge.yaml', fecha: '2026-06-13'
