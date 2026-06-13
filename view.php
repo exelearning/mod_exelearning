@@ -103,6 +103,23 @@ if ($haspackage) {
             'index.html'
         );
     }
+    // Self-heal the secure-mode bridge client (DEC-0060) into packages extracted
+    // before it existed: if index.html is present but libs/exe_scorm_bridge.js is not,
+    // re-extract once so the bridge scripts are copied and injected. Idempotent and
+    // bounded (only fires until the file exists).
+    if ($mainfile) {
+        $hasbridge = $fs->get_file(
+            $context->id,
+            'mod_exelearning',
+            'content',
+            (int) $exelearning->revision,
+            '/libs/',
+            'exe_scorm_bridge.js'
+        );
+        if (!$hasbridge) {
+            exelearning_extract_stored_package($context->id, (int) $exelearning->revision);
+        }
+    }
     // Self-heal grade-item detection, but only when this package revision has
     // not been scanned yet (gradesyncrev marker). This used to fire whenever the
     // activity had no gradable grade item, which for a content-only package
