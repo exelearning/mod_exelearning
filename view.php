@@ -217,14 +217,44 @@ if (!$mainfile) {
         );
     }
 } else {
-    $iframeurl = moodle_url::make_pluginfile_url(
-        $context->id,
-        'mod_exelearning',
-        'content',
-        (int) $exelearning->revision,
-        '/',
-        'index.html'
-    );
+    // Resolve the iframe security mode once (DEC-0060, corrects DEC-0059's Route A).
+    // Secure mode serves the package through tokenpluginfile.php so the opaque-origin
+    // iframe's subresources (CSS/JS/images) carry a per-user file token in the URL and
+    // load WITHOUT the SameSite session cookie (an opaque document never sends it). The
+    // token rides in the URL PATH, which needs slasharguments; without it the opaque
+    // mode cannot load its assets, so we fall back to legacy same-origin.
+    $iframemode = \mod_exelearning\local\ui\player_iframe::resolve_mode();
+    $securemode = ($iframemode === \mod_exelearning\local\ui\player_iframe::MODE_SECURE)
+            && !empty($CFG->slasharguments);
+    $iframemode = $securemode
+            ? \mod_exelearning\local\ui\player_iframe::MODE_SECURE
+            : \mod_exelearning\local\ui\player_iframe::MODE_LEGACY;
+    if ($securemode) {
+        // Short-lived core_files key, rounded to the hour so it is reused (not
+        // regenerated per request). It only authorises file reads and
+        // exelearning_pluginfile() still enforces mod/exelearning:view, so the token
+        // grants strictly less than the same-origin sesskey it replaces.
+        $filetoken = get_user_key(
+            'core_files',
+            $USER->id,
+            null,
+            null,
+            (intdiv(time(), HOURSECS) + 2) * HOURSECS
+        );
+        $iframeurl = new moodle_url(
+            '/tokenpluginfile.php/' . $filetoken . '/' . $context->id .
+            '/mod_exelearning/content/' . (int) $exelearning->revision . '/index.html'
+        );
+    } else {
+        $iframeurl = moodle_url::make_pluginfile_url(
+            $context->id,
+            'mod_exelearning',
+            'content',
+            (int) $exelearning->revision,
+            '/',
+            'index.html'
+        );
+    }
     // Deep-link from the gradebook (issue #13 #4, DEC-0023): grade.php maps a
     // clicked grade item's itemnumber to its iDevice objectid and forwards it
     // here. Exported iDevices render as <article id="<odeIdeviceId>">, so a URL
@@ -392,9 +422,8 @@ if (!$mainfile) {
         ['id' => $cm->id, 'sesskey' => sesskey(), 'mode' => $mode]
     ))->out(false);
 
-    $iframemode = \mod_exelearning\local\ui\player_iframe::resolve_mode();
-    $securemode = ($iframemode === \mod_exelearning\local\ui\player_iframe::MODE_SECURE);
-
+    // Both $iframemode and $securemode were resolved above (with the slasharguments
+    // fallback) so the SCORM client, the sandbox tokens and the content URL all agree.
     if ($securemode) {
         // Parent-side bridge relay (js/scorm_bridge_relay.js, also unit-tested with
         // Vitest). Injected inline so its message listener is installed before the

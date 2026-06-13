@@ -96,4 +96,36 @@ final class player_iframe_test extends advanced_testcase {
         $this->assertNotContains('allow-top-navigation', $list);
         $this->assertNotContains('allow-modals', $list);
     }
+
+    /**
+     * Permissions-Policy denies sensors/hardware but never fullscreen (the iframe
+     * grants it and iDevices use it).
+     */
+    public function test_permissions_policy(): void {
+        $pp = player_iframe::permissions_policy();
+        $this->assertStringContainsString('camera=()', $pp);
+        $this->assertStringContainsString('microphone=()', $pp);
+        $this->assertStringContainsString('geolocation=()', $pp);
+        $this->assertStringNotContainsString('fullscreen', $pp);
+    }
+
+    /**
+     * The CSP hardens object/base/framing and pins connect-src to this site (so the
+     * file token cannot be fetch-exfiltrated), while keeping the inline/eval scripts
+     * eXeLearning needs. The passed site origin must appear in the source lists.
+     */
+    public function test_content_security_policy(): void {
+        $origin = 'https://moodle.example.net';
+        $csp = player_iframe::content_security_policy($origin);
+
+        $this->assertStringContainsString("object-src 'none'", $csp);
+        $this->assertStringContainsString("base-uri 'none'", $csp);
+        $this->assertStringContainsString("frame-ancestors 'self'", $csp);
+        $this->assertStringContainsString("connect-src 'self' $origin;", $csp);
+        // Inline + eval'd scripts are required by the eXeLearning engine.
+        $this->assertStringContainsString("'unsafe-inline'", $csp);
+        $this->assertStringContainsString("'unsafe-eval'", $csp);
+        // The connect-src must NOT open to arbitrary https hosts (would allow token exfil).
+        $this->assertDoesNotMatchRegularExpression('~connect-src[^;]*https:~', $csp);
+    }
 }

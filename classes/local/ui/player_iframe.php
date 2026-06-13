@@ -90,4 +90,46 @@ final class player_iframe {
         }
         return 'allow-scripts allow-popups allow-forms';
     }
+
+    /**
+     * Permissions-Policy header value for the embedded package (DEC-0060).
+     *
+     * Denies hardware/sensor features the package never needs. `fullscreen` is
+     * intentionally NOT denied: the iframe grants it via its allow= attribute and
+     * iDevices use it. Emitted by exelearning_pluginfile() in secure mode.
+     *
+     * @return string The Permissions-Policy header value.
+     */
+    public static function permissions_policy(): string {
+        return 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), '
+            . 'bluetooth=(), hid=(), magnetometer=(), accelerometer=(), gyroscope=(), '
+            . 'midi=(), display-capture=()';
+    }
+
+    /**
+     * Content-Security-Policy header value for the embedded package (DEC-0060).
+     *
+     * Tuned to harden without breaking eXeLearning, which relies on inline and eval'd
+     * scripts: object-src and base-uri are closed, framing is restricted to Moodle
+     * (frame-ancestors 'self'), and connect-src is limited to this site so the file
+     * token carried in the URL cannot be exfiltrated to a third-party host via
+     * fetch/XHR/beacon. External script/style/img/media/frame over https: is still
+     * allowed so MathJax, YouTube and author embeds keep working (a stricter,
+     * exfil-proof profile that also blocks those is left as a future admin toggle).
+     *
+     * @param string $siteorigin The scheme://host[:port] origin of this Moodle site.
+     * @return string The Content-Security-Policy header value.
+     */
+    public static function content_security_policy(string $siteorigin): string {
+        return "default-src 'self' $siteorigin; "
+            . "script-src 'self' $siteorigin 'unsafe-inline' 'unsafe-eval' https:; "
+            . "style-src 'self' $siteorigin 'unsafe-inline'; "
+            . "img-src 'self' $siteorigin data: blob: https:; "
+            . "media-src 'self' $siteorigin data: blob: https:; "
+            . "font-src 'self' $siteorigin data:; "
+            . "connect-src 'self' $siteorigin; "
+            . "frame-src 'self' $siteorigin https:; "
+            . "object-src 'none'; base-uri 'none'; form-action 'self' $siteorigin; "
+            . "frame-ancestors 'self'";
+    }
 }
