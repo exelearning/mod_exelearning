@@ -9,7 +9,7 @@
 The report ranks `mod_exelearning` first for architecture and internal quality — a
 verdict the code supports. But it was written against a snapshot **older than
 ~2026-06-09**, so its **two headline criticisms of this plugin are already resolved**:
-maturity is `MATURITY_BETA` (not alpha), and `db/services.php` is fully coherent with
+maturity is now `MATURITY_STABLE` (well past the report's "alpha"), and `db/services.php` is fully coherent with
 `classes/external` (no "zombie" classes). The repo is itself responding to this report
 in its ADR corpus ([[DEC-0044]], [[DEC-0045]], [[DEC-0046]]). The audit found **no code
 incoherence requiring a fix**; this follow-up is documentation plus one ADR
@@ -19,7 +19,7 @@ incoherence requiring a fix**; this follow-up is documentation plus one ADR
 
 | # | Report claim | Current reality | Evidence |
 |---|---|---|---|
-| O1 | `maturity = MATURITY_ALPHA`; "still alpha", maturity verdict "acceptable today". | `MATURITY_BETA`. | `version.php:33`; promoted in PR #34 / [[DEC-0044]] ("BETA tras críticos"). |
+| O1 | `maturity = MATURITY_ALPHA`; "still alpha", maturity verdict "acceptable today". | `MATURITY_STABLE`. | `version.php:33`; ALPHA→BETA in PR #34 / [[DEC-0044]] ("BETA tras críticos"), then BETA→STABLE in PR #77 / [[DEC-0057]]. |
 | O2 | `db/services.php` "declares only two functions (embedded editor)" while 7 classes exist in `classes/external` → **"zombie architecture" / integration debt / priority #1**. | `db/services.php` declares **8 functions covering all 7 external classes — zero orphans**. | `db/services.php:27-96`; the 7 classes under `classes/external/`; [[DEC-0040]]. See `docs/EXTERNAL_SERVICES.md`. |
 | O3 | The external API gap is "the number-one priority" to fix. | Resolved: 2 admin AJAX functions + 6 `MOODLE_OFFICIAL_MOBILE_SERVICE` functions (`get_exelearnings_by_courses`, `view_exelearning`, `get_exelearning_access_information`, `get_user_attempts`, `get_user_grades`, `save_track`). | `db/services.php:28-95`; [[DEC-0040]]. |
 
@@ -64,7 +64,7 @@ No functional code was changed: the audit surfaced no clear incoherence to fix.
 | Dual xAPI + SCORM 1.2 ingestion (definitive removal of the shim). | Proposed, gated on upstream `exelearning#1867`. | [[DEC-0032]] |
 | `.elpx` client-side JS sandboxing hardening (RIE-001). | Documented roadmap, intentionally not implemented. | [[DEC-0019]] |
 | Embedded-editor `postMessage` origin: `editorOrigin` falls back to `'*'`. | Hardening opportunity, low risk (same-origin pluginfile). | `docs/EMBEDDED_EDITOR.md` |
-| Promote `MATURITY_BETA` → `MATURITY_STABLE`. | Gated by the objective checklist. | `docs/RELEASE_CHECKLIST.md` |
+| Promote `MATURITY_BETA` → `MATURITY_STABLE`. | **Done** (PR #77 / [[DEC-0057]]); the checklist is retained as the STABLE re-release gate. | `docs/RELEASE_CHECKLIST.md` |
 
 ## 6. Risk register
 
@@ -85,7 +85,7 @@ No functional code was changed: the audit surfaced no clear incoherence to fix.
 | Full CI | `.github/workflows/ci.yml` | Moodle 4.5/5.0/5.1/5.2 × PHP 8.1-8.4 × pgsql16/mariadb10.11. |
 | ADR schema | `python3 research/tools/test_schema_validation.py` | Validates [[DEC-0047]] frontmatter. |
 
-See `docs/RELEASE_CHECKLIST.md` for the objective beta→stable gate.
+See `docs/RELEASE_CHECKLIST.md` for the objective STABLE release gate.
 
 ## 8. Standard-depth audit round (2026-06-11)
 

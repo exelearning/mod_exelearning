@@ -1,10 +1,13 @@
-# Release checklist — BETA → STABLE gate
+# Release checklist — STABLE release gate
 
-> An objective, checkable gate for promoting `mod_exelearning` from
-> `MATURITY_BETA` (current, `version.php:33`) to `MATURITY_STABLE`. This is a
-> checklist only — **do not** change `version.php` until every exit criterion in
-> §11 holds. The plugin reached BETA after the critical-bug audit (DEC-0044,
-> 9 confirmed fixes; `research/decisiones/adr/DEC-0044-auditoria-bugs-criticos.md`).
+> An objective, checkable gate for every `mod_exelearning` STABLE release. The
+> plugin is `MATURITY_STABLE` (`version.php:33`) since DEC-0057 (PR #77,
+> 2026-06-13); this checklist is now the per-release verification list — **every
+> STABLE release must keep every exit criterion in §11 green**. History: the
+> plugin went ALPHA → BETA after the critical-bug audit (DEC-0044, 9 confirmed
+> fixes; `research/decisiones/adr/DEC-0044-auditoria-bugs-criticos.md`), then
+> BETA → STABLE (DEC-0057;
+> `research/decisiones/adr/DEC-0057-extraccion-no-destructiva.md`).
 
 ## How to run the checks
 
@@ -14,11 +17,13 @@
 | `composer fix` | `phpcbf --standard=moodle .` | `composer.json:29` |
 | `composer phpmd` | `phpmd . text phpmd.xml` | `composer.json:30` |
 | `composer test` | `phpunit --colors` | `composer.json:31` |
+| `composer behat` | `behat --colors` | `composer.json:32` |
+| `composer coverage` | `phpunit --coverage-text` | `composer.json:33` |
 
-> Note: the `Makefile` `behat` target calls `composer behat`, but **no `behat`
-> script is defined in `composer.json`** (only `lint`, `fix`, `phpmd`, `test`).
-> Run Behat through `moodle-plugin-ci behat --profile chrome` (the CI path) or
-> `vendor/bin/behat --tags @mod_exelearning` (DEVELOPMENT.md:52). The full CI
+> Note: Behat runs via `composer behat` (`composer.json:32`) — equivalently
+> `make behat`, whose target calls `composer behat` (`Makefile:106-108`) — or
+> directly with `vendor/bin/behat --tags @mod_exelearning` (DEVELOPMENT.md:52).
+> CI runs `moodle-plugin-ci behat --profile chrome`. The full CI
 > pipeline is reproduced locally with the `moodle-plugin-ci` steps below
 > (`DEVELOPMENT.md:66-77`, mirroring `.github/workflows/ci.yml:162-206`):
 >
@@ -153,10 +158,11 @@ mariadb10.11):
 - [ ] `README.md`, `DEVELOPMENT.md` and `docs/` reflect the shipped behavior.
 - [ ] ADR index in `AGENTS.md` updated; any newly accepted DEC referenced.
 
-## 11. Exit criteria — conditions to flip `version.php` to `MATURITY_STABLE`
+## 11. Exit criteria — conditions that must hold for a STABLE release
 
-Flip `version.php:33` from `MATURITY_BETA` to `MATURITY_STABLE` only when **all**
-of the following hold:
+`version.php:33` is `MATURITY_STABLE`; the gate was first satisfied at DEC-0057
+(PR #77). Each STABLE release (and any re-promotion after a regression) requires
+**all** of the following to hold:
 
 - [ ] §1–§9 fully green on the **entire** CI matrix (no skipped cell), with
       `phpcs`/`phpdoc` at 0/0.

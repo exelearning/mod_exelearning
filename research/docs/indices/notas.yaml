@@ -12,3 +12,4 @@ items:
   - id: 'AN-010', titulo: "Desglose honesto de la complejidad de mod_exelearning (¿es 'alta'? no: media y acotada)", estado: None, fecha: '2026-05-29', ruta: 'analisis/notas/AN-010-desglose-complejidad.md'
   - id: 'AN-011', titulo: 'Issue #13: síntesis de los 6 puntos, su resolución y mapa de ADRs (PR #14/#15/#16)', estado: None, fecha: '2026-06-04', ruta: 'analisis/notas/AN-011-issue-13-resumen.md'
   - id: 'AN-012', titulo: 'Mapeo de statements xAPI (exe_xapi.js) sobre la tubería de tracking existente', estado: None, fecha: '2026-06-04', ruta: 'analisis/notas/AN-012-mapeo-xapi-a-tuberia-existente.md'
+  - id: 'AN-013', titulo: 'Reuso de tests Behat de plugins hermanos (mod_scorm, mod_h5pactivity, mod_exescorm, mod_exeweb) en mod_exelearning', estado: None, fecha: '2026-06-13', ruta: 'analisis/notas/AN-013-reuso-behat-plugins-hermanos.md'
