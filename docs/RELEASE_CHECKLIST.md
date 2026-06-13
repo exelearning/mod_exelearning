@@ -133,6 +133,12 @@ mariadb10.11):
       `scripts/setup_demo.php` (`Makefile:45-51`, `DEVELOPMENT.md:92-107`).
 - [ ] Moodle Playground boots with a working editor from the pinned release
       (`blueprint.json`, `editormode = embedded`, pinned `v4.0.1` asset).
+- [ ] Release ZIP bundles the editor built from the **matching editor tag**, not
+      `main` (`release.yml` semver-match: a plugin release `vX.Y.Z` builds editor
+      `vX.Y.Z`; DEC-0058). **Invariant:** the plugin release tag must exist as an
+      editor tag in `exelearning/exelearning` (the family is versioned in lockstep;
+      the first release is `v4.0.1`). The `release-workflow-check` CI job
+      (`scripts/check-release-workflow.sh`) guards this statically.
 
 ## 9. Coding standards
 
