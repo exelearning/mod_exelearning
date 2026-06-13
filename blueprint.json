@@ -39,10 +39,12 @@
     },
     {
       "step": "setConfigs",
+      "comment": "iframemode=legacy: the Playground's PHP-WASM service worker cannot serve the secure mode's opaque-origin iframe (DEC-0059). Real Moodle defaults to secure.",
       "configs": [
         { "name": "editormode",   "value": "embedded",      "plugin": "exelearning" },
         { "name": "display",      "value": "1",             "plugin": "exelearning" },
         { "name": "printintro",   "value": "1",             "plugin": "exelearning" },
+        { "name": "iframemode",   "value": "legacy",        "plugin": "mod_exelearning" },
         { "name": "debug",        "value": "32767" },
         { "name": "debugdisplay", "value": "1" },
         { "name": "debugstringids", "value": "0" }

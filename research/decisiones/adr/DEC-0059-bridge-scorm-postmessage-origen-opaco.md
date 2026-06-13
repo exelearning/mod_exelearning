@@ -180,6 +180,20 @@ inválidos se ignoran en silencio. El flush al cerrar pestaña lo hace el **padr
   asume el API en el padre; en `secure` vive en el iframe → adaptar o apoyarse en el
   paso server-side `the following eXeLearning SCORM scores exist` (mode-agnóstico).
 
+## Limitación conocida (entornos PHP-WASM / service worker)
+
+Los playgrounds PHP-WASM (p. ej. el Moodle Playground en GitHub Pages) sirven
+`pluginfile.php` mediante un **service worker**. Un service worker **NO controla
+iframes de origen opaco** (sandbox sin `allow-same-origin`), así que en modo `secure`
+la petición del iframe a `content/<rev>/index.html` no la intercepta el SW, cae al
+hosting estático y devuelve 404 (verificado por HAR: `_fetchedViaServiceWorker:false`,
+`server: GitHub.com`, `x-cache: HIT`). Además ese 404 lo cachea el CDN, así que tras
+un intento en `secure` el modo `legacy` puede seguir mostrando el 404 cacheado en la
+misma pestaña hasta recargar en limpio. **Mitigación:** el `blueprint.json` del
+Playground fuerza `iframemode=legacy`. En un Moodle real `pluginfile.php` es un
+endpoint de servidor y el iframe de origen opaco lo carga con normalidad, así que el
+modo `secure` por defecto funciona; la limitación es exclusiva de los hosts WASM/SW.
+
 ## Validación
 
 - `php -l` limpio; **phpcs `--standard=moodle` 0/0** sobre los ficheros tocados.

@@ -162,6 +162,9 @@ editor remains):
   _Legacy_ keeps the previous same-origin behaviour as a compatibility fallback (use
   it only if a specific package misbehaves under an opaque origin). See
   [DEC-0059](./research/decisiones/adr/DEC-0059-bridge-scorm-postmessage-origen-opaco.md).
+  Note: PHP-WASM playgrounds (e.g. the Moodle Playground preview) cannot serve the
+  secure mode, because their service worker does not control opaque-origin iframes;
+  they must use _Legacy_. This affects only those WASM previews, not a real Moodle server.
 
 ## Embedded editor management
 
