@@ -237,15 +237,14 @@ if (!$mainfile) {
     // Resolve the iframe security mode once (DEC-0060, corrects DEC-0059's Route A).
     // Secure mode serves the package through tokenpluginfile.php so the opaque-origin
     // iframe's subresources (CSS/JS/images) carry a per-user file token in the URL and
-    // load WITHOUT the SameSite session cookie (an opaque document never sends it). The
-    // token rides in the URL PATH, which needs slasharguments; without it the opaque
-    // mode cannot load its assets, so we fall back to legacy same-origin.
+    // load WITHOUT the SameSite session cookie (an opaque document never sends it).
+    // Secure mode is NOT silently downgraded to legacy: if it cannot render (e.g.
+    // slasharguments off, or a service-worker host that cannot serve an opaque iframe)
+    // the in-iframe shim never signals ready and the parent relay shows a
+    // "blocked by security configuration" notice (client-side watchdog), so an admin
+    // fixes it rather than the activity quietly running in the weaker same-origin mode.
     $iframemode = \mod_exelearning\local\ui\player_iframe::resolve_mode();
-    $securemode = ($iframemode === \mod_exelearning\local\ui\player_iframe::MODE_SECURE)
-            && !empty($CFG->slasharguments);
-    $iframemode = $securemode
-            ? \mod_exelearning\local\ui\player_iframe::MODE_SECURE
-            : \mod_exelearning\local\ui\player_iframe::MODE_LEGACY;
+    $securemode = ($iframemode === \mod_exelearning\local\ui\player_iframe::MODE_SECURE);
     if ($securemode) {
         // Short-lived core_files key, rounded to the hour so it is reused (not
         // regenerated per request). It only authorises file reads and
@@ -439,8 +438,8 @@ if (!$mainfile) {
         ['id' => $cm->id, 'sesskey' => sesskey(), 'mode' => $mode]
     ))->out(false);
 
-    // Both $iframemode and $securemode were resolved above (with the slasharguments
-    // fallback) so the SCORM client, the sandbox tokens and the content URL all agree.
+    // Both $iframemode and $securemode were resolved above so the SCORM client, the
+    // sandbox tokens and the content URL all agree.
     if ($securemode) {
         // Parent-side bridge relay (js/scorm_bridge_relay.js, also unit-tested with
         // Vitest). Injected inline so its message listener is installed before the
@@ -449,7 +448,9 @@ if (!$mainfile) {
         // list and a per-view nonce, then performs the authenticated track.php POST
         // (and a sendBeacon flush on pagehide). The nonce, the per-page attempt token
         // and the teacher-mode preference are handed to the in-iframe shim during the
-        // handshake; the sesskey is NEVER sent across the bridge.
+        // handshake; the sesskey is NEVER sent across the bridge. blockedid points at
+        // the hidden notice the relay reveals (watchdog) if the iframe never signals
+        // ready, i.e. the secure mode could not render here.
         $relaycfg = json_encode(
             [
                 'iframeid' => 'exelearningobject',
@@ -458,6 +459,7 @@ if (!$mainfile) {
                 'session' => random_string(20),
                 'nonce' => random_string(32),
                 'teachermodevisible' => (int) !empty($exelearning->teachermodevisible),
+                'blockedid' => 'exelearning-secure-blocked',
             ],
             JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
         );
@@ -504,6 +506,18 @@ if (!$mainfile) {
         'exelearning-toolbar d-flex justify-content-end mb-2'
     );
     $PAGE->requires->js_call_amd('mod_exelearning/fullscreen', 'init', ['exelearningobject']);
+
+    // Hidden notice the relay's watchdog reveals if the secure-mode iframe never
+    // signals ready (e.g. an environment that cannot serve an opaque-origin iframe,
+    // such as a PHP-WASM service-worker host). Secure mode is never silently
+    // downgraded to the weaker same-origin mode (DEC-0060).
+    if ($securemode) {
+        echo html_writer::div(
+            get_string('securemodeblocked', 'mod_exelearning'),
+            'alert alert-warning',
+            ['id' => 'exelearning-secure-blocked', 'role' => 'alert', 'style' => 'display:none;']
+        );
+    }
 
     // Package iframe. The sandbox token list depends on the configured iframe
     // security mode (\mod_exelearning\local\ui\player_iframe, DEC-0059). Both modes

@@ -94,9 +94,32 @@
         var session = config.session;
         var nonce = config.nonce;
         var teachermodevisible = config.teachermodevisible ? 1 : 0;
+        var blockedid = config.blockedid;
+        var watchdogms = config.watchdogms || 8000;
         var latest = null;
+        var watchdog = null;
+        var sawready = false;
 
         function iframe() { return doc ? doc.getElementById(iframeid) : null; }
+
+        // Watchdog: if the in-iframe shim never announces 'ready' (e.g. an opaque-origin
+        // iframe the environment cannot serve, like a PHP-WASM service-worker host),
+        // reveal the "blocked by security configuration" notice instead of silently
+        // degrading to the weaker same-origin mode (DEC-0060).
+        function showBlocked() {
+            var b = (doc && blockedid) ? doc.getElementById(blockedid) : null;
+            if (b) { b.style.display = ''; }
+            var fr = iframe();
+            if (fr) { fr.style.display = 'none'; }
+        }
+        function startWatchdog() {
+            if (!win || !win.setTimeout || !blockedid) { return; }
+            watchdog = win.setTimeout(function () { if (!sawready) { showBlocked(); } }, watchdogms);
+        }
+        function clearWatchdog() {
+            sawready = true;
+            if (watchdog && win && win.clearTimeout) { win.clearTimeout(watchdog); watchdog = null; }
+        }
 
         function buildBody(cmi, itemscores) {
             // Mirror the legacy track.php payload, but identity (cmid in the query,
@@ -135,6 +158,7 @@
             if (!fr || e.source !== fr.contentWindow) { return; }   // Window identity (primary anchor).
             var data = e.data;
             if (isReadyMessage(data)) {
+                clearWatchdog();   // The iframe is alive; secure mode rendered.
                 try {
                     fr.contentWindow.postMessage({
                         type: 'scorm',
@@ -154,6 +178,7 @@
                 win.addEventListener('message', onMessage, false);
                 win.addEventListener('pagehide', flushBeacon, false);
             }
+            startWatchdog();
         }
 
         return {
@@ -161,7 +186,9 @@
             onMessage: onMessage,
             flushBeacon: flushBeacon,
             postTrack: postTrack,
-            acceptTrack: acceptTrack
+            acceptTrack: acceptTrack,
+            startWatchdog: startWatchdog,
+            showBlocked: showBlocked
         };
     }
 

@@ -258,3 +258,39 @@ describe('relay createRelay (message handling)', () => {
         expect(beaconCalls[0].url).toBe('/track.php?id=42');
     });
 });
+
+describe('relay watchdog (no silent legacy fallback)', () => {
+    function setupWatchdog() {
+        const cw = { postMessage: () => {} };
+        const iframe = { contentWindow: cw, style: { display: '' } };
+        const blocked = { style: { display: 'none' } };
+        const doc = { getElementById: (id) => (id === 'exelearningobject' ? iframe : (id === 'blk' ? blocked : null)) };
+        let timerFn = null;
+        const win = {
+            addEventListener: () => {},
+            setTimeout: (fn) => { timerFn = fn; return 1; },
+            clearTimeout: () => { timerFn = null; },
+        };
+        const r = relay.createRelay(
+            { iframeid: 'exelearningobject', nonce: 'N', blockedid: 'blk', watchdogms: 5 },
+            { document: doc, window: win, fetch: () => ({ catch: () => {} }) }
+        );
+        return { r, cw, iframe, blocked, fire: () => timerFn && timerFn() };
+    }
+
+    it('reveals the blocked notice and hides the iframe when ready never arrives', () => {
+        const { r, iframe, blocked, fire } = setupWatchdog();
+        r.startWatchdog();
+        fire();
+        expect(blocked.style.display).toBe('');
+        expect(iframe.style.display).toBe('none');
+    });
+
+    it('is cleared when the iframe signals ready (secure mode rendered)', () => {
+        const { r, cw, blocked, fire } = setupWatchdog();
+        r.startWatchdog();
+        r.onMessage({ source: cw, data: { type: 'scorm', action: 'ready' } });
+        fire(); // no-op: watchdog was cleared.
+        expect(blocked.style.display).toBe('none');
+    });
+});
