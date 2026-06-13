@@ -1,0 +1,99 @@
+<?php
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+namespace mod_exelearning;
+
+use advanced_testcase;
+use mod_exelearning\local\ui\player_iframe;
+
+/**
+ * Tests for the package iframe security mode + sandbox policy (DEC-0059).
+ *
+ * @package    mod_exelearning
+ * @category   test
+ * @copyright  2026 ATE (Área de Tecnología Educativa)
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers     \mod_exelearning\local\ui\player_iframe
+ */
+final class player_iframe_test extends advanced_testcase {
+    /**
+     * The default (no config set) must be the secure, isolated mode.
+     */
+    public function test_default_mode_is_secure(): void {
+        $this->resetAfterTest();
+        $this->assertSame(player_iframe::MODE_SECURE, player_iframe::resolve_mode());
+        $this->assertTrue(player_iframe::is_secure());
+    }
+
+    /**
+     * An unset/invalid config must fail safe to secure, never weakening isolation.
+     */
+    public function test_invalid_mode_falls_back_to_secure(): void {
+        $this->resetAfterTest();
+        set_config('iframemode', 'not-a-real-mode', 'mod_exelearning');
+        $this->assertSame(player_iframe::MODE_SECURE, player_iframe::resolve_mode());
+        $this->assertTrue(player_iframe::is_secure());
+    }
+
+    /**
+     * The legacy fallback is honoured when explicitly configured.
+     */
+    public function test_legacy_mode_is_respected(): void {
+        $this->resetAfterTest();
+        set_config('iframemode', player_iframe::MODE_LEGACY, 'mod_exelearning');
+        $this->assertSame(player_iframe::MODE_LEGACY, player_iframe::resolve_mode());
+        $this->assertFalse(player_iframe::is_secure());
+    }
+
+    /**
+     * Secure mode runs in an opaque origin: it MUST drop allow-same-origin and
+     * allow-popups-to-escape-sandbox, and MUST keep the scripts/popups/forms the
+     * iDevices need. It must never grant top navigation or modals.
+     */
+    public function test_secure_sandbox_tokens(): void {
+        $tokens = player_iframe::sandbox_tokens(player_iframe::MODE_SECURE);
+        $list = explode(' ', $tokens);
+
+        $this->assertContains('allow-scripts', $list);
+        $this->assertContains('allow-popups', $list);
+        $this->assertContains('allow-forms', $list);
+
+        $this->assertNotContains('allow-same-origin', $list);
+        $this->assertNotContains('allow-popups-to-escape-sandbox', $list);
+        $this->assertNotContains('allow-top-navigation', $list);
+        $this->assertNotContains('allow-top-navigation-by-user-activation', $list);
+        $this->assertNotContains('allow-modals', $list);
+    }
+
+    /**
+     * Legacy mode keeps the historical same-origin tokens (incl. allow-same-origin
+     * and allow-popups-to-escape-sandbox) but still never grants top navigation or
+     * modals.
+     */
+    public function test_legacy_sandbox_tokens(): void {
+        $tokens = player_iframe::sandbox_tokens(player_iframe::MODE_LEGACY);
+        $list = explode(' ', $tokens);
+
+        $this->assertContains('allow-scripts', $list);
+        $this->assertContains('allow-same-origin', $list);
+        $this->assertContains('allow-popups', $list);
+        $this->assertContains('allow-forms', $list);
+        $this->assertContains('allow-popups-to-escape-sandbox', $list);
+
+        $this->assertNotContains('allow-top-navigation', $list);
+        $this->assertNotContains('allow-modals', $list);
+    }
+}
