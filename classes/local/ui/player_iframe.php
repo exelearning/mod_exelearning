@@ -130,7 +130,10 @@ final class player_iframe {
             . "connect-src 'self' $siteorigin; "
             . "frame-src 'self' $siteorigin https:; "
             . "object-src 'none'; base-uri 'none'; form-action 'self' $siteorigin; "
-            . "frame-ancestors 'self'";
+            . "frame-ancestors 'self'; "
+            // Keep the document opaque even if opened outside the iframe (e.g. the token
+            // URL opened in a new tab); tokens mirror the secure iframe sandbox.
+            . "sandbox allow-scripts allow-popups allow-forms";
     }
 
     /**

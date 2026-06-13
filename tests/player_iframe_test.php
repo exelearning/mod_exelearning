@@ -121,6 +121,10 @@ final class player_iframe_test extends advanced_testcase {
         $this->assertStringContainsString("object-src 'none'", $csp);
         $this->assertStringContainsString("base-uri 'none'", $csp);
         $this->assertStringContainsString("frame-ancestors 'self'", $csp);
+        // A sandbox directive keeps the document opaque even when opened outside the
+        // iframe (e.g. the token URL opened in a new tab), so author JS cannot run as
+        // Moodle's origin. Tokens mirror the secure iframe sandbox.
+        $this->assertStringContainsString('sandbox allow-scripts allow-popups allow-forms', $csp);
         $this->assertStringContainsString("connect-src 'self' $origin;", $csp);
         // Inline + eval'd scripts are required by the eXeLearning engine.
         $this->assertStringContainsString("'unsafe-inline'", $csp);
