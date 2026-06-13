@@ -54,6 +54,25 @@ if (isset($exelearninginstalledmods['exeweb']) || isset($exelearninginstalledmod
 }
 
 if ($ADMIN->fulltree) {
+    // Package iframe security mode (DEC-0059): isolate the arbitrary author HTML/JS
+    // of an .elpx package in a sandboxed, opaque-origin iframe and relay SCORM
+    // scoring over a validated postMessage bridge. Defaults to the secure mode;
+    // 'legacy' restores the previous same-origin behaviour as a compatibility
+    // fallback. The default is also applied by player_iframe::resolve_mode() so an
+    // unset/invalid value never weakens isolation.
+    $settings->add(new admin_setting_configselect(
+        'mod_exelearning/iframemode',
+        get_string('iframemode', 'mod_exelearning'),
+        get_string('iframemode_desc', 'mod_exelearning'),
+        \mod_exelearning\local\ui\player_iframe::MODE_SECURE,
+        [
+            \mod_exelearning\local\ui\player_iframe::MODE_SECURE =>
+                get_string('iframemode_secure', 'mod_exelearning'),
+            \mod_exelearning\local\ui\player_iframe::MODE_LEGACY =>
+                get_string('iframemode_legacy', 'mod_exelearning'),
+        ]
+    ));
+
     // Embedded editor management (install / update / repair / uninstall).
     $settings->add(new admin_setting_heading(
         'mod_exelearning/embeddededitorheading',
