@@ -1,0 +1,191 @@
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+/**
+ * Parent-side SCORM bridge relay for the secure (opaque-origin) package mode.
+ *
+ * Injected inline by view.php (secure mode only) so its message listener is in place
+ * before the package iframe loads. It is the trusted half of the bridge: the iframe
+ * runs in an opaque origin and CANNOT reach this page, so the only thing it can do is
+ * postMessage buffered SCORM scores here. This relay validates every message and, for
+ * accepted ones, performs the authenticated track.php request (keeping the sesskey on
+ * this trusted side) plus a sendBeacon flush on pagehide.
+ *
+ * Validation (defence in depth — track.php re-validates and clamps server-side):
+ *   - event.source === iframe.contentWindow (window identity, the primary anchor:
+ *     no other window can forge it, and an opaque origin has no useful event.origin);
+ *   - type === 'scorm' and action in the closed list {ready, track};
+ *   - a per-view nonce on 'track' messages;
+ *   - the payload shape (cmi is an object).
+ * Unknown or invalid messages are ignored silently.
+ *
+ * Exposed two ways from a single body: window.exeScormBridge (browser bootstrap) and
+ * module.exports (Vitest). See research ADR DEC-0059.
+ */
+(function () {
+    'use strict';
+
+    /**
+     * Whether a payload is a child -> parent score message (shape only).
+     *
+     * @param {*} data The event.data value.
+     * @returns {boolean} True for {type:'scorm', action:'track', cmi:{...}}.
+     */
+    function isTrackMessage(data) {
+        return !!data && data.type === 'scorm' && data.action === 'track'
+            && !!data.cmi && typeof data.cmi === 'object';
+    }
+
+    /**
+     * Whether a payload is the child's readiness announcement.
+     *
+     * @param {*} data The event.data value.
+     * @returns {boolean} True for {type:'scorm', action:'ready'}.
+     */
+    function isReadyMessage(data) {
+        return !!data && data.type === 'scorm' && data.action === 'ready';
+    }
+
+    /**
+     * Whether a 'track' message should be accepted: correct shape AND matching nonce.
+     * Pure, so it can be unit-tested without a DOM. The caller is still responsible
+     * for the window-identity check (which cannot be expressed on data alone).
+     *
+     * @param {*} data The event.data value.
+     * @param {string} expectednonce The per-view nonce handed to the iframe.
+     * @returns {boolean} True when the message is a valid, authenticated track message.
+     */
+    function acceptTrack(data, expectednonce) {
+        return isTrackMessage(data) && data.exelearningBridge === expectednonce;
+    }
+
+    /**
+     * Create a relay bound to a config + (injectable) environment.
+     *
+     * @param {Object} config {iframeid, cmid, trackurl, session, nonce, teachermodevisible}.
+     * @param {Object} [deps] {document, window, fetch, sendBeacon} for testing.
+     * @returns {Object} {init, onMessage, flushBeacon, postTrack, acceptTrack}.
+     */
+    function createRelay(config, deps) {
+        config = config || {};
+        deps = deps || {};
+        var doc = deps.document || (typeof document !== 'undefined' ? document : null);
+        var win = deps.window || (typeof window !== 'undefined' ? window : null);
+        var fetchImpl = deps.fetch || (win && win.fetch ? win.fetch.bind(win) : null);
+        var beacon = deps.sendBeacon
+            || (win && win.navigator && win.navigator.sendBeacon
+                ? win.navigator.sendBeacon.bind(win.navigator) : null);
+
+        var iframeid = config.iframeid;
+        var trackurl = config.trackurl;
+        var cmid = config.cmid;
+        var session = config.session;
+        var nonce = config.nonce;
+        var teachermodevisible = config.teachermodevisible ? 1 : 0;
+        var latest = null;
+
+        function iframe() { return doc ? doc.getElementById(iframeid) : null; }
+
+        function buildBody(cmi, itemscores) {
+            // Mirror the legacy track.php payload, but identity (cmid in the query,
+            // sesskey, mode) lives on this trusted parent — only the CMI buffer and
+            // per-iDevice scores come from the iframe.
+            return JSON.stringify({
+                id: cmid,
+                session: session,
+                cmi: cmi,
+                itemscores: itemscores || {}
+            });
+        }
+
+        function postTrack(cmi, itemscores) {
+            var body = buildBody(cmi, itemscores);
+            latest = body;
+            if (!fetchImpl) { return; }
+            try {
+                fetchImpl(trackurl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: body,
+                    credentials: 'same-origin',
+                    keepalive: true
+                }).catch(function () { /* parent retries on the next commit / pagehide beacon. */ });
+            } catch (e) { /* ignore */ }
+        }
+
+        function flushBeacon() {
+            if (!latest || !beacon) { return; }
+            try { beacon(trackurl, new Blob([latest], { type: 'application/json' })); } catch (e) { /* ignore */ }
+        }
+
+        function onMessage(e) {
+            var fr = iframe();
+            if (!fr || e.source !== fr.contentWindow) { return; }   // Window identity (primary anchor).
+            var data = e.data;
+            if (isReadyMessage(data)) {
+                try {
+                    fr.contentWindow.postMessage({
+                        type: 'scorm',
+                        action: 'config',
+                        nonce: nonce,
+                        teachermodevisible: teachermodevisible
+                    }, '*');
+                } catch (e2) { /* ignore */ }
+                return;
+            }
+            if (!acceptTrack(data, nonce)) { return; }              // type + action + nonce + shape.
+            postTrack(data.cmi, data.itemscores);
+        }
+
+        function init() {
+            if (win && win.addEventListener) {
+                win.addEventListener('message', onMessage, false);
+                win.addEventListener('pagehide', flushBeacon, false);
+            }
+        }
+
+        return {
+            init: init,
+            onMessage: onMessage,
+            flushBeacon: flushBeacon,
+            postTrack: postTrack,
+            acceptTrack: acceptTrack
+        };
+    }
+
+    /**
+     * Bootstrap: create a relay from config and start listening.
+     *
+     * @param {Object} config See createRelay.
+     * @returns {Object} The relay instance.
+     */
+    function init(config) {
+        var relay = createRelay(config);
+        relay.init();
+        return relay;
+    }
+
+    var exp = {
+        isTrackMessage: isTrackMessage,
+        isReadyMessage: isReadyMessage,
+        acceptTrack: acceptTrack,
+        createRelay: createRelay,
+        init: init
+    };
+    // Test runner (Vitest/Node) consumes module.exports.
+    if (typeof module !== 'undefined' && module.exports) { module.exports = exp; }
+    // Browser bootstrap (view.php) consumes window.exeScormBridge.
+    if (typeof window !== 'undefined') { window.exeScormBridge = exp; }
+})();

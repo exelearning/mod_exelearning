@@ -378,33 +378,66 @@ if (!$mainfile) {
             );
         }
     }
-    // SCORM 1.2 shim: injects window.API into the parent window of the iframe.
-    // pipwerks SCORM (used by eXeLearning v4 iDevices) calls `findAPI()`,
-    // walking `window.parent` looking for an `API` object with `LMSInitialize`.
-    // If not found, the iDevice shows "This page is not part of a SCORM package".
-    // Minimal viable implementation: buffers CMI pairs and sends them to
-    // track.php on LMSCommit/LMSFinish.
+    // SCORM 1.2 client. eXeLearning v4 iDevices use pipwerks SCORM, which calls
+    // findAPI() looking for an `API` object with LMSInitialize. How that API is
+    // provided depends on the configured iframe security mode (DEC-0059). In secure
+    // mode (the default) the package runs in an opaque-origin sandboxed iframe and
+    // CANNOT reach this page: window.API lives INSIDE the iframe (baked bridge shim,
+    // libs/exe_scorm_bridge.js) and scoring is relayed here over a validated postMessage
+    // channel, with this parent only forwarding it to track.php so the sesskey stays on
+    // the trusted side. In legacy mode the package is same-origin, window.API is injected
+    // here in the parent, and the iframe's pipwerks walks window.parent to find it.
     $trackurl = (new moodle_url(
         '/mod/exelearning/track.php',
         ['id' => $cm->id, 'sesskey' => sesskey(), 'mode' => $mode]
     ))->out(false);
-    // The tracker logic is a single source of truth in js/scorm_tracker.js, also
-    // unit-tested with Vitest (tests/js/scorm_tracker.test.js). It is injected inline
-    // (not as an AMD module) so window.API is defined synchronously before the package
-    // iframe's pipwerks findAPI() runs — an async AMD load would race the SCO and break
-    // grading. Config (cmid, track URL, per-page attempt token) is passed as JSON to the
-    // createScormApi() factory instead of string-substituted placeholders.
-    $scormcfg = json_encode(
-        [
-            'cmid' => (int) $cm->id,
-            'trackurl' => $trackurl,
-            'session' => random_string(20),
-        ],
-        JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
-    );
-    $trackerjs = file_get_contents(__DIR__ . '/js/scorm_tracker.js');
-    $bootjs = "\n(function () { window.API = window.exeScormTracker.createScormApi($scormcfg).api; })();";
-    echo html_writer::tag('script', $trackerjs . $bootjs);
+
+    $iframemode = \mod_exelearning\local\ui\player_iframe::resolve_mode();
+    $securemode = ($iframemode === \mod_exelearning\local\ui\player_iframe::MODE_SECURE);
+
+    if ($securemode) {
+        // Parent-side bridge relay (js/scorm_bridge_relay.js, also unit-tested with
+        // Vitest). Injected inline so its message listener is installed before the
+        // iframe loads and emits its first message. It validates each message by
+        // window identity (event.source === iframe.contentWindow), a closed action
+        // list and a per-view nonce, then performs the authenticated track.php POST
+        // (and a sendBeacon flush on pagehide). The nonce, the per-page attempt token
+        // and the teacher-mode preference are handed to the in-iframe shim during the
+        // handshake; the sesskey is NEVER sent across the bridge.
+        $relaycfg = json_encode(
+            [
+                'iframeid' => 'exelearningobject',
+                'cmid' => (int) $cm->id,
+                'trackurl' => $trackurl,
+                'session' => random_string(20),
+                'nonce' => random_string(32),
+                'teachermodevisible' => (int) !empty($exelearning->teachermodevisible),
+            ],
+            JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+        );
+        $relayjs = file_get_contents(__DIR__ . '/js/scorm_bridge_relay.js');
+        $bootjs = "\n(function () { window.exeScormBridge.init($relaycfg); })();";
+        echo html_writer::tag('script', $relayjs . $bootjs);
+    } else {
+        // Legacy same-origin: host window.API in this parent window. The tracker logic
+        // is the single source of truth in js/scorm_tracker.js, also unit-tested with
+        // Vitest (tests/js/scorm_tracker.test.js). It is injected inline (not as an AMD
+        // module) so window.API is defined synchronously before the package iframe's
+        // pipwerks findAPI() runs — an async AMD load would race the SCO and break
+        // grading. Config (cmid, track URL, per-page attempt token) is passed as JSON
+        // to the createScormApi() factory instead of string-substituted placeholders.
+        $scormcfg = json_encode(
+            [
+                'cmid' => (int) $cm->id,
+                'trackurl' => $trackurl,
+                'session' => random_string(20),
+            ],
+            JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+        );
+        $trackerjs = file_get_contents(__DIR__ . '/js/scorm_tracker.js');
+        $bootjs = "\n(function () { window.API = window.exeScormTracker.createScormApi($scormcfg).api; })();";
+        echo html_writer::tag('script', $trackerjs . $bootjs);
+    }
 
     // Fullscreen control (issue #13 #6, DEC-0024): a right-aligned button above the
     // player. The iframe already advertises allow="fullscreen"; amd/src/fullscreen.js
@@ -426,16 +459,11 @@ if (!$mainfile) {
     );
     $PAGE->requires->js_call_amd('mod_exelearning/fullscreen', 'init', ['exelearningobject']);
 
-    // Package iframe. Sandbox policy documented in AN-008:
-    // allow-scripts: eXeLearning v4 uses jQuery + iDevice JS.
-    // allow-same-origin: relative paths to pluginfile.php/.../content/<rev>/
-    // and future postMessage to the xAPI endpoint.
-    // allow-popups: interactive-video, hidden-image, etc.
-    // allow-forms: quick-questions, form, scrambled-list, etc.
-    // allow-popups-to-escape-sandbox: popups load without restrictions.
-    // Explicitly BLOCKED (not included):
-    // allow-top-navigation: a malicious package must not change the parent URL.
-    // allow-modals: no alert/confirm/prompt, they are UX interruptions.
+    // Package iframe. The sandbox token list depends on the configured iframe
+    // security mode (\mod_exelearning\local\ui\player_iframe, DEC-0059). Both modes
+    // omit allow-top-navigation (a package must not change the parent URL) and
+    // allow-modals; secure mode also omits allow-same-origin (opaque origin, so the
+    // package cannot reach this page) and allow-popups-to-escape-sandbox.
     echo html_writer::tag('iframe', '', [
         'src'    => $iframeurl->out(false),
         'name'   => 'exelearningobject',
@@ -444,15 +472,16 @@ if (!$mainfile) {
         'width'  => '100%',
         'height' => '650',
         'allow'  => 'fullscreen',
-        'sandbox' => 'allow-scripts allow-same-origin allow-popups allow-forms allow-popups-to-escape-sandbox',
+        'sandbox' => \mod_exelearning\local\ui\player_iframe::sandbox_tokens($iframemode),
         'style'  => 'border: 1px solid var(--bs-border-color, #dee2e6); border-radius: .5rem;',
     ]);
 
-    // Hide eXeLearning's teacher-mode toggle inside the package (mod_exeweb
-    // parity): when teachermodevisible=0, inject CSS into the iframe content to
-    // hide #teacher-mode-toggler-wrapper. The iframe is same-origin (served via
-    // pluginfile.php) so the parent can reach its content document.
-    if (empty($exelearning->teachermodevisible)) {
+    // Hide eXeLearning's teacher-mode toggle inside the package (mod_exeweb parity)
+    // when teachermodevisible=0. In legacy mode the parent injects CSS into the
+    // same-origin iframe document. In secure mode the iframe is opaque-origin and
+    // unreachable from here, so the in-iframe shim hides it locally using the
+    // teachermodevisible flag passed over the bridge handshake (see $relaycfg above).
+    if (empty($exelearning->teachermodevisible) && !$securemode) {
         exelearning_require_teacher_mode_hider('exelearningobject');
     }
 }
