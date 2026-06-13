@@ -111,7 +111,7 @@ class admin_setting_stylesbuiltins extends admin_setting {
                 : get_string('stylesenable', 'mod_exelearning');
             $toggleaction = $isenabled ? 'disablebuiltin' : 'enablebuiltin';
 
-            $toggleform = $this->action_form(
+            $togglelink = $this->action_link(
                 $baseurl,
                 $toggleaction,
                 $id,
@@ -128,7 +128,7 @@ class admin_setting_stylesbuiltins extends admin_setting {
                 \html_writer::tag('code', s($id)),
                 s($theme['version'] ?? ''),
                 $statusbadge,
-                $toggleform,
+                $togglelink,
             ];
         }
 
@@ -147,7 +147,15 @@ class admin_setting_stylesbuiltins extends admin_setting {
     }
 
     /**
-     * Build a small inline POST form for a single action.
+     * Build a single toggle action as a sesskey-protected link styled as a button.
+     *
+     * Rendered as a link rather than an inline <form>: this setting is shown inside the
+     * admin settings page, which already wraps every setting in one <form>. A nested
+     * <form> is invalid HTML and leaks its own action/sesskey hidden fields into the
+     * outer form's submission, so the page's "Save changes" posts action=disablebuiltin
+     * instead of action=save-settings and silently saves nothing. styles.php accepts the
+     * toggle over GET (optional_param + confirm_sesskey), the same pattern Moodle core
+     * uses to enable/disable plugins.
      *
      * @param \moodle_url $baseurl
      * @param string $action
@@ -156,23 +164,14 @@ class admin_setting_stylesbuiltins extends admin_setting {
      * @param string $btnclass
      * @return string
      */
-    private function action_form(
+    private function action_link(
         \moodle_url $baseurl,
         string $action,
         string $id,
         string $label,
         string $btnclass
     ): string {
-        $form = \html_writer::start_tag('form', [
-            'method' => 'post',
-            'action' => $baseurl->out(false),
-            'class' => 'd-inline',
-        ]);
-        $form .= \html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()]);
-        $form .= \html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'action', 'value' => $action]);
-        $form .= \html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'id', 'value' => $id]);
-        $form .= \html_writer::tag('button', $label, ['type' => 'submit', 'class' => 'btn btn-sm ' . $btnclass]);
-        $form .= \html_writer::end_tag('form');
-        return $form;
+        $url = new \moodle_url($baseurl, ['action' => $action, 'id' => $id, 'sesskey' => sesskey()]);
+        return \html_writer::link($url, $label, ['class' => 'btn btn-sm ' . $btnclass, 'role' => 'button']);
     }
 }
