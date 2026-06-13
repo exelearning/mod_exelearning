@@ -125,7 +125,9 @@ final class player_iframe_test extends advanced_testcase {
         // Inline + eval'd scripts are required by the eXeLearning engine.
         $this->assertStringContainsString("'unsafe-inline'", $csp);
         $this->assertStringContainsString("'unsafe-eval'", $csp);
-        // The connect-src must NOT open to arbitrary https hosts (would allow token exfil).
-        $this->assertDoesNotMatchRegularExpression('~connect-src[^;]*https:~', $csp);
+        // The connect-src must NOT open to the bare `https:` wildcard (any host) — that
+        // would let the file token be exfiltrated. The explicit site origin
+        // (https://host) is fine; the negative lookahead excludes `https://...`.
+        $this->assertDoesNotMatchRegularExpression('~connect-src[^;]*\bhttps:(?!//)~', $csp);
     }
 }
