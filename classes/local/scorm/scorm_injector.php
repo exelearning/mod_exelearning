@@ -33,8 +33,16 @@ namespace mod_exelearning\local\scorm;
  */
 final class scorm_injector {
     /**
-     * Injects SCORM wrapper script tags into the <head> of index.html and all
+     * Injects the SCORM client script tags into the <head> of index.html and all
      * html/<slug>.html pages of the extracted package.
+     *
+     * Two independent, idempotent blocks are injected:
+     *  - The bridge client (libs/scorm_tracker.js + libs/exe_scorm_bridge.js) at the
+     *    TOP of <head>, so its in-memory storage polyfill and local window.API are in
+     *    place before any package script runs. It self-activates only in the secure
+     *    opaque-origin iframe mode and is dormant otherwise (DEC-0059).
+     *  - The pipwerks SCORM wrapper (libs/SCORM_API_wrapper.js + libs/SCOFunctions.js)
+     *    plus an init kick, just before </head>, used by both iframe modes.
      *
      * @param int $contextid
      * @param int $revision
@@ -42,6 +50,7 @@ final class scorm_injector {
     public static function inject(int $contextid, int $revision): void {
         $fs = get_file_storage();
         $marker = '<!-- mod_exelearning:scorm-loader -->';
+        $bridgemarker = '<!-- mod_exelearning:scorm-bridge -->';
         // After loading the wrapper, force `pipwerks.SCORM.init()` so that
         // connection.isActive=true and subsequent `set()` calls DO reach
         // window.parent.API.LMSSetValue. eXeLearning only invokes init() in the
@@ -65,6 +74,14 @@ final class scorm_injector {
                 "\n    <script src=\"../libs/SCORM_API_wrapper.js\"></script>" .
                 "\n    <script src=\"../libs/SCOFunctions.js\"></script>" .
                 $initscript;
+        // Bridge client. scorm_tracker.js must load before exe_scorm_bridge.js (the
+        // shim calls window.exeScormTracker.createScormApi).
+        $bridge = $bridgemarker .
+                "\n    <script src=\"libs/scorm_tracker.js\"></script>" .
+                "\n    <script src=\"libs/exe_scorm_bridge.js\"></script>\n";
+        $bridgehtml = $bridgemarker .
+                "\n    <script src=\"../libs/scorm_tracker.js\"></script>" .
+                "\n    <script src=\"../libs/exe_scorm_bridge.js\"></script>\n";
 
         // Iterate over all HTML files in the filearea.
         $files = $fs->get_area_files(
@@ -84,14 +101,34 @@ final class scorm_injector {
                 continue;
             }
             $html = $file->get_content();
-            if ($html === '' || strpos($html, $marker) !== false) {
+            if ($html === '') {
                 continue;
             }
             $path = $file->get_filepath();
-            $payload = ($path === '/') ? $tags : $tagshtml;
-            // Insert just before </head> (case-insensitive).
-            $newhtml = preg_replace('~</head>~i', $payload . '</head>', $html, 1);
-            if ($newhtml === null || $newhtml === $html) {
+            $newhtml = $html;
+            $changed = false;
+
+            // Bridge client at the top of <head> (case-insensitive, first match).
+            if (strpos($newhtml, $bridgemarker) === false) {
+                $bridgepayload = ($path === '/') ? $bridge : $bridgehtml;
+                $replaced = preg_replace('~(<head[^>]*>)~i', '${1}' . $bridgepayload, $newhtml, 1);
+                if ($replaced !== null && $replaced !== $newhtml) {
+                    $newhtml = $replaced;
+                    $changed = true;
+                }
+            }
+
+            // SCORM wrapper just before </head> (case-insensitive, first match).
+            if (strpos($newhtml, $marker) === false) {
+                $payload = ($path === '/') ? $tags : $tagshtml;
+                $replaced = preg_replace('~</head>~i', $payload . '</head>', $newhtml, 1);
+                if ($replaced !== null && $replaced !== $newhtml) {
+                    $newhtml = $replaced;
+                    $changed = true;
+                }
+            }
+
+            if (!$changed) {
                 continue;
             }
             // Replace content in the filearea: delete and recreate.
