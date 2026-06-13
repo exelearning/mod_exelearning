@@ -96,6 +96,7 @@
         var teachermodevisible = config.teachermodevisible ? 1 : 0;
         var blockedid = config.blockedid;
         var watchdogms = config.watchdogms || 8000;
+        var gracems = config.gracems || 2500;
         var latest = null;
         var watchdog = null;
         var sawready = false;
@@ -103,7 +104,8 @@
         function iframe() { return doc ? doc.getElementById(iframeid) : null; }
 
         // Watchdog: if the in-iframe shim never announces 'ready' (e.g. an opaque-origin
-        // iframe the environment cannot serve, like a PHP-WASM service-worker host),
+        // iframe the environment cannot serve, like a PHP-WASM service-worker host that
+        // does not control opaque subframes, so the token URL falls through to a 404),
         // reveal the "blocked by security configuration" notice instead of silently
         // degrading to the weaker same-origin mode (DEC-0060).
         function showBlocked() {
@@ -112,9 +114,29 @@
             var fr = iframe();
             if (fr) { fr.style.display = 'none'; }
         }
+        // Decide between two timing signals so the notice never sits behind a long blank
+        // wait. The iframe element fires 'load' even when its navigation ended in an error
+        // page (e.g. the 404 above), so once it has loaded we only grant a short grace for
+        // the shim to handshake; if 'load' never fires we still fall back to watchdogms.
+        function armBlockedTimer(ms) {
+            if (!win || !win.setTimeout) { return; }
+            win.setTimeout(function () { if (!sawready) { showBlocked(); } }, ms);
+        }
         function startWatchdog() {
             if (!win || !win.setTimeout || !blockedid) { return; }
             watchdog = win.setTimeout(function () { if (!sawready) { showBlocked(); } }, watchdogms);
+            // Faster, load-driven path. The iframe may not be parsed yet when this relay
+            // runs inline (it is injected before the iframe element), so attach now if it
+            // exists, otherwise once the DOM is ready.
+            var onload = function () { if (!sawready) { armBlockedTimer(gracems); } };
+            var attach = function () {
+                var fr = iframe();
+                if (fr && fr.addEventListener) { fr.addEventListener('load', onload, false); return true; }
+                return false;
+            };
+            if (!attach() && doc && doc.addEventListener) {
+                doc.addEventListener('DOMContentLoaded', attach, false);
+            }
         }
         function clearWatchdog() {
             sawready = true;

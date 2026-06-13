@@ -89,7 +89,12 @@ vigente):
    PHP-WASM), el shim nunca emite `ready` y el **watchdog del relay** muestra el aviso
    "configuración de seguridad impide mostrar este contenido; contacte al admin"
    (`securemodeblocked`), en vez de caer a same-origin. El admin elige legacy de forma
-   explícita si lo desea.
+   explícita si lo desea. El watchdog usa **dos señales** para no dejar el aviso detrás
+   de una espera larga en blanco: en cuanto el elemento iframe dispara `load` (que ocurre
+   **también** cuando la navegación acaba en una página de error —el 404 del host con SW—)
+   concede solo una **gracia corta** (~2,5 s) para el handshake; si `load` nunca llega,
+   cae a un tope mayor (8 s). Así el aviso aparece justo tras el fallo de carga, no tras
+   una ventana de varios segundos en la que el contenido "parecía" cargar.
 4. **Self-heal del bridge:** los paquetes extraídos antes de DEC-0060 no tienen el shim
    en `libs/`; `view.php` los re-extrae una vez (idempotente) para que secure funcione
    sin re-subir.
@@ -123,9 +128,19 @@ vigente):
   padre); CSS/JS cargan; el shim emite `ready`; el relay valida e `init` no lanza;
   **`track.php` responde `{ok:true, rawscore:100, peritem:{1:100}}`** (guarda la nota);
   el watchdog NO salta cuando secure funciona y el contenido renderiza con estilos.
-- **phpcs `--standard=moodle` 0/0**; **Vitest 42/42** (shim, relay, watchdog, storage);
-  PHPUnit `player_iframe_test` (modo, tokens sandbox, CSP, Permissions-Policy) en
-  contenedor/CI. PHPUnit/Behat completos en CI.
+- **Chrome DevTools en el Playground PHP-WASM (confirmación empírica 2026-06-13):** el
+  iframe se construye en secure (sandbox `allow-scripts allow-popups allow-forms`, origen
+  opaco — `SecurityError` al leer `contentWindow`), pero la petición
+  `tokenpluginfile.php/<token>/<ctx>/mod_exelearning/content/1/index.html` devuelve **404**
+  (el service worker no controla subframes opacos, así que la URL cae a GitHub Pages). El
+  shim nunca emite `ready` → el watchdog **sí** muestra el aviso `securemodeblocked` y
+  oculta el iframe. El token **no** ayuda aquí: el bloqueo es el SW, no la cookie. Esto
+  confirma la "Limitación conocida": el Playground no puede servir secure y avisa (no
+  cae a legacy). La sensación de "funciona sin aviso" era el retardo del watchdog (ahora
+  ligado al `load`) más que el aviso quedaba bajo el pliegue.
+- **phpcs `--standard=moodle` 0/0**; **Vitest 52/52** (shim, relay, watchdog —incluida la
+  ruta rápida por `load`—, storage); PHPUnit `player_iframe_test` (modo, tokens sandbox,
+  CSP, Permissions-Policy) en contenedor/CI. PHPUnit/Behat completos en CI.
 
 ## Seguimiento
 

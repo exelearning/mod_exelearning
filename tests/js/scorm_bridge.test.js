@@ -293,6 +293,54 @@ describe('relay watchdog (no silent legacy fallback)', () => {
         fire(); // no-op: watchdog was cleared.
         expect(blocked.style.display).toBe('none');
     });
+
+    // Fast path: an iframe element fires 'load' even when its navigation ended in an
+    // error page (e.g. an opaque token URL that 404s on a service-worker host that does
+    // not control opaque subframes). The relay then only grants a short grace before the
+    // notice, so it never sits behind the long flat watchdog (DEC-0060 / Playground).
+    function setupLoadWatchdog() {
+        let loadHandler = null;
+        const timers = [];
+        const cw = { postMessage: () => {} };
+        const iframe = {
+            contentWindow: cw,
+            style: { display: '' },
+            addEventListener: (type, fn) => { if (type === 'load') { loadHandler = fn; } },
+        };
+        const blocked = { style: { display: 'none' } };
+        const doc = { getElementById: (id) => (id === 'exelearningobject' ? iframe : (id === 'blk' ? blocked : null)) };
+        const win = {
+            addEventListener: () => {},
+            setTimeout: (fn) => { timers.push(fn); return timers.length; },
+            clearTimeout: () => {},
+        };
+        const r = relay.createRelay(
+            { iframeid: 'exelearningobject', nonce: 'N', blockedid: 'blk', watchdogms: 100000, gracems: 5 },
+            { document: doc, window: win, fetch: () => ({ catch: () => {} }) }
+        );
+        return { r, cw, iframe, blocked, timers, load: () => loadHandler && loadHandler() };
+    }
+
+    it('reveals the notice on the short grace timer after the iframe loads, not the long watchdog', () => {
+        const { r, iframe, blocked, timers, load } = setupLoadWatchdog();
+        r.startWatchdog();
+        expect(timers).toHaveLength(1);   // only the flat watchdog so far.
+        load();                            // iframe finished loading (e.g. the 404 page).
+        expect(timers).toHaveLength(2);   // a short grace timer was armed.
+        timers[1]();                       // fire ONLY the grace timer (not the long one).
+        expect(blocked.style.display).toBe('');
+        expect(iframe.style.display).toBe('none');
+    });
+
+    it('does not arm the grace timer when the iframe is already ready before it loads', () => {
+        const { r, cw, blocked, timers, load } = setupLoadWatchdog();
+        r.startWatchdog();
+        r.onMessage({ source: cw, data: { type: 'scorm', action: 'ready' } });
+        load();                            // ready already seen -> no grace timer.
+        expect(timers).toHaveLength(1);
+        timers.forEach((fn) => fn());      // even firing everything leaves it hidden.
+        expect(blocked.style.display).toBe('none');
+    });
 });
 
 describe('shim extra branches (coverage)', () => {
