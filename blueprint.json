@@ -20,7 +20,7 @@
         "adminPass":  "{{ADMIN_PASS}}",
         "adminEmail": "{{ADMIN_EMAIL}}",
         "siteName":   "mod_exelearning Playground",
-        "locale":     "es",
+        "locale":     "en",
         "timezone":   "Europe/Madrid"
       }
     },
