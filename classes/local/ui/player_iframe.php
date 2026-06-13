@@ -132,4 +132,29 @@ final class player_iframe {
             . "object-src 'none'; base-uri 'none'; form-action 'self' $siteorigin; "
             . "frame-ancestors 'self'";
     }
+
+    /**
+     * Defense-in-depth response headers for a served package file (DEC-0060).
+     *
+     * Returns the Permissions-Policy + Content-Security-Policy to emit for the package
+     * HTML document, but ONLY in secure mode and ONLY for an HTML document (subresources
+     * ignore these headers). Returns an empty array otherwise, so the caller
+     * (exelearning_pluginfile) is just a header-emitting loop. Keeping the decision and
+     * the values here makes them unit-testable (the pluginfile callback that emits them
+     * exits via send_stored_file and cannot be unit-tested directly).
+     *
+     * @param string $filename The served file name (only *.html(?) get the headers).
+     * @param string $wwwroot This Moodle site's $CFG->wwwroot (origin is derived from it).
+     * @return array Map of header name => value (empty when no headers apply).
+     */
+    public static function content_headers(string $filename, string $wwwroot): array {
+        if (!self::is_secure() || !preg_match('~\.html?$~i', $filename)) {
+            return [];
+        }
+        $siteorigin = preg_replace('~^(https?://[^/]+).*~i', '$1', $wwwroot);
+        return [
+            'Permissions-Policy' => self::permissions_policy(),
+            'Content-Security-Policy' => self::content_security_policy($siteorigin),
+        ];
+    }
 }

@@ -75,6 +75,48 @@ final class lib_extract_test extends advanced_testcase {
         $html = $index->get_content();
         $this->assertStringContainsString('<!-- mod_exelearning:scorm-loader -->', $html);
         $this->assertStringContainsString('libs/SCORM_API_wrapper.js', $html);
+
+        // The secure-mode bridge client was shipped under libs/ and injected at the top
+        // of <head> (DEC-0060).
+        foreach (['scorm_tracker.js', 'exe_scorm_bridge.js'] as $bridgefile) {
+            $f = $fs->get_file($context->id, 'mod_exelearning', 'content', $revision, '/libs/', $bridgefile);
+            $this->assertInstanceOf(\stored_file::class, $f);
+        }
+        $this->assertStringContainsString('<!-- mod_exelearning:scorm-bridge -->', $html);
+        $this->assertStringContainsString('libs/exe_scorm_bridge.js', $html);
+    }
+
+    /**
+     * Re-extracting the same revision refreshes the plugin-owned bridge client
+     * (scorm_tracker.js / exe_scorm_bridge.js) under libs/ — exercises the $present +
+     * refresh delete-and-recreate branch of package_manager::extract_stored() (DEC-0060).
+     * Idempotent: it must not error and the files must remain.
+     */
+    public function test_reextract_refreshes_bridge_client(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $course = $this->getDataGenerator()->create_course();
+        $instance = $this->getDataGenerator()->get_plugin_generator('mod_exelearning')
+            ->create_instance(['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('exelearning', $instance->id);
+        $context = \context_module::instance($cm->id);
+        $revision = (int) $DB->get_field('exelearning', 'revision', ['id' => $instance->id]);
+        $fs = get_file_storage();
+
+        // Present after the first extract.
+        $before = $fs->get_file($context->id, 'mod_exelearning', 'content', $revision, '/libs/', 'exe_scorm_bridge.js');
+        $this->assertInstanceOf(\stored_file::class, $before);
+
+        // Re-extract the same revision: the bridge files are already present, so the
+        // refresh branch deletes and recreates them. Must stay present and not error.
+        exelearning_extract_stored_package($context->id, $revision);
+
+        foreach (['scorm_tracker.js', 'exe_scorm_bridge.js'] as $bridgefile) {
+            $f = $fs->get_file($context->id, 'mod_exelearning', 'content', $revision, '/libs/', $bridgefile);
+            $this->assertInstanceOf(\stored_file::class, $f);
+        }
     }
 
     /**

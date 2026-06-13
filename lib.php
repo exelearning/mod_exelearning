@@ -561,19 +561,13 @@ function exelearning_pluginfile($course, $cm, $context, $filearea, $args, $force
     // must render, not be downloaded). Same flag used by mod_scorm.
     $options['dontforcesvgdownload'] = true;
 
-    // Defense-in-depth headers for the embedded package document, in secure mode only
-    // (DEC-0060). Legacy mode keeps its historical behaviour untouched. send_stored_file()
-    // neither emits nor strips these, and header(..., true) only replaces same-named
-    // headers, so they survive. Only the HTML document carries them (subresources ignore
-    // CSP/Permissions-Policy). The CSP's connect-src 'self' limits exfiltration of the
-    // tokenpluginfile file token to this site; object-src/base-uri/frame-ancestors are
-    // closed. eXeLearning needs inline + eval scripts, so those stay allowed.
-    $ishtmldoc = (bool) preg_match('~\.html?$~i', $file->get_filename());
-    if ($ishtmldoc && \mod_exelearning\local\ui\player_iframe::is_secure()) {
-        $siteorigin = preg_replace('~^(https?://[^/]+).*~i', '$1', $CFG->wwwroot);
-        @header('Permissions-Policy: ' . \mod_exelearning\local\ui\player_iframe::permissions_policy());
-        @header('Content-Security-Policy: '
-                . \mod_exelearning\local\ui\player_iframe::content_security_policy($siteorigin));
+    // Defense-in-depth headers for the embedded package HTML document, in secure mode
+    // only (DEC-0060). The decision + values live in player_iframe::content_headers()
+    // (unit tested); here we just emit them. send_stored_file() neither emits nor strips
+    // these, and header(..., true) only replaces same-named headers, so they survive.
+    $secureheaders = \mod_exelearning\local\ui\player_iframe::content_headers($file->get_filename(), $CFG->wwwroot);
+    foreach ($secureheaders as $hname => $hval) {
+        @header($hname . ': ' . $hval);
     }
 
     // Reasonable cache-control: a revision bump automatically invalidates the URL.

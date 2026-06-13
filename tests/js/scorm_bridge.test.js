@@ -294,3 +294,48 @@ describe('relay watchdog (no silent legacy fallback)', () => {
         expect(blocked.style.display).toBe('none');
     });
 });
+
+describe('shim extra branches (coverage)', () => {
+    it('treats a window whose origin read throws as opaque', () => {
+        const win = { get origin() { throw new Error('blocked'); } };
+        expect(shim.isSandboxedOpaque(win)).toBe(true);
+    });
+
+    it('installStoragePolyfill never throws even when storage cannot be redefined', () => {
+        const win = Object.preventExtensions({});
+        expect(() => shim.installStoragePolyfill(win)).not.toThrow();
+    });
+
+    it('resolves per-iDevice scores from its own document on suspend_data', () => {
+        document.body.innerHTML = '<div class="idevice_node" id="ide-x"></div>';
+        const win = makeFakeWin();
+        shim.activate(win);
+        deliver(win, { source: win.parent, data: { type: 'scorm', action: 'config', nonce: 'N', teachermodevisible: 1 } });
+        win.API.LMSSetValue('cmi.suspend_data', '1. "Q"; Score: 60%; Weight: 30%');
+        win.API.LMSCommit();
+        const tracks = win.postedToParent.filter((m) => m.action === 'track');
+        expect(tracks.length).toBeGreaterThan(0);
+        expect(tracks[tracks.length - 1].itemscores).toEqual({ 'ide-x': { scorepct: 60, weighted: 30, title: 'Q' } });
+    });
+});
+
+describe('relay init wiring (coverage)', () => {
+    it('init registers message + pagehide listeners (and starts the watchdog)', () => {
+        const events = {};
+        const win = { addEventListener: (t, fn) => { events[t] = fn; }, setTimeout: () => 1, clearTimeout: () => {} };
+        const doc = { getElementById: () => null };
+        const r = relay.createRelay(
+            { iframeid: 'x', nonce: 'N', blockedid: 'blk' },
+            { document: doc, window: win, fetch: () => ({ catch: () => {} }) }
+        );
+        r.init();
+        expect(typeof events.message).toBe('function');
+        expect(typeof events.pagehide).toBe('function');
+    });
+
+    it('bootstrap init() creates a relay and starts it', () => {
+        const r = relay.init({ iframeid: 'x', nonce: 'N' });
+        expect(typeof r.onMessage).toBe('function');
+        expect(typeof r.postTrack).toBe('function');
+    });
+});

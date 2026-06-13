@@ -130,4 +130,26 @@ final class player_iframe_test extends advanced_testcase {
         // (https://host) is fine; the negative lookahead excludes `https://...`.
         $this->assertDoesNotMatchRegularExpression('~connect-src[^;]*\bhttps:(?!//)~', $csp);
     }
+
+    /**
+     * content_headers() emits the CSP + Permissions-Policy only for an HTML document in
+     * secure mode, and derives the CSP origin from $CFG->wwwroot (path stripped).
+     */
+    public function test_content_headers(): void {
+        $this->resetAfterTest();
+
+        // Secure (default) + HTML document: both headers, origin stripped from wwwroot.
+        $headers = player_iframe::content_headers('index.html', 'https://moodle.example.net/sub');
+        $this->assertArrayHasKey('Content-Security-Policy', $headers);
+        $this->assertArrayHasKey('Permissions-Policy', $headers);
+        $this->assertStringContainsString("'self' https://moodle.example.net;", $headers['Content-Security-Policy']);
+        $this->assertStringNotContainsString('/sub', $headers['Content-Security-Policy']);
+
+        // Secure + non-HTML subresource: no headers (they only apply to the document).
+        $this->assertSame([], player_iframe::content_headers('libs/base.css', 'https://moodle.example.net'));
+
+        // Legacy mode: no headers regardless of file type.
+        set_config('iframemode', player_iframe::MODE_LEGACY, 'mod_exelearning');
+        $this->assertSame([], player_iframe::content_headers('index.html', 'https://moodle.example.net'));
+    }
 }
