@@ -39,8 +39,9 @@
     },
     {
       "step": "setConfigs",
-      "comment": "iframemode is left at the secure default (DEC-0060): the Playground's PHP-WASM service worker cannot serve an opaque-origin iframe, so the activity shows the 'blocked by security configuration' notice instead of silently running the weaker same-origin mode. Real Moodle defaults to secure and works. Set iframemode=legacy here if you prefer the demo to render the package.",
+      "comment": "iframemode is forced to legacy here (DEC-0060): the Playground's PHP-WASM service worker cannot serve an opaque-origin iframe, so the secure mode would only show the 'blocked by security configuration' notice. Legacy (same-origin) lets the demo render the package so the preview is useful. Real Moodle keeps the secure default and is unaffected by this Playground-only override.",
       "configs": [
+        { "name": "iframemode",   "value": "legacy",        "plugin": "exelearning" },
         { "name": "editormode",   "value": "embedded",      "plugin": "exelearning" },
         { "name": "display",      "value": "1",             "plugin": "exelearning" },
         { "name": "printintro",   "value": "1",             "plugin": "exelearning" },
