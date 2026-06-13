@@ -49,6 +49,25 @@ if ($action !== '' && confirm_sesskey()) {
         redirect($returnurl);
     } else if ($action === 'delete') {
         $slug = required_param('slug', PARAM_RAW);
+        // Delete is destructive and arrives as a sesskey-protected GET link, so confirm
+        // server-side: a first hit (or a link prefetch) only shows the confirmation; the
+        // actual delete needs the confirmed POST that $OUTPUT->confirm() generates.
+        if (!optional_param('confirm', 0, PARAM_BOOL)) {
+            $confirmurl = new moodle_url($returnurl, [
+                'action' => 'delete',
+                'slug' => $slug,
+                'confirm' => 1,
+                'sesskey' => sesskey(),
+            ]);
+            echo $OUTPUT->header();
+            echo $OUTPUT->confirm(
+                get_string('stylesdelete_confirm', 'mod_exelearning'),
+                $confirmurl,
+                $returnurl
+            );
+            echo $OUTPUT->footer();
+            exit;
+        }
         styles_service::delete_uploaded($slug);
         \core\notification::success(get_string('stylesdelete_success', 'mod_exelearning'));
         redirect($returnurl);
