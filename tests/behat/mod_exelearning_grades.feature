@@ -31,8 +31,9 @@ Feature: mod_exelearning grades reach the course gradebook
       | activity | user     | sessiontoken | objectid           | score |
       | exemp    | student1 | gb-attempt   | idevice-tf-0001    | 80    |
       | exemp    | student1 | gb-attempt   | idevice-guess-0002 | 80    |
-    When I log in as "teacher1"
-    And I am on "Course 1" course homepage
-    And I navigate to "View > Grader report" in the course gradebook
+    # Direct URL navigation to the grader report (core page resolver) keeps this
+    # non-@javascript: the menu step "I navigate to ... in the course gradebook"
+    # requires the JS driver, which the rest of this suite avoids.
+    When I am on the "Course 1" "grades > Grader report > View" page logged in as "teacher1"
     Then I should see "Student One"
     And I should see "80.00"
