@@ -244,7 +244,7 @@ Developer/administrator reference docs live under [`docs/`](./docs/):
 | [ELPX_PACKAGE.md](docs/ELPX_PACKAGE.md) | `.elpx` parsing, iDevice detection and XML hardening. |
 | [EMBEDDED_EDITOR.md](docs/EMBEDDED_EDITOR.md) | Embedded editor source/lifecycle and `postMessage` bridge. |
 | [PRIVACY_BACKUP_FILES.md](docs/PRIVACY_BACKUP_FILES.md) | Privacy, backup/restore and File API. |
-| [RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md) | Objective beta→stable release gate. |
+| [RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md) | Objective STABLE release gate. |
 | [AUDIT_FOLLOWUP.md](docs/AUDIT_FOLLOWUP.md) | Reconciliation of the comparative report against current code. |
 | [USER_GUIDE.md](docs/USER_GUIDE.md) | Teacher/admin step-by-step guide. |
 
