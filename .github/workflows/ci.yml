@@ -300,3 +300,16 @@ jobs:
           files: ./junit-js.xml
           flags: javascript
           disable_search: true
+
+  # Static guard for the Release workflow (DEC-0058): assert that a published
+  # release builds the embedded editor from the matching editor TAG, never from
+  # the moving `main` branch, so two builds of the same plugin tag always bundle
+  # the same editor. Fast, no matrix, no PHP/DB/Moodle dependency.
+  release-workflow-check:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v6
+
+      - name: Validate release workflow editor pinning
+        run: bash scripts/check-release-workflow.sh
