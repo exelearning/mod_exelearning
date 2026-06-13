@@ -110,20 +110,19 @@ class admin_setting_stylesuploaded extends admin_setting {
                 : get_string('stylesenable', 'mod_exelearning');
             $toggleaction = $enabled ? 'disable' : 'enable';
 
-            $toggleform = $this->action_form(
+            $togglelink = $this->action_link(
                 $baseurl,
                 $toggleaction,
                 $slug,
                 $togglelabel,
                 $enabled ? 'btn-secondary' : 'btn-success'
             );
-            $deleteform = $this->action_form(
+            $deletelink = $this->action_link(
                 $baseurl,
                 'delete',
                 $slug,
                 get_string('stylesdelete', 'mod_exelearning'),
-                'btn-danger',
-                get_string('stylesdelete_confirm', 'mod_exelearning')
+                'btn-danger'
             );
 
             $statusbadge = $enabled
@@ -136,7 +135,7 @@ class admin_setting_stylesuploaded extends admin_setting {
                 s($style['version'] ?? ''),
                 s($style['installed_at'] ?? ''),
                 $statusbadge,
-                $toggleform . ' ' . $deleteform,
+                $togglelink . ' ' . $deletelink,
             ];
         }
 
@@ -155,39 +154,31 @@ class admin_setting_stylesuploaded extends admin_setting {
     }
 
     /**
-     * Build a small inline POST form for a single action.
+     * Build a single action as a sesskey-protected link styled as a button.
+     *
+     * Rendered as a link rather than an inline <form>: this setting appears inside the
+     * admin settings page, which already wraps every setting in one <form>. A nested
+     * <form> is invalid HTML and leaks its action/sesskey hidden fields into the outer
+     * form's submission, so the page's "Save changes" posts the nested action (e.g.
+     * delete) instead of action=save-settings and silently saves nothing. styles.php
+     * accepts these actions over GET (optional_param + confirm_sesskey); the destructive
+     * delete is confirmed server-side there, so a prefetch cannot destroy data.
      *
      * @param \moodle_url $baseurl
      * @param string $action
      * @param string $slug
      * @param string $label
      * @param string $btnclass
-     * @param string $confirm Optional confirm message.
      * @return string
      */
-    private function action_form(
+    private function action_link(
         \moodle_url $baseurl,
         string $action,
         string $slug,
         string $label,
-        string $btnclass,
-        string $confirm = ''
+        string $btnclass
     ): string {
-        $attrs = [
-            'method' => 'post',
-            'action' => $baseurl->out(false),
-            'class' => 'd-inline',
-        ];
-        if ($confirm !== '') {
-            $attrs['data-confirm'] = $confirm;
-            $attrs['onsubmit'] = 'return confirm(this.getAttribute("data-confirm"));';
-        }
-        $form = \html_writer::start_tag('form', $attrs);
-        $form .= \html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()]);
-        $form .= \html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'action', 'value' => $action]);
-        $form .= \html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'slug', 'value' => $slug]);
-        $form .= \html_writer::tag('button', $label, ['type' => 'submit', 'class' => 'btn btn-sm ' . $btnclass]);
-        $form .= \html_writer::end_tag('form');
-        return $form;
+        $url = new \moodle_url($baseurl, ['action' => $action, 'slug' => $slug, 'sesskey' => sesskey()]);
+        return \html_writer::link($url, $label, ['class' => 'btn btn-sm ' . $btnclass, 'role' => 'button']);
     }
 }
