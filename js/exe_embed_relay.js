@@ -305,8 +305,8 @@
             return entry;
         }
 
-        function positionOverlay(entry) {
-            var rect = entry.iframe.getBoundingClientRect();
+        function positionOverlay(entry, rect) {
+            rect = rect || entry.iframe.getBoundingClientRect();
             var scrollX = window.pageXOffset || document.documentElement.scrollLeft || 0;
             var scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
             entry.el.style.left = (rect.left + scrollX) + 'px';
@@ -332,7 +332,11 @@
         }
 
         function sync(entry, embeds, contentSrc) {
-            positionOverlay(entry);
+            // The content iframe's box is invariant across this sync pass (the loop only
+            // mutates the overlay and its players), so read it once and reuse it for the
+            // overlay position and every player clamp -- avoids a forced reflow per embed.
+            var rect = entry.iframe.getBoundingClientRect();
+            positionOverlay(entry, rect);
             var seen = {};
             embeds.forEach(function (embed) {
                 if (!embed || typeof embed.id !== 'string') {
@@ -367,7 +371,7 @@
                 // content iframe's box and clips with overflow:hidden, so a player can
                 // never cover host UI outside the iframe. Cap the player size to the
                 // overlay too (the content reports geometry, the parent owns rendering).
-                var rect = entry.iframe.getBoundingClientRect();
+                // Reuses the iframe rect read once at the top of this pass.
                 player.style.left = embed.x + 'px';
                 player.style.top = embed.y + 'px';
                 player.style.width = Math.min(embed.w, rect.width) + 'px';

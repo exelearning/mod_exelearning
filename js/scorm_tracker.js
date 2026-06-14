@@ -167,7 +167,6 @@
 
         function send(sync) {
             if (!dirty) { return true; }
-            var snapshot = JSON.stringify(cmi);
             // Bridge transport (secure mode): hand the buffered CMI + per-iDevice
             // scores to the injected sink instead of doing the XHR here. The sink
             // (js/scorm_bridge_shim.js) posts them to the Moodle parent, which owns
@@ -198,6 +197,9 @@
                 // and only if no newer value was buffered meanwhile. On failure dirty
                 // stays set so the next autocommit / beforeunload re-sends it (a failed
                 // autocommit must never silently drop a grade write to the gradebook).
+                // Snapshot the buffer here (this path only) — captured synchronously
+                // before xhr.send() below, so the onload comparison value is unchanged.
+                var snapshot = JSON.stringify(cmi);
                 xhr.onload = function () {
                     if (xhr.status >= 200 && xhr.status < 300
                             && JSON.stringify(cmi) === snapshot) {

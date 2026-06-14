@@ -119,12 +119,12 @@
         // page (e.g. the 404 above), so once it has loaded we only grant a short grace for
         // the shim to handshake; if 'load' never fires we still fall back to watchdogms.
         function armBlockedTimer(ms) {
-            if (!win || !win.setTimeout) { return; }
-            win.setTimeout(function () { if (!sawready) { showBlocked(); } }, ms);
+            if (!win || !win.setTimeout) { return null; }
+            return win.setTimeout(function () { if (!sawready) { showBlocked(); } }, ms);
         }
         function startWatchdog() {
             if (!win || !win.setTimeout || !blockedid) { return; }
-            watchdog = win.setTimeout(function () { if (!sawready) { showBlocked(); } }, watchdogms);
+            watchdog = armBlockedTimer(watchdogms);
             // Faster, load-driven path. The iframe may not be parsed yet when this relay
             // runs inline (it is injected before the iframe element), so attach now if it
             // exists, otherwise once the DOM is ready.

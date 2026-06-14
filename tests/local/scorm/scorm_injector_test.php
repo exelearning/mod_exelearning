@@ -84,11 +84,9 @@ final class scorm_injector_test extends advanced_testcase {
         $this->assertStringContainsString('<script src="libs/SCORM_API_wrapper.js"></script>', $index);
         $this->assertStringContainsString('pipwerks.SCORM.init()', $index);
 
-        // The external-embed shim is baked too, with the whitelist as a JS global.
+        // The external-embed shim is baked too (no host list: the parent relay gates).
         $this->assertStringContainsString('<!-- mod_exelearning:embed-shim -->', $index);
         $this->assertStringContainsString('<script src="libs/exe_embed_shim.js"></script>', $index);
-        $this->assertStringContainsString('window.__exeEmbedWhitelist=', $index);
-        $this->assertStringContainsString('youtube-nocookie.com', $index);
 
         // Nested page: relative path climbs one level (../libs/...).
         $page = $fs->get_file($contextid, 'mod_exelearning', 'content', $revision, '/html/', 'page.html')->get_content();

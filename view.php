@@ -438,6 +438,18 @@ if (!$mainfile) {
         ['id' => $cm->id, 'sesskey' => sesskey(), 'mode' => $mode]
     ))->out(false);
 
+    // Emit an inline <script> that loads a bundled js/ module and boots it. Centralises
+    // the HTML-hardening JSON flags, the js/ path and the "\n(function () { ... })();"
+    // boot wrapper shared by the SCORM and embed clients below (so a fourth client, or a
+    // change to the hardening flags, has a single home). %s in $boot is replaced by the
+    // encoded config. Injected inline so each listener is installed before the iframe
+    // loads — an async AMD load would race the SCO/embeds.
+    $emitinlinemodule = function (string $jsfile, array $cfg, string $boot): void {
+        $json = json_encode($cfg, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+        $js = file_get_contents(__DIR__ . '/js/' . $jsfile);
+        echo html_writer::tag('script', $js . "\n(function () { " . sprintf($boot, $json) . " })();");
+    };
+
     // Both $iframemode and $securemode were resolved above so the SCORM client, the
     // sandbox tokens and the content URL all agree.
     if ($securemode) {
@@ -451,21 +463,15 @@ if (!$mainfile) {
         // handshake; the sesskey is NEVER sent across the bridge. blockedid points at
         // the hidden notice the relay reveals (watchdog) if the iframe never signals
         // ready, i.e. the secure mode could not render here.
-        $relaycfg = json_encode(
-            [
-                'iframeid' => 'exelearningobject',
-                'cmid' => (int) $cm->id,
-                'trackurl' => $trackurl,
-                'session' => random_string(20),
-                'nonce' => random_string(32),
-                'teachermodevisible' => (int) !empty($exelearning->teachermodevisible),
-                'blockedid' => 'exelearning-secure-blocked',
-            ],
-            JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
-        );
-        $relayjs = file_get_contents(__DIR__ . '/js/scorm_bridge_relay.js');
-        $bootjs = "\n(function () { window.exeScormBridge.init($relaycfg); })();";
-        echo html_writer::tag('script', $relayjs . $bootjs);
+        $emitinlinemodule('scorm_bridge_relay.js', [
+            'iframeid' => 'exelearningobject',
+            'cmid' => (int) $cm->id,
+            'trackurl' => $trackurl,
+            'session' => random_string(20),
+            'nonce' => random_string(32),
+            'teachermodevisible' => (int) !empty($exelearning->teachermodevisible),
+            'blockedid' => 'exelearning-secure-blocked',
+        ], 'window.exeScormBridge.init(%s);');
     } else {
         // Legacy same-origin: host window.API in this parent window. The tracker logic
         // is the single source of truth in js/scorm_tracker.js, also unit-tested with
@@ -474,17 +480,11 @@ if (!$mainfile) {
         // pipwerks findAPI() runs — an async AMD load would race the SCO and break
         // grading. Config (cmid, track URL, per-page attempt token) is passed as JSON
         // to the createScormApi() factory instead of string-substituted placeholders.
-        $scormcfg = json_encode(
-            [
-                'cmid' => (int) $cm->id,
-                'trackurl' => $trackurl,
-                'session' => random_string(20),
-            ],
-            JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
-        );
-        $trackerjs = file_get_contents(__DIR__ . '/js/scorm_tracker.js');
-        $bootjs = "\n(function () { window.API = window.exeScormTracker.createScormApi($scormcfg).api; })();";
-        echo html_writer::tag('script', $trackerjs . $bootjs);
+        $emitinlinemodule('scorm_tracker.js', [
+            'cmid' => (int) $cm->id,
+            'trackurl' => $trackurl,
+            'session' => random_string(20),
+        ], 'window.API = window.exeScormTracker.createScormApi(%s).api;');
     }
 
     // Parent-side external-embed relay (js/exe_embed_relay.js). Independent of SCORM:
@@ -494,16 +494,14 @@ if (!$mainfile) {
     // the iframe loads. No-op in legacy mode (same-origin: external players already work
     // inline and the in-iframe shim stays dormant).
     if ($securemode) {
-        $embedcfg = json_encode(
-            [
-                'mode' => \mod_exelearning\local\ui\player_iframe::embed_mode(),
-                'whitelist' => \mod_exelearning\local\ui\player_iframe::embed_whitelist(),
-            ],
-            JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
-        );
-        $embedrelayjs = file_get_contents(__DIR__ . '/js/exe_embed_relay.js');
-        $embedbootjs = "\n(function () { window.exeEmbedRelay.init($embedcfg); })();";
-        echo html_writer::tag('script', $embedrelayjs . $embedbootjs);
+        // The relay only consults the host whitelist in 'strict' mode; in the default
+        // 'open' mode any cross-origin https iframe is promoted, so don't build/ship it.
+        $embedmode = \mod_exelearning\local\ui\player_iframe::embed_mode();
+        $embedstrict = ($embedmode === \mod_exelearning\local\ui\player_iframe::EMBED_STRICT);
+        $emitinlinemodule('exe_embed_relay.js', [
+            'mode' => $embedmode,
+            'whitelist' => $embedstrict ? \mod_exelearning\local\ui\player_iframe::embed_whitelist() : [],
+        ], 'window.exeEmbedRelay.init(%s);');
     }
 
     // Fullscreen control (issue #13 #6, DEC-0024): a right-aligned button above the

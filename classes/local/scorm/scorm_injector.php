@@ -66,38 +66,7 @@ final class scorm_injector {
                 "        }, 50);\n" .
                 "      })();\n" .
                 "    </script>\n";
-        $tags = $marker .
-                "\n    <script src=\"libs/SCORM_API_wrapper.js\"></script>" .
-                "\n    <script src=\"libs/SCOFunctions.js\"></script>" .
-                $initscript;
-        $tagshtml = $marker .
-                "\n    <script src=\"../libs/SCORM_API_wrapper.js\"></script>" .
-                "\n    <script src=\"../libs/SCOFunctions.js\"></script>" .
-                $initscript;
-        // Bridge client. scorm_tracker.js must load before exe_scorm_bridge.js (the
-        // shim calls window.exeScormTracker.createScormApi).
-        $bridge = $bridgemarker .
-                "\n    <script src=\"libs/scorm_tracker.js\"></script>" .
-                "\n    <script src=\"libs/exe_scorm_bridge.js\"></script>\n";
-        $bridgehtml = $bridgemarker .
-                "\n    <script src=\"../libs/scorm_tracker.js\"></script>" .
-                "\n    <script src=\"../libs/exe_scorm_bridge.js\"></script>\n";
-
-        // External-embed shim (independent of SCORM). It self-activates only in the
-        // secure opaque-origin iframe, replacing whitelisted/PDF iframes with
-        // placeholders whose geometry is relayed to the parent (js/exe_embed_relay.js).
-        // The host whitelist is baked as a JS global the shim reads.
         $embedmarker = '<!-- mod_exelearning:embed-shim -->';
-        $embedwl = json_encode(
-            \mod_exelearning\local\ui\player_iframe::embed_whitelist(),
-            JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
-        );
-        $embed = $embedmarker .
-                "\n    <script>window.__exeEmbedWhitelist=$embedwl;</script>" .
-                "\n    <script src=\"libs/exe_embed_shim.js\"></script>\n";
-        $embedhtml = $embedmarker .
-                "\n    <script>window.__exeEmbedWhitelist=$embedwl;</script>" .
-                "\n    <script src=\"../libs/exe_embed_shim.js\"></script>\n";
 
         // Iterate over all HTML files in the filearea.
         $files = $fs->get_area_files(
@@ -120,34 +89,45 @@ final class scorm_injector {
             if ($html === '') {
                 continue;
             }
+            // Relative prefix to the package's libs/ dir: root pages use 'libs/', nested
+            // html/<slug>.html pages climb one level with '../libs/'.
             $path = $file->get_filepath();
+            $libs = ($path === '/') ? 'libs/' : '../libs/';
             $newhtml = $html;
             $changed = false;
 
-            // Bridge client at the top of <head> (case-insensitive, first match).
-            if (strpos($newhtml, $bridgemarker) === false) {
-                $bridgepayload = ($path === '/') ? $bridge : $bridgehtml;
-                $replaced = preg_replace('~(<head[^>]*>)~i', '${1}' . $bridgepayload, $newhtml, 1);
-                if ($replaced !== null && $replaced !== $newhtml) {
-                    $newhtml = $replaced;
-                    $changed = true;
-                }
-            }
+            // Script payloads, built once per file from $libs. The bridge client
+            // (scorm_tracker.js before exe_scorm_bridge.js: the shim calls
+            // window.exeScormTracker.createScormApi) and the external-embed shim both go
+            // at the TOP of <head>; the pipwerks SCORM wrapper + init kick go just before
+            // </head>. No host list is baked for the embed shim: it promotes any candidate
+            // and the parent relay is the authoritative gate (open vs strict, DEC-0061).
+            $bridge = $bridgemarker .
+                    "\n    <script src=\"{$libs}scorm_tracker.js\"></script>" .
+                    "\n    <script src=\"{$libs}exe_scorm_bridge.js\"></script>\n";
+            $embed = $embedmarker .
+                    "\n    <script src=\"{$libs}exe_embed_shim.js\"></script>\n";
+            $scorm = $marker .
+                    "\n    <script src=\"{$libs}SCORM_API_wrapper.js\"></script>" .
+                    "\n    <script src=\"{$libs}SCOFunctions.js\"></script>" .
+                    $initscript;
 
-            // External-embed shim at the top of <head> (independent of the bridge).
-            if (strpos($newhtml, $embedmarker) === false) {
-                $embedpayload = ($path === '/') ? $embed : $embedhtml;
-                $replaced = preg_replace('~(<head[^>]*>)~i', '${1}' . $embedpayload, $newhtml, 1);
-                if ($replaced !== null && $replaced !== $newhtml) {
-                    $newhtml = $replaced;
-                    $changed = true;
+            // Idempotent <head> insertions, applied in order so each one matches against
+            // the HTML already modified by the previous (e.g. the embed insert sees the
+            // bridge-modified <head>). Each fires at most once, guarded by its own marker.
+            // Entry = [marker, payload, anchor regex, top?]: top appends the payload AFTER
+            // the matched <head> tag, otherwise it is prepended BEFORE the matched </head>.
+            $inserts = [
+                [$bridgemarker, $bridge, '~<head[^>]*>~i', true],
+                [$embedmarker, $embed, '~<head[^>]*>~i', true],
+                [$marker, $scorm, '~</head>~i', false],
+            ];
+            foreach ($inserts as [$mk, $payload, $regex, $top]) {
+                if (strpos($newhtml, $mk) !== false) {
+                    continue;
                 }
-            }
-
-            // SCORM wrapper just before </head> (case-insensitive, first match).
-            if (strpos($newhtml, $marker) === false) {
-                $payload = ($path === '/') ? $tags : $tagshtml;
-                $replaced = preg_replace('~</head>~i', $payload . '</head>', $newhtml, 1);
+                $replacement = $top ? '$0' . $payload : $payload . '$0';
+                $replaced = preg_replace($regex, $replacement, $newhtml, 1);
                 if ($replaced !== null && $replaced !== $newhtml) {
                     $newhtml = $replaced;
                     $changed = true;
