@@ -29,11 +29,14 @@ test('promotes whitelisted video + relative local PDF to inline parent players (
     await expect.poll(() => players.count(), { timeout: 15000 }).toBe(2);
 
     const srcs = await players.evaluateAll((els) => els.map((e) => e.src));
+    const hosts = srcs.map((s) => {
+        try { return new URL(s).hostname.toLowerCase(); } catch (e) { return ''; }
+    });
 
-    // The video is rebuilt to the canonical nocookie URL.
-    expect(srcs.some((s) => s.includes('youtube-nocookie.com/embed/aqz-KE-bpKQ'))).toBe(true);
+    // The video is rebuilt to the canonical nocookie URL (anchored, not a substring match).
+    expect(srcs.some((s) => /^https:\/\/www\.youtube-nocookie\.com\/embed\/aqz-KE-bpKQ\b/.test(s))).toBe(true);
     // The relative local PDF is reported absolute and rendered (the relative-URL fix).
     expect(srcs.some((s) => /\/local\.pdf$/.test(s))).toBe(true);
-    // The non-whitelisted iframe is never promoted.
-    expect(srcs.some((s) => s.includes('example.com'))).toBe(false);
+    // The non-whitelisted host is never promoted (exact hostname check, not a substring).
+    expect(hosts).not.toContain('example.com');
 });

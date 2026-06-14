@@ -183,7 +183,10 @@
 
     /**
      * Bootstrap inside the package iframe (no-op outside the secure opaque origin).
+     * Browser-only glue (requires a framed, opaque-origin window); exercised by the
+     * Playwright/Firefox e2e (tests/e2e/embed.spec.cjs), not the happy-dom unit tests.
      */
+    /* v8 ignore start */
     function init() {
         if (window.parent === window || !isOpaqueOrigin()) {
             return;
@@ -230,6 +233,7 @@
             }
         });
     }
+    /* v8 ignore stop */
 
     var exp = {
         isOpaqueOrigin: isOpaqueOrigin,

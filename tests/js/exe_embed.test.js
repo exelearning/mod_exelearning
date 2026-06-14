@@ -158,6 +158,56 @@ describe('exe_embed_relay makePlayer() attributes', () => {
     });
 });
 
+describe('exe_embed_relay createRelay() overlays players from messages', () => {
+    let iframe;
+    beforeEach(() => {
+        document.body.innerHTML = '';
+        iframe = document.createElement('iframe');
+        document.body.appendChild(iframe);
+    });
+
+    it('creates an inline overlay player for a valid embed and removes it when no longer reported', () => {
+        const r = relay.createRelay({ whitelist: HOSTS });
+        // The instance validate() binds the configured whitelist.
+        expect(r.validate('https://www.youtube.com/embed/abc123', 'http://x/content/1/index.html'))
+            .toMatchObject({ kind: 'video' });
+        r.onMessage({
+            source: iframe.contentWindow,
+            data: {
+                type: 'exe-embed',
+                action: 'sync',
+                embeds: [{ id: 'e1', url: 'https://www.youtube.com/embed/abc123', x: 0, y: 0, w: 480, h: 270 }],
+            },
+        });
+        const players = document.querySelectorAll('.exe-embed-overlay iframe');
+        expect(players.length).toBe(1);
+        expect(players[0].src).toMatch(/youtube-nocookie\.com\/embed\/abc123$/);
+
+        // Stale removal: a later sync without the embed removes its player.
+        r.onMessage({ source: iframe.contentWindow, data: { type: 'exe-embed', action: 'sync', embeds: [] } });
+        expect(document.querySelectorAll('.exe-embed-overlay iframe').length).toBe(0);
+    });
+
+    it('ignores a message whose source is not a known content iframe', () => {
+        const r = relay.createRelay({ whitelist: HOSTS });
+        r.onMessage({
+            source: {},
+            data: {
+                type: 'exe-embed',
+                action: 'sync',
+                embeds: [{ id: 'x', url: 'https://www.youtube.com/embed/abc123', x: 0, y: 0, w: 1, h: 1 }],
+            },
+        });
+        expect(document.querySelectorAll('.exe-embed-overlay iframe').length).toBe(0);
+    });
+
+    it('ignores non-embed messages', () => {
+        const r = relay.createRelay({ whitelist: HOSTS });
+        r.onMessage({ source: iframe.contentWindow, data: { type: 'scorm', action: 'track', cmi: {} } });
+        expect(document.querySelectorAll('.exe-embed-overlay iframe').length).toBe(0);
+    });
+});
+
 describe('exe_embed_shim collect() geometry report', () => {
     it('reports id + (absolute) url + numeric geometry for each placeholder', () => {
         const root = document.createElement('div');

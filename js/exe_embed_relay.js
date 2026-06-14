@@ -254,6 +254,10 @@
             sync(overlayFor(iframe), data.embeds, iframe.src);
         }
 
+        // Browser-only glue below (window listeners, reflow on scroll/resize, pinging
+        // the content iframes). Exercised by the Playwright/Firefox e2e
+        // (tests/e2e/embed.spec.cjs), not the happy-dom unit tests.
+        /* v8 ignore start */
         function pingAll() {
             var frames = document.getElementsByTagName('iframe');
             for (var i = 0; i < frames.length; i++) {
@@ -278,6 +282,7 @@
                 }
             });
         }
+        /* v8 ignore stop */
 
         return {
             onMessage: onMessage,
@@ -285,6 +290,7 @@
             validate: function (raw, contentSrc) {
                 return validate(raw, contentSrc, whitelist);
             },
+            /* v8 ignore start */
             init: function () {
                 window.addEventListener('message', onMessage);
                 window.addEventListener('resize', scheduleReflow);
@@ -294,6 +300,7 @@
                 window.setTimeout(pingAll, 500);
                 return this;
             }
+            /* v8 ignore stop */
         };
     }
 
@@ -303,6 +310,7 @@
      * @param {Object} config {whitelist: string[]}
      * @returns {Object}
      */
+    /* v8 ignore next 3 */
     function init(config) {
         return createRelay(config).init();
     }
