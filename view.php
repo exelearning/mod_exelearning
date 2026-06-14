@@ -495,7 +495,10 @@ if (!$mainfile) {
     // inline and the in-iframe shim stays dormant).
     if ($securemode) {
         $embedcfg = json_encode(
-            ['whitelist' => \mod_exelearning\local\ui\player_iframe::embed_whitelist()],
+            [
+                'mode' => \mod_exelearning\local\ui\player_iframe::embed_mode(),
+                'whitelist' => \mod_exelearning\local\ui\player_iframe::embed_whitelist(),
+            ],
             JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
         );
         $embedrelayjs = file_get_contents(__DIR__ . '/js/exe_embed_relay.js');

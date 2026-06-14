@@ -16,29 +16,30 @@
 // Cross-browser e2e for the secure-mode external-embed mechanism (DEC-0061), run in
 // Firefox via playwright-embed.config.cjs. It loads the REAL shim + relay against a
 // self-contained harness (no Moodle needed): an opaque-origin sandboxed iframe whose
-// content has a whitelisted YouTube embed, a RELATIVE local PDF and a non-whitelisted
-// iframe. Asserts the shim promotes the first two to inline parent overlays (with the
-// canonical/absolute URLs) and never promotes the third.
+// content has cross-origin video iframes, a RELATIVE local PDF and an arbitrary
+// cross-origin iframe. In open mode (the default) the shim promotes every cross-origin /
+// PDF iframe to an inline parent overlay; the video players are sandboxed.
 
 const { test, expect } = require('@playwright/test');
 
-test('promotes whitelisted video + relative local PDF to inline parent players (Firefox)', async ({ page }) => {
+test('promotes every cross-origin/PDF iframe to a sandboxed inline player (open mode, Firefox)', async ({ page }) => {
     await page.goto('/tests/e2e/embed/parent.html');
 
     const players = page.locator('.exe-embed-overlay iframe');
-    await expect.poll(() => players.count(), { timeout: 15000 }).toBe(3);
+    await expect.poll(() => players.count(), { timeout: 15000 }).toBe(4);
 
     const srcs = await players.evaluateAll((els) => els.map((e) => e.src));
-    const hosts = srcs.map((s) => {
-        try { return new URL(s).hostname.toLowerCase(); } catch (e) { return ''; }
-    });
 
-    // The video is rebuilt to the canonical nocookie URL (anchored, not a substring match).
+    // Open mode: cross-origin https iframes are promoted VERBATIM (no host list, no rebuild).
     expect(srcs.some((s) => /^https:\/\/www\.youtube-nocookie\.com\/embed\/aqz-KE-bpKQ\b/.test(s))).toBe(true);
-    // A second provider (Dailymotion) is rebuilt to its canonical embed URL.
     expect(srcs.some((s) => /^https:\/\/www\.dailymotion\.com\/embed\/video\/x8abc12$/.test(s))).toBe(true);
+    // An arbitrary cross-origin provider is promoted too (the structural invariant).
+    expect(srcs.some((s) => /^https:\/\/example\.com\//.test(s))).toBe(true);
     // The relative local PDF is reported absolute and rendered (the relative-URL fix).
     expect(srcs.some((s) => /\/local\.pdf$/.test(s))).toBe(true);
-    // The non-whitelisted host is never promoted (exact hostname check, not a substring).
-    expect(hosts).not.toContain('example.com');
+
+    // The promoted video players are sandboxed (allow-same-origin to render, but no
+    // top-navigation so an arbitrary embed cannot redirect the tab).
+    const sandboxes = await players.evaluateAll((els) => els.map((e) => e.getAttribute('sandbox') || ''));
+    expect(sandboxes.some((s) => s.includes('allow-same-origin') && !s.includes('allow-top-navigation'))).toBe(true);
 });

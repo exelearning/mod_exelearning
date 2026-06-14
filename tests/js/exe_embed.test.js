@@ -13,10 +13,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-// Unit tests for the secure-mode external-embed shim + relay (DEC-0059). The shim
-// (in-iframe) decides what to promote; the relay (parent) validates each reported URL
-// and rebuilds a safe player URL. Side-effect imports expose the API on window.* (and
-// module.exports). globals (describe/it/expect) come from vitest.config.mjs.
+// Unit tests for the secure-mode external-embed shim + relay (DEC-0061). The shim
+// (in-iframe) promotes any cross-origin https / .pdf iframe; the relay (parent) is the
+// authoritative gate: in 'open' mode the structural invariant (https + cross-origin to
+// the LMS), in 'strict' mode the maintained host allowlist. Side-effect imports expose
+// the API on window.* (and module.exports); globals come from vitest.config.mjs.
 import '../../js/exe_embed_shim.js';
 import '../../js/exe_embed_relay.js';
 
@@ -29,82 +30,117 @@ const HOSTS = [
     'www.dailymotion.com', 'dailymotion.com', 'geo.dailymotion.com',
     'mediateca.educa.madrid.org',
 ];
-const WL = relay.buildWhitelist(HOSTS);
-const ORIGIN = window.location.origin;
+const STRICT = { strict: true, whitelist: relay.buildWhitelist(HOSTS) };
+const ORIGIN = window.location.origin;       // happy-dom default (the "LMS" origin here).
 const CONTENT_SRC = ORIGIN + '/pluginfile.php/5/mod_exelearning/content/3/index.html';
 
-describe('exe_embed_relay validate() — videos', () => {
-    it('rebuilds the canonical youtube-nocookie URL from a youtube.com embed', () => {
-        expect(relay.validate('https://www.youtube.com/embed/aqz-KE-bpKQ', CONTENT_SRC, WL))
-            .toEqual({ url: 'https://www.youtube-nocookie.com/embed/aqz-KE-bpKQ', kind: 'video' });
+describe('exe_embed_relay validate() — open mode (default): structural invariant', () => {
+    it('accepts any cross-origin https video iframe verbatim (no host list, no reconstruction)', () => {
+        expect(relay.validate('https://www.youtube.com/embed/aqz-KE-bpKQ', CONTENT_SRC))
+            .toEqual({ url: 'https://www.youtube.com/embed/aqz-KE-bpKQ', kind: 'video' });
+        expect(relay.validate('https://some-new-provider.example/player/42', CONTENT_SRC))
+            .toEqual({ url: 'https://some-new-provider.example/player/42', kind: 'video' });
     });
 
-    it('accepts a youtube-nocookie embed and keeps the id', () => {
-        expect(relay.validate('https://www.youtube-nocookie.com/embed/abc123', CONTENT_SRC, WL).url)
-            .toBe('https://www.youtube-nocookie.com/embed/abc123');
+    it('rejects same-origin (the LMS itself)', () => {
+        expect(relay.validate(ORIGIN + '/course/view.php?id=2', CONTENT_SRC)).toBeNull();
     });
 
-    it('rebuilds the canonical Vimeo player URL', () => {
-        expect(relay.validate('https://player.vimeo.com/video/76979871', CONTENT_SRC, WL))
-            .toEqual({ url: 'https://player.vimeo.com/video/76979871', kind: 'video' });
+    it('rejects non-https', () => {
+        expect(relay.validate('http://www.youtube.com/embed/aqz-KE-bpKQ', CONTENT_SRC)).toBeNull();
     });
 
-    it('rebuilds the canonical Dailymotion embed URL', () => {
-        expect(relay.validate('https://www.dailymotion.com/embed/video/x8abc12', CONTENT_SRC, WL))
-            .toEqual({ url: 'https://www.dailymotion.com/embed/video/x8abc12', kind: 'video' });
+    it('rejects userinfo (https://evil.com@youtube.com/...)', () => {
+        expect(relay.validate('https://evil.com@www.youtube.com/embed/aqz-KE-bpKQ', CONTENT_SRC)).toBeNull();
     });
 
-    it('rejects a malformed Dailymotion path', () => {
-        expect(relay.validate('https://www.dailymotion.com/video/x8abc12', CONTENT_SRC, WL)).toBeNull();
+    it('rejects IP-literal and loopback/local hosts', () => {
+        expect(relay.validate('https://1.2.3.4/player', CONTENT_SRC)).toBeNull();
+        expect(relay.validate('https://[2001:db8::1]/player', CONTENT_SRC)).toBeNull();
+        expect(relay.validate('https://localhost/player', CONTENT_SRC)).toBeNull();
+        expect(relay.validate('https://intranet.local/player', CONTENT_SRC)).toBeNull();
     });
 
-    it('rebuilds the canonical EducaMadrid embed URL (adds /fs)', () => {
-        expect(relay.validate('https://mediateca.educa.madrid.org/video/u555bvi3bk5wsabh', CONTENT_SRC, WL))
-            .toEqual({ url: 'https://mediateca.educa.madrid.org/video/u555bvi3bk5wsabh/fs', kind: 'video' });
-        expect(relay.validate('https://mediateca.educa.madrid.org/video/u555bvi3bk5wsabh/fs', CONTENT_SRC, WL).url)
-            .toBe('https://mediateca.educa.madrid.org/video/u555bvi3bk5wsabh/fs');
+    it('rejects non-http(s) schemes (data:/javascript:/blob:)', () => {
+        expect(relay.validate('data:text/html,<h1>x</h1>', CONTENT_SRC)).toBeNull();
+        expect(relay.validate('javascript:alert(1)', CONTENT_SRC)).toBeNull();
+        expect(relay.validate('blob:https://x.test/uuid', CONTENT_SRC)).toBeNull();
     });
 
-    it('rejects an EducaMadrid look-alike host', () => {
-        expect(relay.validate('https://mediateca.educa.madrid.org.evil.com/video/u555bvi3bk5wsabh', CONTENT_SRC, WL))
-            .toBeNull();
-    });
-
-    it('rejects a look-alike host (youtube.com.evil.com)', () => {
-        expect(relay.validate('https://www.youtube.com.evil.com/embed/aqz-KE-bpKQ', CONTENT_SRC, WL)).toBeNull();
-    });
-
-    it('rejects userinfo tricks (evil.com@youtube.com)', () => {
-        expect(relay.validate('https://evil.com@www.youtube.com/embed/aqz-KE-bpKQ', CONTENT_SRC, WL)).toBeNull();
-    });
-
-    it('rejects non-https whitelisted hosts', () => {
-        expect(relay.validate('http://www.youtube.com/embed/aqz-KE-bpKQ', CONTENT_SRC, WL)).toBeNull();
-    });
-
-    it('rejects malformed video ids', () => {
-        expect(relay.validate('https://www.youtube.com/embed/', CONTENT_SRC, WL)).toBeNull();
-        expect(relay.validate('https://player.vimeo.com/video/not-a-number', CONTENT_SRC, WL)).toBeNull();
+    it('rejects a relative URL (the shim must report absolute)', () => {
+        expect(relay.validate('files/local.pdf', CONTENT_SRC)).toBeNull();
+        expect(relay.validate('/admin/secret', CONTENT_SRC)).toBeNull();
     });
 });
 
-describe('exe_embed_relay validate() — PDFs', () => {
-    it('accepts any cross-origin https PDF', () => {
-        expect(relay.validate('https://example.com/docs/report.pdf', CONTENT_SRC, WL))
+describe('exe_embed_relay validate() — PDFs (always allowed by structure)', () => {
+    it('accepts any cross-origin https PDF (no sameorigin flag)', () => {
+        expect(relay.validate('https://example.com/docs/report.pdf', CONTENT_SRC))
             .toEqual({ url: 'https://example.com/docs/report.pdf', kind: 'pdf' });
     });
 
-    it('accepts a same-origin PDF under the content directory', () => {
+    it('accepts a same-origin PDF under the content directory (flagged sameorigin)', () => {
         const pdf = ORIGIN + '/pluginfile.php/5/mod_exelearning/content/3/files/local.pdf';
-        expect(relay.validate(pdf, CONTENT_SRC, WL)).toEqual({ url: pdf, kind: 'pdf' });
+        expect(relay.validate(pdf, CONTENT_SRC)).toEqual({ url: pdf, kind: 'pdf', sameorigin: true });
     });
 
     it('rejects a same-origin PDF outside the package (e.g. an admin route)', () => {
-        expect(relay.validate(ORIGIN + '/admin/secret.pdf', CONTENT_SRC, WL)).toBeNull();
+        expect(relay.validate(ORIGIN + '/admin/secret.pdf', CONTENT_SRC)).toBeNull();
     });
 
-    it('rejects non-pdf, non-whitelisted iframes', () => {
-        expect(relay.validate('https://example.com/', CONTENT_SRC, WL)).toBeNull();
+    it('rejects an http PDF', () => {
+        expect(relay.validate('http://example.com/x.pdf', CONTENT_SRC)).toBeNull();
+    });
+});
+
+describe('exe_embed_relay validate() — strict mode (opt-in allowlist)', () => {
+    it('rebuilds the canonical youtube-nocookie URL from a youtube.com embed', () => {
+        expect(relay.validate('https://www.youtube.com/embed/aqz-KE-bpKQ', CONTENT_SRC, STRICT))
+            .toEqual({ url: 'https://www.youtube-nocookie.com/embed/aqz-KE-bpKQ', kind: 'video' });
+    });
+
+    it('rebuilds the canonical Vimeo / Dailymotion / EducaMadrid URLs', () => {
+        expect(relay.validate('https://player.vimeo.com/video/76979871', CONTENT_SRC, STRICT).url)
+            .toBe('https://player.vimeo.com/video/76979871');
+        expect(relay.validate('https://www.dailymotion.com/embed/video/x8abc12', CONTENT_SRC, STRICT).url)
+            .toBe('https://www.dailymotion.com/embed/video/x8abc12');
+        expect(relay.validate('https://mediateca.educa.madrid.org/video/u555bvi3bk5wsabh', CONTENT_SRC, STRICT).url)
+            .toBe('https://mediateca.educa.madrid.org/video/u555bvi3bk5wsabh/fs');
+    });
+
+    it('rejects a non-whitelisted cross-origin https host (unlike open mode)', () => {
+        expect(relay.validate('https://some-new-provider.example/player/42', CONTENT_SRC, STRICT)).toBeNull();
+        expect(relay.validate('https://example.com/', CONTENT_SRC, STRICT)).toBeNull();
+    });
+
+    it('rejects look-alike hosts and malformed ids', () => {
+        expect(relay.validate('https://www.youtube.com.evil.com/embed/aqz-KE-bpKQ', CONTENT_SRC, STRICT)).toBeNull();
+        expect(relay.validate('https://www.youtube.com/embed/', CONTENT_SRC, STRICT)).toBeNull();
+        expect(relay.validate('https://player.vimeo.com/video/not-a-number', CONTENT_SRC, STRICT)).toBeNull();
+    });
+
+    it('still accepts cross-origin PDFs in strict mode', () => {
+        expect(relay.validate('https://example.com/x.pdf', CONTENT_SRC, STRICT))
+            .toEqual({ url: 'https://example.com/x.pdf', kind: 'pdf' });
+    });
+});
+
+describe('exe_embed_relay structural helpers', () => {
+    it('isIpOrLocalHost flags IP literals and loopback/local names', () => {
+        ['1.2.3.4', '255.0.0.1', '[::1]', '[2001:db8::1]', 'localhost', 'x.localhost', 'host.local', ''].forEach(
+            (h) => expect(relay.isIpOrLocalHost(h)).toBe(true)
+        );
+        ['youtube.com', 'player.vimeo.com', 'example.org'].forEach(
+            (h) => expect(relay.isIpOrLocalHost(h)).toBe(false)
+        );
+    });
+
+    it('isRelatedToLms flags the LMS host, its subdomains and superdomains (dotted boundary)', () => {
+        expect(relay.isRelatedToLms('lms.example.org', 'lms.example.org')).toBe(true);   // equal
+        expect(relay.isRelatedToLms('cdn.lms.example.org', 'lms.example.org')).toBe(true); // subdomain
+        expect(relay.isRelatedToLms('example.org', 'lms.example.org')).toBe(true);        // superdomain
+        expect(relay.isRelatedToLms('evil-lms.example.org', 'lms.example.org')).toBe(false); // look-alike
+        expect(relay.isRelatedToLms('youtube.com', 'lms.example.org')).toBe(false);
     });
 });
 
@@ -115,69 +151,67 @@ describe('exe_embed_shim promotion decisions', () => {
         expect(shim.isPdfUrl('https://x.test/a/b.html')).toBe(false);
     });
 
-    it('isPromotable: whitelisted videos and PDFs yes, other iframes no', () => {
-        expect(shim.isPromotable('https://www.youtube.com/embed/x12345', HOSTS)).toBe(true);
-        expect(shim.isPromotable('https://files.test/manual.pdf', HOSTS)).toBe(true);
-        expect(shim.isPromotable('https://example.com/', HOSTS)).toBe(false);
+    it('isPromotable: any cross-origin https or .pdf yes; same-origin / http no', () => {
+        expect(shim.isPromotable('https://www.youtube.com/embed/x12345')).toBe(true);
+        expect(shim.isPromotable('https://anything.example/player')).toBe(true);
+        expect(shim.isPromotable('https://files.test/manual.pdf')).toBe(true);
+        expect(shim.isPromotable('files/local.pdf')).toBe(true);              // relative .pdf
+        expect(shim.isPromotable(ORIGIN + '/course/view.php')).toBe(false);   // same-origin, not pdf
+        expect(shim.isPromotable('http://www.youtube.com/embed/x')).toBe(false); // not https
     });
 
-    it('promote() replaces whitelisted/PDF iframes with sized placeholders and leaves others', () => {
-        // Scan a DETACHED container: its iframes are never connected to a document, so
-        // happy-dom never navigates their src and the test needs no network.
+    it('promote() replaces cross-origin/PDF iframes and leaves same-origin ones', () => {
+        // Scan a DETACHED container so happy-dom never navigates the iframe srcs.
         const root = document.createElement('div');
         root.innerHTML =
-            '<iframe id="yt" src="https://www.youtube-nocookie.com/embed/aqz-KE-bpKQ" width="560" height="315"></iframe>' +
+            '<iframe id="yt" src="https://www.youtube.com/embed/aqz-KE-bpKQ" width="560" height="315"></iframe>' +
             '<iframe id="pdf" src="https://example.com/x.pdf" width="600" height="400"></iframe>' +
-            '<iframe id="ext" src="https://example.com/" width="320" height="120"></iframe>';
+            '<iframe id="same" src="' + ORIGIN + '/local/page.html" width="320" height="120"></iframe>';
 
-        const created = shim.promote(root, HOSTS, { n: 0 });
+        const created = shim.promote(root, { n: 0 });
 
         expect(created.length).toBe(2);
-        // The non-whitelisted iframe survives untouched; the promoted ones are gone.
-        expect(root.querySelector('#ext')).not.toBeNull();
+        expect(root.querySelector('#same')).not.toBeNull();   // same-origin survives
         expect(root.querySelector('#yt')).toBeNull();
         expect(root.querySelector('#pdf')).toBeNull();
 
-        // The first placeholder reserves the YouTube box and carries the url + id.
         const ph = created[0];
         expect(ph.getAttribute('data-exe-embed-id')).toBe('exe-embed-1');
-        expect(ph.getAttribute('data-exe-embed-url')).toContain('youtube-nocookie.com');
+        expect(ph.getAttribute('data-exe-embed-url')).toContain('youtube.com');
         expect(ph.style.width).toBe('560px');
         expect(ph.style.height).toBe('315px');
     });
 
     it('reports a RELATIVE src as an absolute URL (the parent relay cannot resolve relatives)', () => {
-        // Regression: a local package PDF is referenced relatively (e.g. mod_exelearning
-        // serves package assets without rewriting URLs). The shim runs inside the content,
-        // so it must resolve the src against the content location before reporting; the
-        // parent would otherwise resolve it against the host page and reject it.
         const root = document.createElement('div');
         root.innerHTML = '<iframe id="lpdf" src="files/local-sample.pdf" width="600" height="400"></iframe>';
 
-        const created = shim.promote(root, HOSTS, { n: 0 });
+        const created = shim.promote(root, { n: 0 });
 
         expect(created.length).toBe(1);
         const reported = created[0].getAttribute('data-exe-embed-url');
-        expect(reported).toMatch(/^https?:\/\//); // absolute, not the raw "files/..."
+        expect(reported).toMatch(/^https?:\/\//);
         expect(reported).toMatch(/files\/local-sample\.pdf$/);
     });
 });
 
-describe('exe_embed_relay makePlayer() attributes', () => {
-    it('builds a video player with autoplay/fullscreen grants + strict-origin referrer', () => {
-        const frame = relay.makePlayer({ url: 'https://www.youtube-nocookie.com/embed/abc123', kind: 'video' });
-        expect(frame.tagName).toBe('IFRAME');
+describe('exe_embed_relay makePlayer() — sandboxed players', () => {
+    it('video player is sandboxed with allow-same-origin but NOT top-navigation/modals', () => {
+        const frame = relay.makePlayer({ url: 'https://www.youtube.com/embed/abc123', kind: 'video' });
+        const sb = frame.getAttribute('sandbox');
+        expect(sb).toContain('allow-scripts');
+        expect(sb).toContain('allow-same-origin');   // cross-origin src keeps its own origin; renders.
+        expect(sb).not.toContain('allow-top-navigation');
+        expect(sb).not.toContain('allow-modals');
+        expect(frame.getAttribute('data-exe-embed-player')).toBe('1'); // excluded from message auth
         expect(frame.getAttribute('allow')).toContain('autoplay');
-        expect(frame.getAttribute('allow')).toContain('fullscreen');
-        expect(frame.hasAttribute('allowfullscreen')).toBe(true);
         expect(frame.getAttribute('referrerpolicy')).toBe('strict-origin-when-cross-origin');
-        expect(frame.src).toContain('youtube-nocookie.com');
     });
 
-    it('builds a PDF player with no-referrer and no autoplay grant', () => {
+    it('PDF player is NOT sandboxed (the browser PDF viewer fails inside a sandbox)', () => {
         const frame = relay.makePlayer({ url: 'https://files.test/manual.pdf', kind: 'pdf' });
+        expect(frame.hasAttribute('sandbox')).toBe(false);
         expect(frame.getAttribute('referrerpolicy')).toBe('no-referrer');
-        expect(frame.getAttribute('allow') || '').not.toContain('autoplay');
     });
 });
 
@@ -190,63 +224,70 @@ describe('exe_embed_relay createRelay() overlays players from messages', () => {
     });
 
     it('creates an inline overlay player for a valid embed and removes it when no longer reported', () => {
-        const r = relay.createRelay({ whitelist: HOSTS });
-        // The instance validate() binds the configured whitelist.
-        expect(r.validate('https://www.youtube.com/embed/abc123', 'http://x/content/1/index.html'))
-            .toMatchObject({ kind: 'video' });
+        const r = relay.createRelay({ mode: 'open' });
         r.onMessage({
             source: iframe.contentWindow,
             data: {
-                type: 'exe-embed',
-                action: 'sync',
+                type: 'exe-embed', action: 'sync',
                 embeds: [{ id: 'e1', url: 'https://www.youtube.com/embed/abc123', x: 0, y: 0, w: 480, h: 270 }],
             },
         });
         const players = document.querySelectorAll('.exe-embed-overlay iframe');
         expect(players.length).toBe(1);
-        expect(players[0].src).toMatch(/youtube-nocookie\.com\/embed\/abc123$/);
+        expect(players[0].src).toMatch(/www\.youtube\.com\/embed\/abc123$/);   // verbatim in open mode
 
-        // Stale removal: a later sync without the embed removes its player.
         r.onMessage({ source: iframe.contentWindow, data: { type: 'exe-embed', action: 'sync', embeds: [] } });
         expect(document.querySelectorAll('.exe-embed-overlay iframe').length).toBe(0);
     });
 
     it('replaces the player when a reused embed id navigates to a different URL (no lingering video)', () => {
-        const r = relay.createRelay({ whitelist: HOSTS });
-        // Page 1: YouTube reported at id exe-embed-1.
+        const r = relay.createRelay({ mode: 'open' });
         r.onMessage({
             source: iframe.contentWindow,
             data: {
-                type: 'exe-embed',
-                action: 'sync',
+                type: 'exe-embed', action: 'sync',
                 embeds: [{ id: 'exe-embed-1', url: 'https://www.youtube.com/embed/abc123', x: 0, y: 0, w: 480, h: 270 }],
             },
         });
-        expect(document.querySelector('.exe-embed-overlay iframe').src).toMatch(/youtube-nocookie\.com\/embed\/abc123$/);
+        expect(document.querySelector('.exe-embed-overlay iframe').src).toMatch(/www\.youtube\.com\/embed\/abc123$/);
 
-        // Page 2: the in-iframe shim restarts its counter, so the Vimeo embed REUSES
-        // id exe-embed-1. The relay must swap the player, not just reposition it.
         r.onMessage({
             source: iframe.contentWindow,
             data: {
-                type: 'exe-embed',
-                action: 'sync',
+                type: 'exe-embed', action: 'sync',
                 embeds: [{ id: 'exe-embed-1', url: 'https://player.vimeo.com/video/12345', x: 0, y: 0, w: 425, h: 350 }],
             },
         });
         const players = document.querySelectorAll('.exe-embed-overlay iframe');
         expect(players.length).toBe(1);
         expect(players[0].src).toMatch(/player\.vimeo\.com\/video\/12345$/);
-        expect(players[0].src).not.toMatch(/youtube/);   // The previous page's video must be gone.
+        expect(players[0].src).not.toMatch(/youtube/);
+    });
+
+    it('never treats a promoted player as a content source (forged-message defence)', () => {
+        const r = relay.createRelay({ mode: 'open' });
+        // A sandboxed player with allow-same-origin must not be able to impersonate the
+        // content iframe and inject embeds: tag an iframe like a player and verify a
+        // message from it is ignored.
+        const player = document.createElement('iframe');
+        player.setAttribute('data-exe-embed-player', '1');
+        document.body.appendChild(player);
+        r.onMessage({
+            source: player.contentWindow,
+            data: {
+                type: 'exe-embed', action: 'sync',
+                embeds: [{ id: 'x', url: 'https://evil.example/phish', x: 0, y: 0, w: 100, h: 100 }],
+            },
+        });
+        expect(document.querySelectorAll('.exe-embed-overlay iframe').length).toBe(0);
     });
 
     it('ignores a message whose source is not a known content iframe', () => {
-        const r = relay.createRelay({ whitelist: HOSTS });
+        const r = relay.createRelay({ mode: 'open' });
         r.onMessage({
             source: {},
             data: {
-                type: 'exe-embed',
-                action: 'sync',
+                type: 'exe-embed', action: 'sync',
                 embeds: [{ id: 'x', url: 'https://www.youtube.com/embed/abc123', x: 0, y: 0, w: 1, h: 1 }],
             },
         });
@@ -254,7 +295,7 @@ describe('exe_embed_relay createRelay() overlays players from messages', () => {
     });
 
     it('ignores non-embed messages', () => {
-        const r = relay.createRelay({ whitelist: HOSTS });
+        const r = relay.createRelay({ mode: 'open' });
         r.onMessage({ source: iframe.contentWindow, data: { type: 'scorm', action: 'track', cmi: {} } });
         expect(document.querySelectorAll('.exe-embed-overlay iframe').length).toBe(0);
     });
@@ -264,13 +305,13 @@ describe('exe_embed_shim collect() geometry report', () => {
     it('reports id + (absolute) url + numeric geometry for each placeholder', () => {
         const root = document.createElement('div');
         root.innerHTML =
-            '<iframe src="https://www.youtube-nocookie.com/embed/aqz-KE-bpKQ" width="560" height="315"></iframe>';
-        shim.promote(root, HOSTS, { n: 0 });
+            '<iframe src="https://www.youtube.com/embed/aqz-KE-bpKQ" width="560" height="315"></iframe>';
+        shim.promote(root, { n: 0 });
 
         const embeds = shim.collect(root);
         expect(embeds.length).toBe(1);
         expect(embeds[0].id).toMatch(/^exe-embed-/);
-        expect(embeds[0].url).toContain('youtube-nocookie.com');
+        expect(embeds[0].url).toContain('youtube.com');
         ['x', 'y', 'w', 'h'].forEach((k) => expect(typeof embeds[0][k]).toBe('number'));
     });
 });

@@ -73,6 +73,26 @@ if ($ADMIN->fulltree) {
         ]
     ));
 
+    // External-embed policy (DEC-0061). In secure mode external videos/PDFs are
+    // promoted to the parent and rendered as a sandboxed, cross-origin player, which
+    // SOP isolates from Moodle regardless of the host. 'open' (default) promotes any
+    // cross-origin https iframe (supports any provider, no maintenance); 'strict'
+    // restricts to the maintained host allowlist for deployments where even the
+    // content author is not trusted not to embed phishing/tracking. The relay
+    // enforces the structural invariant (https + cross-origin) in both modes.
+    $settings->add(new admin_setting_configselect(
+        'mod_exelearning/embedmode',
+        get_string('embedmode', 'mod_exelearning'),
+        get_string('embedmode_desc', 'mod_exelearning'),
+        \mod_exelearning\local\ui\player_iframe::EMBED_OPEN,
+        [
+            \mod_exelearning\local\ui\player_iframe::EMBED_OPEN =>
+                get_string('embedmode_open', 'mod_exelearning'),
+            \mod_exelearning\local\ui\player_iframe::EMBED_STRICT =>
+                get_string('embedmode_strict', 'mod_exelearning'),
+        ]
+    ));
+
     // Embedded editor management (install / update / repair / uninstall).
     $settings->add(new admin_setting_heading(
         'mod_exelearning/embeddededitorheading',

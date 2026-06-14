@@ -33,31 +33,29 @@ function resolveMirrors() {
 // Logic invariants every RELAY copy must contain (normalised: whitespace + quote style
 // are ignored, so tabs-vs-spaces and the IIFE wrapper do not count as drift).
 const RELAY_INVARIANTS = [
-    'youtube-nocookie.com/embed/',
-    'player.vimeo.com/video/',
-    'www.dailymotion.com/embed/video/',
-    'mediateca.educa.madrid.org/video/',
+    'isCrossOriginHttps',                  // open-mode structural invariant (DEC-0061)
+    'url.origin === window.location.origin', // cross-origin gate (rejects same-origin)
+    'allow-scripts allow-same-origin allow-popups allow-forms allow-presentation', // video sandbox
+    'data-exe-embed-player',              // forged-message defence (D2)
     'data-exe-embed-src',                 // the page-navigation (id-reuse) fix
-    'Math.min(embed.w,rect.width)',       // overlay clamp (clickjacking defence)
-    'Math.min(embed.h,rect.height)',
-    'String(raw).indexOf("@")',           // reject userinfo (evil.com@youtube.com)
-    'event.source',                       // window-identity auth (opaque origin)
+    'Math.min(embed.w, rect.width)',      // overlay clamp (clickjacking defence)
+    'youtube-nocookie.com/embed/',        // strict-mode per-provider reconstruction
 ];
 
 // Logic invariants every SHIM copy must contain.
 const SHIM_INVARIANTS = [
+    'isCrossOriginHttps',                 // promote any cross-origin https iframe
     'data-exe-embed-id',
     'data-exe-embed-url',
-    '__exeEmbedWhitelist',
     '.pdf$',                              // the PDF detector (promote PDFs too)
 ];
 
-// Host + token invariants every sandbox PHP must contain.
+// Host + token + setting invariants every sandbox PHP must contain.
 const PHP_INVARIANTS = [
     'www.dailymotion.com',
-    'geo.dailymotion.com',
     'mediateca.educa.madrid.org',
-    'allow-scriptsallow-popupsallow-forms',   // secure tokens (normalised, order matters)
+    'allow-scripts allow-popups allow-forms', // secure tokens (normalised, order matters)
+    'embedmode',                          // the open/strict embed policy setting (DEC-0061)
 ];
 
 const FILES = {

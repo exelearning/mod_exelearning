@@ -19,15 +19,17 @@
  * Baked into the package (libs/exe_embed_shim.js) and loaded from the <head> of every
  * page, alongside the SCORM bridge. In secure mode the package runs in an opaque-origin
  * sandbox, so the sandbox flag propagates to nested iframes and cross-origin players
- * (YouTube, Vimeo) plus PDFs render blank. This shim replaces each whitelisted-video or
- * .pdf iframe with a same-size placeholder and reports its geometry to the parent, which
- * overlays the real player inline (see js/exe_embed_relay.js). It self-activates ONLY in
- * the opaque origin (so the same baked file stays dormant in legacy same-origin mode,
- * where external players already render inline and the relay is not loaded).
+ * (YouTube, Vimeo) plus PDFs render blank. This shim replaces each cross-origin (https)
+ * or .pdf iframe with a same-size placeholder and reports its geometry to the parent,
+ * which validates it and overlays the real player inline (see js/exe_embed_relay.js). It
+ * self-activates ONLY in the opaque origin (so the same baked file stays dormant in
+ * legacy same-origin mode, where external players already render inline and the relay is
+ * not loaded).
  *
- * The whitelist is provided by the host as window.__exeEmbedWhitelist. postMessage
- * targetOrigin is '*' because the opaque origin has no stable value; the parent
- * authenticates messages by event.source instead.
+ * There is no host list here: the shim promotes any cross-origin https (or .pdf) iframe
+ * as a candidate and the parent relay is the authoritative gate (open vs strict mode,
+ * DEC-0061). postMessage targetOrigin is '*' because the opaque origin has no stable
+ * value; the parent authenticates messages by event.source instead.
  *
  * Exposed two ways from a single body: window.exeEmbedShim (browser bootstrap) and
  * module.exports (Vitest). See research ADR DEC-0059.
@@ -56,20 +58,6 @@
     }
 
     /**
-     * Hostname of a URL resolved against the document, lowercased ('' on parse error).
-     *
-     * @param {string} url
-     * @returns {string}
-     */
-    function hostOf(url) {
-        try {
-            return new URL(url, window.location.href).hostname.toLowerCase();
-        } catch (e) {
-            return '';
-        }
-    }
-
-    /**
      * Whether a URL path ends in .pdf (PDFs also fail under the opaque sandbox).
      *
      * @param {string} url
@@ -84,20 +72,34 @@
     }
 
     /**
-     * Whether an iframe src should be promoted to the parent.
+     * Whether a src resolves to an https URL on a host other than this document's own
+     * (served) host -- i.e. a cross-origin external embed. The opaque document is still
+     * served from the platform, so window.location.hostname is the platform host and the
+     * comparison is reliable. The parent relay re-validates authoritatively (DEC-0061);
+     * this is only a candidate filter so same-origin content iframes are left untouched.
      *
      * @param {string} src
-     * @param {string[]} whitelist
      * @returns {boolean}
      */
-    function isPromotable(src, whitelist) {
-        var host = hostOf(src);
-        for (var i = 0; i < (whitelist || []).length; i++) {
-            if (whitelist[i] === host) {
-                return true;
-            }
+    function isCrossOriginHttps(src) {
+        try {
+            var u = new URL(src, window.location.href);
+            return u.protocol === 'https:' && u.hostname.toLowerCase() !== window.location.hostname.toLowerCase();
+        } catch (e) {
+            return false;
         }
-        return isPdfUrl(src);
+    }
+
+    /**
+     * Whether an iframe src should be promoted to the parent: any cross-origin https
+     * embed or a .pdf (both render blank under the opaque sandbox). No host list -- the
+     * parent relay decides what actually renders (open vs strict mode).
+     *
+     * @param {string} src
+     * @returns {boolean}
+     */
+    function isPromotable(src) {
+        return isCrossOriginHttps(src) || isPdfUrl(src);
     }
 
     /**
@@ -119,11 +121,10 @@
      * carry the embed id + url. Returns the created placeholder elements.
      *
      * @param {Document|Element} root A document or a container element to scan.
-     * @param {string[]} whitelist
      * @param {Object} counter {n:int} mutable id counter (kept across calls).
      * @returns {Element[]}
      */
-    function promote(root, whitelist, counter) {
+    function promote(root, counter) {
         var created = [];
         var maker = root.ownerDocument || root;
         var frames = root.querySelectorAll('iframe[src]');
@@ -133,7 +134,7 @@
                 continue;
             }
             var src = frame.getAttribute('src');
-            if (!isPromotable(src, whitelist)) {
+            if (!isPromotable(src)) {
                 continue;
             }
             var rect = frame.getBoundingClientRect ? frame.getBoundingClientRect() : { width: 0, height: 0 };
@@ -196,7 +197,6 @@
         if (window.parent === window || !isOpaqueOrigin()) {
             return;
         }
-        var whitelist = Array.isArray(window.__exeEmbedWhitelist) ? window.__exeEmbedWhitelist : [];
         var counter = { n: 0 };
         var scheduled = false;
 
@@ -214,14 +214,14 @@
             });
         }
         function run() {
-            promote(document, whitelist, counter);
+            promote(document, counter);
             report();
         }
 
         run();
         if (window.MutationObserver) {
             new MutationObserver(function () {
-                promote(document, whitelist, counter);
+                promote(document, counter);
                 schedule();
             }).observe(document.documentElement, { childList: true, subtree: true });
         }
@@ -243,6 +243,7 @@
     var exp = {
         isOpaqueOrigin: isOpaqueOrigin,
         isPdfUrl: isPdfUrl,
+        isCrossOriginHttps: isCrossOriginHttps,
         isPromotable: isPromotable,
         promote: promote,
         collect: collect,

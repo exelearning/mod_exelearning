@@ -55,9 +55,9 @@ describe('embed feature does not break the SCORM bridge', () => {
         // The SCORM relay never treats an embed message as a score.
         expect(scormRelay.isTrackMessage({ type: 'exe-embed', action: 'sync', embeds: [] })).toBe(false);
         // The embed relay still validates a real embed URL (its own channel works).
-        const wl = embedRelay.buildWhitelist(['www.youtube.com']);
-        const ok = embedRelay.validate('https://www.youtube.com/embed/abc123', 'http://x/content/1/index.html', wl);
-        expect(ok).toEqual({ url: 'https://www.youtube-nocookie.com/embed/abc123', kind: 'video' });
+        // Open mode (default): any cross-origin https iframe is accepted verbatim.
+        const ok = embedRelay.validate('https://www.youtube.com/embed/abc123', 'http://x/content/1/index.html');
+        expect(ok).toEqual({ url: 'https://www.youtube.com/embed/abc123', kind: 'video' });
     });
 
     it('the embed relay does not act on a SCORM track message (no overlay created)', () => {

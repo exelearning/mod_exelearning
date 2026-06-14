@@ -209,6 +209,59 @@ frágil** (el vídeo aterriza mal y el solapamiento vídeo/pregunta no cuadra). 
   simple → lo promociona el shim existente, sin interactividad) o **conducir él mismo** un relay
   del padre. Más simple y robusto que parchear en los 3 embedders.
 
+## Actualización (2026-06-14b): invariante estructural — embeds sin lista blanca (open por defecto)
+
+### Reversión razonada del "sin whitelist no es seguro"
+La actualización anterior concluyó "sin lista blanca no es seguro" por analogía con Moodle media / WP
+oEmbed. **Esa conclusión era incorrecta para ESTE modelo de amenaza y se corrige.** Moodle/WP embeben
+en páginas de CONFIANZA same-origin; aquí el contenido es NO confiable + opaco, y el player promovido es
+**cross-origin y sandboxeado**, así que la SOP lo aísla del LMS **independientemente del host**. El host
+es irrelevante para el ESCAPE; la lista blanca solo mitigaba **phishing/tracking** (marginal: el
+contenido sandboxed ya puede mostrar HTML falso, hacer POST de formulario cross-origin y cargar img de
+tracking). Lo propone el artículo de seguridad (§6.3) y lo confirma una revisión adversaria (agente
+Plan, read-only): **"SÍ, con condiciones"**.
+
+### Decisión: invariante estructural + modo `open` por defecto
+- Ajuste `mod_exelearning/embedmode`: **`open` (def.)** promueve cualquier iframe `src` **https +
+  cross-origin al LMS**; **`strict`** mantiene la lista blanca + reconstrucción por proveedor (para
+  despliegues donde ni el autor es de fiar). Fail-safe a `strict` ante valor inválido; default real
+  `open`. Esto **obvia** la idea de "whitelist configurable por admin".
+- `validate()` (relay) exige: parsear URL **absoluta** (NO resolver relativas contra el LMS — heredarían
+  su origen); `https:`; sin userinfo (`url.username/password`); cross-origin (`url.origin !==
+  window.location.origin`); no subdominio/superdominio del host del LMS (límite por punto en ambos
+  sentidos); no IP/IPv6/loopback/`localhost`/`.local`; host no vacío. PDF: cualquier https cross-origin
+  o fichero same-origin del paquete.
+- El shim promueve cualquier https cross-origin (+ `.pdf`) como candidato; el **relay** es la puerta
+  autoritativa (ya no hay lista de hosts en el shim).
+
+### Condiciones de seguridad (todas implementadas + verificadas)
+- **Player de vídeo SANDBOXEADO**: `sandbox="allow-scripts allow-same-origin allow-popups allow-forms
+  allow-presentation"` (SIN `allow-top-navigation` ni `allow-modals`). `allow-same-origin` va en el
+  iframe **cross-origin** (el proveedor conserva SU origen, no el del LMS) → renderiza y la SOP lo
+  aísla; es lo que permite sandboxearlo y **bloquear el top-navigation** (un sitio arbitrario no puede
+  redirigir la pestaña). **NO** es el `allow-same-origin` prohibido del iframe de CONTENIDO (cuyo src ES
+  el origen del LMS). Verificado en vivo: YouTube, Vimeo y EducaMadrid/JWPlayer renderizan bajo él.
+- **D1 (redirect-laundering)**: guard `load` que elimina el player si aterriza **same-origin** al LMS
+  (un `src` cross-origin que haga 30x al origen del LMS sería, con `allow-same-origin`, scriptable).
+- **D2 (impersonación)**: los players se marcan `data-exe-embed-player` y `frameForSource`/`pingAll` los
+  excluyen → un player sandboxeado no puede forjar un mensaje `sync` y hacerse pasar por contenido.
+- **PDF SIN sandbox**: el visor PDF del navegador **no funciona dentro de un iframe sandbox** (icono de
+  error; verificado), así que se deja **sin sandbox** (y por tanto sin `allow-same-origin`) como antes
+  de DEC-0061 (los PDF ya eran "cualquier https .pdf"). El guard D1 sigue aplicando a PDFs cross-origin.
+  Residual documentado: un servidor que sirva HTML en una ruta `.pdf` podría ejecutar scripts ahí
+  (pre-existente, bajo). **pdf.js** (que eXe empaqueta) NO es viable en el contenido opaco (su `fetch`
+  desde origen `null` está bloqueado por CORS, incl. `tokenpluginfile`); queda como mejora futura para
+  PDFs locales servida desde el padre.
+- **Sin backstop CSP en el padre**: una directiva `frame-src` en la página completa de Moodle podría
+  romper iframes propios de Moodle, así que no se añade; el guard D1 + el sandbox son los controles.
+
+### Verificación
+- Vitest `tests/js/exe_embed.test.js` reescrito (open + strict + helpers IP/subdominio + sandbox del
+  player + D2 forged-message). Suite JS **92/92**. `tools/check-embed-sync.mjs` con invariantes
+  estructurales, **0 drift**.
+- En vivo (mod localhost:80, modo `open`): YouTube/Vimeo/EducaMadrid/PDF renderizan, el player lleva el
+  sandbox correcto (`data-exe-embed-player`), y navegar entre páginas cambia el player (fix de nav).
+
 ## Seguimiento
 
 - UI de admin para editar la lista blanca (hoy constante; configurable por filtro/ajuste como

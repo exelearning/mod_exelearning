@@ -48,6 +48,12 @@ final class player_iframe {
     /** @var string Legacy mode: historical same-origin iframe. */
     public const MODE_LEGACY = 'legacy';
 
+    /** @var string Open embeds: promote any cross-origin https iframe (DEC-0061). */
+    public const EMBED_OPEN = 'open';
+
+    /** @var string Strict embeds: only the maintained host allowlist. */
+    public const EMBED_STRICT = 'strict';
+
     /**
      * Default host whitelist for external video embeds promoted to the parent page.
      *
@@ -116,7 +122,25 @@ final class player_iframe {
     }
 
     /**
+     * Resolve the external-embed policy (DEC-0061). Default 'open' promotes any
+     * cross-origin https iframe (the player is sandboxed + cross-origin, so SOP isolates
+     * it from Moodle); 'strict' restricts to the maintained host allowlist. An
+     * unrecognised (tampered) value fails to 'strict' (toward the more restrictive),
+     * while an unset value keeps the intended 'open' default.
+     *
+     * @return string self::EMBED_OPEN or self::EMBED_STRICT.
+     */
+    public static function embed_mode(): string {
+        $value = get_config('mod_exelearning', 'embedmode');
+        if ($value === false || $value === null || $value === '') {
+            return self::EMBED_OPEN;
+        }
+        return $value === self::EMBED_OPEN ? self::EMBED_OPEN : self::EMBED_STRICT;
+    }
+
+    /**
      * Normalized host whitelist for external video embeds (lowercase, de-duplicated).
+     * Only consulted by the relay in 'strict' mode.
      *
      * @return string[]
      */

@@ -18,17 +18,26 @@
  *
  * Companion to js/exe_embed_shim.js (baked into the package, runs INSIDE the iframe).
  * In secure mode the package is opaque, so cross-origin players (YouTube, Vimeo) and
- * PDFs render blank. The shim replaces each whitelisted/PDF iframe with a placeholder
- * and postMessages its geometry here; this relay (the trusted half) validates each
- * URL, rebuilds the canonical player URL, and overlays the real player inline over the
- * placeholder. The player is cross-origin (or a package PDF served as application/pdf)
- * and cannot script this page; the whitelist + strict validation stop the untrusted
- * content from making the host load an arbitrary URL. Messages are authenticated by
- * window identity (event.source === iframe.contentWindow); the opaque origin has no
- * useful event.origin.
+ * PDFs render blank. The shim replaces each candidate iframe with a placeholder and
+ * postMessages its geometry here; this relay (the trusted half) validates each URL and
+ * overlays the real player inline over the placeholder.
+ *
+ * Trust model (DEC-0061): the promoted player is rendered cross-origin and SANDBOXED, so
+ * the same-origin policy isolates it from this LMS page (it cannot read the DOM, cookies,
+ * session or file token). Two modes:
+ *  - 'open' (default): promote any iframe whose src is https AND cross-origin to the LMS
+ *    (rejecting same-origin, sub/superdomains of the LMS, IP/loopback/local hosts and
+ *    userinfo). No host list. The host is irrelevant to escape; the residual is
+ *    phishing/tracking, bounded to the content's own box (the overlay is clamped).
+ *  - 'strict': only a maintained host allowlist with per-provider canonical-URL
+ *    reconstruction (the pre-DEC-0061 behaviour), for high-security deployments.
+ * "Any https .pdf" is always allowed (same-origin only for this package's own files).
+ *
+ * Messages are authenticated by window identity (event.source === a known CONTENT
+ * iframe, never a promoted player); the opaque origin has no useful event.origin.
  *
  * Exposed two ways from a single body: window.exeEmbedRelay (browser bootstrap) and
- * module.exports (Vitest). See research ADR DEC-0059.
+ * module.exports (Vitest). See research ADR DEC-0061.
  *
  * CANONICAL SOURCE for the eXeLearning embedder family. wp-exelearning
  * (assets/js/exe-embed-relay.js) and omeka-s-exelearning (asset/js/exe-embed-relay.js)
@@ -39,7 +48,7 @@
     'use strict';
 
     /**
-     * Build a host lookup map from a whitelist array (lowercased).
+     * Build a host lookup map from a whitelist array (lowercased). Used by 'strict' mode.
      *
      * @param {string[]} list
      * @returns {Object}
@@ -96,60 +105,123 @@
     }
 
     /**
-     * Validate an embed URL. Returns {url, kind} ('video'|'pdf') or null.
+     * Whether a host is an IP literal (v4/v6) or a loopback/local name. Such hosts are
+     * cross-origin to the LMS yet target the machine/internal network, so they are
+     * rejected even though SOP would isolate them.
      *
-     * @param {string} raw         The reported embed URL.
-     * @param {string} contentSrc  The src of the content iframe that reported it.
-     * @param {Object} whitelist   Host lookup map from buildWhitelist().
-     * @returns {?Object}
+     * @param {string} host  Lowercased URL.hostname.
+     * @returns {boolean}
      */
-    function validate(raw, contentSrc, whitelist) {
-        var url;
-        try {
-            url = new URL(raw, window.location.href);
-        } catch (e) {
-            return null;
-        }
-        if (String(raw).indexOf('@') !== -1) {
-            return null; // Reject userinfo, e.g. evil.com@youtube.com.
-        }
-        var host = url.hostname.toLowerCase();
-
-        if (whitelist[host] && url.protocol === 'https:') {
-            var match;
-            if (host.indexOf('youtube') !== -1) {
-                match = url.pathname.match(/^\/embed\/([A-Za-z0-9_-]{6,})$/);
-                return match ? { url: 'https://www.youtube-nocookie.com/embed/' + match[1], kind: 'video' } : null;
-            }
-            if (host.indexOf('vimeo') !== -1) {
-                match = url.pathname.match(/^\/video\/([0-9]+)$/);
-                return match ? { url: 'https://player.vimeo.com/video/' + match[1], kind: 'video' } : null;
-            }
-            if (host.indexOf('dailymotion') !== -1) {
-                match = url.pathname.match(/^\/embed\/video\/([A-Za-z0-9]{5,})$/);
-                return match ? { url: 'https://www.dailymotion.com/embed/video/' + match[1], kind: 'video' } : null;
-            }
-            if (host === 'mediateca.educa.madrid.org') {
-                // EducaMadrid / Mediateca de Madrid embed: /video/{id}/fs (the watch URL is /video/{id}).
-                match = url.pathname.match(/^\/video\/([A-Za-z0-9]{8,})(?:\/fs)?$/);
-                return match ? { url: 'https://mediateca.educa.madrid.org/video/' + match[1] + '/fs', kind: 'video' } : null;
-            }
-        }
-
-        if (/\.pdf$/i.test(url.pathname)) {
-            if (url.origin === window.location.origin) {
-                // Same-origin: only this package's own files (served as application/pdf,
-                // never executable HTML), so author-supplied absolute URLs are rejected.
-                return isSameOriginPackageFile(url, contentSrc) ? { url: url.href, kind: 'pdf' } : null;
-            }
-            return url.protocol === 'https:' ? { url: url.href, kind: 'pdf' } : null;
-        }
-
-        return null;
+    function isIpOrLocalHost(host) {
+        if (!host) { return true; }
+        if (host === 'localhost' || /\.localhost$/.test(host) || /\.local$/.test(host)) { return true; }
+        if (host.charAt(0) === '[' || host.indexOf(':') !== -1) { return true; }  // IPv6 (bracketed).
+        if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) { return true; }                 // Any IPv4 literal.
+        return false;
     }
 
     /**
-     * Create a player iframe for a validated embed.
+     * Whether a host equals, is a subdomain of, or is a superdomain of the LMS host
+     * (dotted boundary so 'evil-lms.example' does not match 'lms.example'). Such hosts
+     * may share the LMS cookies, so they are rejected.
+     *
+     * @param {string} host
+     * @param {string} lmsHost
+     * @returns {boolean}
+     */
+    function isRelatedToLms(host, lmsHost) {
+        if (!lmsHost) { return false; }
+        return host === lmsHost || host.endsWith('.' + lmsHost) || lmsHost.endsWith('.' + host);
+    }
+
+    /**
+     * The structural invariant: an https URL cross-origin to the LMS and not pointing at
+     * a sub/superdomain, an IP/loopback/local host, or carrying userinfo. This is the
+     * only attacker-influenced gate in 'open' mode, and it is what makes the sandboxed
+     * player's allow-same-origin safe (the embed keeps ITS OWN origin, isolated by SOP).
+     *
+     * @param {URL} url
+     * @returns {boolean}
+     */
+    function isCrossOriginHttps(url) {
+        if (url.protocol !== 'https:') { return false; }
+        if (url.username || url.password) { return false; }
+        if (url.origin === window.location.origin) { return false; }
+        var host = url.hostname.toLowerCase();
+        if (isIpOrLocalHost(host)) { return false; }
+        var lmshost = (window.location && window.location.hostname) ? window.location.hostname.toLowerCase() : '';
+        if (isRelatedToLms(host, lmshost)) { return false; }
+        return true;
+    }
+
+    /**
+     * Validate an embed URL. Returns {url, kind ('video'|'pdf'), sameorigin?} or null.
+     *
+     * @param {string} raw         The reported (absolute) embed URL.
+     * @param {string} contentSrc  The src of the content iframe that reported it.
+     * @param {Object} opts        {strict: boolean, whitelist: Object}.
+     * @returns {?Object}
+     */
+    function validate(raw, contentSrc, opts) {
+        opts = opts || {};
+        var url;
+        try {
+            // Parse as an ABSOLUTE URL (the shim always reports absolute). No base:
+            // a relative/scheme-relative value would otherwise inherit the LMS origin
+            // and pass as same-origin -- here it throws and is rejected instead.
+            url = new URL(raw);
+        } catch (e) {
+            return null;
+        }
+        if (url.username || url.password) {
+            return null; // Reject userinfo, e.g. https://evil.com@youtube.com/.
+        }
+        var host = url.hostname.toLowerCase();
+
+        // PDFs: any cross-origin https .pdf, or a same-origin file that belongs to this
+        // package (served as application/pdf + nosniff, never executable HTML).
+        if (/\.pdf$/i.test(url.pathname)) {
+            if (url.origin === window.location.origin) {
+                return isSameOriginPackageFile(url, contentSrc) ? { url: url.href, kind: 'pdf', sameorigin: true } : null;
+            }
+            return isCrossOriginHttps(url) ? { url: url.href, kind: 'pdf' } : null;
+        }
+
+        // Strict mode: maintained host allowlist + per-provider canonical reconstruction.
+        if (opts.strict) {
+            var whitelist = opts.whitelist || {};
+            if (whitelist[host] && url.protocol === 'https:') {
+                var m;
+                if (host.indexOf('youtube') !== -1) {
+                    m = url.pathname.match(/^\/embed\/([A-Za-z0-9_-]{6,})$/);
+                    return m ? { url: 'https://www.youtube-nocookie.com/embed/' + m[1], kind: 'video' } : null;
+                }
+                if (host.indexOf('vimeo') !== -1) {
+                    m = url.pathname.match(/^\/video\/([0-9]+)$/);
+                    return m ? { url: 'https://player.vimeo.com/video/' + m[1], kind: 'video' } : null;
+                }
+                if (host.indexOf('dailymotion') !== -1) {
+                    m = url.pathname.match(/^\/embed\/video\/([A-Za-z0-9]{5,})$/);
+                    return m ? { url: 'https://www.dailymotion.com/embed/video/' + m[1], kind: 'video' } : null;
+                }
+                if (host === 'mediateca.educa.madrid.org') {
+                    m = url.pathname.match(/^\/video\/([A-Za-z0-9]{8,})(?:\/fs)?$/);
+                    return m ? { url: 'https://mediateca.educa.madrid.org/video/' + m[1] + '/fs', kind: 'video' } : null;
+                }
+            }
+            return null;
+        }
+
+        // Open mode (default): any cross-origin https iframe is a video embed.
+        return isCrossOriginHttps(url) ? { url: url.href, kind: 'video' } : null;
+    }
+
+    /**
+     * Create a SANDBOXED player iframe for a validated embed. The video player gets
+     * allow-same-origin so the cross-origin provider keeps its own origin and renders,
+     * while NO allow-top-navigation/allow-modals stops a hostile embed from redirecting
+     * the LMS tab or spamming dialogs. The PDF player omits allow-scripts (so any PDF JS
+     * cannot run) but keeps allow-same-origin so the browser viewer renders.
      *
      * @param {Object} result {url, kind} from validate().
      * @returns {HTMLIFrameElement}
@@ -157,30 +229,41 @@
     function makePlayer(result) {
         var frame = document.createElement('iframe');
         frame.style.cssText = 'position:absolute;border:0;pointer-events:auto;';
+        // Mark as a player so it is never mistaken for a content source (message auth).
+        frame.setAttribute('data-exe-embed-player', '1');
         if (result.kind === 'video') {
+            frame.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-forms allow-presentation');
             frame.setAttribute('allow', 'autoplay; encrypted-media; fullscreen; picture-in-picture; clipboard-write');
             frame.setAttribute('allowfullscreen', '');
             frame.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
         } else {
+            // The browser's built-in PDF viewer does NOT run inside a sandboxed iframe
+            // (it renders the broken-document icon), so the PDF player is left unsandboxed
+            // -- unchanged from before DEC-0061, where PDFs were already "any https .pdf".
+            // A cross-origin PDF is isolated by SOP; the same-origin path is restricted to
+            // this package's own files; the load guard below still removes a PDF that
+            // redirects to the LMS origin. Residual (documented): a server that serves
+            // HTML at a .pdf path could run scripts here -- pre-existing and low.
             frame.setAttribute('allow', 'fullscreen');
             frame.setAttribute('referrerpolicy', 'no-referrer');
         }
         frame.src = result.url;
-        // Tag the player with the URL it renders so sync() can detect when a reused
-        // embed id (the in-iframe shim restarts its counter per page) now points at a
-        // different URL and must be replaced rather than just repositioned.
+        // Tag with the URL it renders so sync() can detect when a reused embed id (the
+        // shim restarts its counter per page) now points at a different URL.
         frame.setAttribute('data-exe-embed-src', result.url);
         return frame;
     }
 
     /**
-     * Create a relay instance bound to a whitelist.
+     * Create a relay instance.
      *
-     * @param {Object} config {whitelist: string[]}
+     * @param {Object} config {mode: 'open'|'strict', whitelist: string[]}
      * @returns {Object}
      */
     function createRelay(config) {
-        var whitelist = buildWhitelist((config || {}).whitelist);
+        config = config || {};
+        var strict = config.mode === 'strict';
+        var whitelist = buildWhitelist(config.whitelist);
         var overlays = [];
 
         function findOverlay(iframe) {
@@ -192,9 +275,15 @@
             return null;
         }
 
+        // Resolve the CONTENT iframe a message came from. Promoted players are excluded
+        // (data-exe-embed-player): a sandboxed player with allow-same-origin could
+        // otherwise postMessage a forged 'sync' and impersonate a content source.
         function frameForSource(source) {
             var frames = document.getElementsByTagName('iframe');
             for (var i = 0; i < frames.length; i++) {
+                if (frames[i].getAttribute('data-exe-embed-player')) {
+                    continue;
+                }
                 if (frames[i].contentWindow === source) {
                     return frames[i];
                 }
@@ -226,6 +315,22 @@
             entry.el.style.height = rect.height + 'px';
         }
 
+        // D1: if a promoted embed lands SAME-ORIGIN to the LMS (e.g. a cross-origin URL
+        // that 30x-redirects to this origin), with allow-same-origin it would become
+        // scriptable against this page -> remove it. A genuine cross-origin player throws
+        // on contentWindow.document (expected, kept). Not armed for same-origin package
+        // PDFs (intentionally same-origin, served as application/pdf).
+        function armSameOriginGuard(entry, id, player) {
+            player.addEventListener('load', function () {
+                try {
+                    if (player.contentWindow && player.contentWindow.document) {
+                        if (player.parentNode) { player.parentNode.removeChild(player); }
+                        if (entry.players[id] === player) { delete entry.players[id]; }
+                    }
+                } catch (e) { /* cross-origin: expected, keep the player */ }
+            });
+        }
+
         function sync(entry, embeds, contentSrc) {
             positionOverlay(entry);
             var seen = {};
@@ -236,7 +341,7 @@
                 if (!isFinite(embed.x) || !isFinite(embed.y) || !isFinite(embed.w) || !isFinite(embed.h)) {
                     return;
                 }
-                var result = validate(embed.url, contentSrc, whitelist);
+                var result = validate(embed.url, contentSrc, { strict: strict, whitelist: whitelist });
                 if (!result) {
                     return;
                 }
@@ -254,6 +359,9 @@
                     player = makePlayer(result);
                     entry.el.appendChild(player);
                     entry.players[embed.id] = player;
+                    if (!result.sameorigin) {
+                        armSameOriginGuard(entry, embed.id, player);
+                    }
                 }
                 // Defence in depth against clickjacking: the overlay is clamped to the
                 // content iframe's box and clips with overflow:hidden, so a player can
@@ -292,6 +400,9 @@
         function pingAll() {
             var frames = document.getElementsByTagName('iframe');
             for (var i = 0; i < frames.length; i++) {
+                if (frames[i].getAttribute('data-exe-embed-player')) {
+                    continue;
+                }
                 try {
                     frames[i].contentWindow.postMessage({ type: 'exe-embed', action: 'request' }, '*');
                 } catch (e) {
@@ -319,7 +430,7 @@
             onMessage: onMessage,
             sync: sync,
             validate: function (raw, contentSrc) {
-                return validate(raw, contentSrc, whitelist);
+                return validate(raw, contentSrc, { strict: strict, whitelist: whitelist });
             },
             /* v8 ignore start */
             init: function () {
@@ -338,7 +449,7 @@
     /**
      * Bootstrap: create a relay from config and start listening.
      *
-     * @param {Object} config {whitelist: string[]}
+     * @param {Object} config {mode: 'open'|'strict', whitelist: string[]}
      * @returns {Object}
      */
     /* v8 ignore next 3 */
@@ -351,6 +462,9 @@
         contentDir: contentDir,
         packageId: packageId,
         isSameOriginPackageFile: isSameOriginPackageFile,
+        isIpOrLocalHost: isIpOrLocalHost,
+        isRelatedToLms: isRelatedToLms,
+        isCrossOriginHttps: isCrossOriginHttps,
         validate: validate,
         makePlayer: makePlayer,
         createRelay: createRelay,
