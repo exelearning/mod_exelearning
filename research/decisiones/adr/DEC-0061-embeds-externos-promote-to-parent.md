@@ -184,6 +184,31 @@ canónica** (`js/exe_embed_{shim,relay}.js`); wp/omeka llevan cabecera "MIRROR".
 normaliza y compara la lógica + whitelist + tokens de las 3 copias y sale ≠0 si divergen (herramienta
 de mantenimiento local, no gate CI cross-repo: no hay infra compartida).
 
+### Limitación conocida: iDevice de vídeo interactivo con fuente remota
+El iDevice **vídeo interactivo** con fuentes remotas (YouTube/EducaMadrid) usa la **YouTube
+IFrame Player API** (`new YT.Player` + `getCurrentTime`/`pauseVideo`/`seekTo`, 8 llamadas de
+control en `idevices/interactive-video/interactive-video.js`) para pausar el vídeo y mostrar
+preguntas cronometradas. En modo seguro esto **no funciona**: (1) en origen opaco el player
+de YouTube no renderiza dentro del iframe; (2) promoverlo al padre (promote-to-parent) lo
+**desacopla del control** del iDevice, que vive en el hijo opaco → sin pausa/seek/tiempo, las
+preguntas no disparan.
+
+Se prototipó un **bridge de control YT** en el embedder (un `window.YT` falso en el hijo que
+proxyea a un player real en el padre). Verificado en vivo: el vídeo **reproduce** y la
+pregunta **aparece y se responde** en el segundo configurado. Pero **reconstruir el layout
+del iDevice desde el padre — portada/`Inicio`, `float:left` de `#player` al activar
+(`interactive-video.css` `.active #player{float:left}`), la posición de cada slide — es
+frágil** (el vídeo aterriza mal y el solapamiento vídeo/pregunta no cuadra). **Decisión
+(erseco): NO mantener el bridge en el embedder** (revertido, no commiteado).
+
+- **Estado en secure:** vídeo interactivo con fuente **remota** → usar **modo legacy**. Con
+  fuente **local** (archivo del paquete, HTML5 `<video>`) funciona en secure (corre en el
+  marco, sin player cross-origin).
+- **Arreglo correcto (pendiente upstream):** está en el **iDevice de eXeLearning**, que conoce
+  su propio layout: detectar origen opaco (`window.origin==='null'`) y o bien **degradar** (embed
+  simple → lo promociona el shim existente, sin interactividad) o **conducir él mismo** un relay
+  del padre. Más simple y robusto que parchear en los 3 embedders.
+
 ## Seguimiento
 
 - UI de admin para editar la lista blanca (hoy constante; configurable por filtro/ajuste como
