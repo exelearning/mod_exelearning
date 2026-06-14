@@ -253,6 +253,9 @@ final class package_manager {
             ['SCOFunctions.js', __DIR__ . '/../../assets/scorm/SCOFunctions.js', false],
             ['scorm_tracker.js', __DIR__ . '/../../js/scorm_tracker.js', true],
             ['exe_scorm_bridge.js', __DIR__ . '/../../js/scorm_bridge_shim.js', true],
+            // External-embed shim: promotes whitelisted/PDF iframes to the parent in
+            // secure mode (dormant otherwise). Plugin-owned, refreshed on every extract.
+            ['exe_embed_shim.js', __DIR__ . '/../../js/exe_embed_shim.js', true],
         ];
         foreach ($clientassets as $asset) {
             [$destname, $assetpath, $refresh] = $asset;

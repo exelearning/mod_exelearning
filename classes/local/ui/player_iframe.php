@@ -49,6 +49,26 @@ final class player_iframe {
     public const MODE_LEGACY = 'legacy';
 
     /**
+     * Default host whitelist for external video embeds promoted to the parent page.
+     *
+     * In secure mode the package is opaque, so cross-origin players (YouTube/Vimeo)
+     * load blank. Iframes whose src host is on this list are replaced by a placeholder
+     * in the package (js/exe_embed_shim.js) and rendered as a real player by the parent
+     * (js/exe_embed_relay.js). PDFs are handled separately (by .pdf extension) and need
+     * no host entry.
+     *
+     * @var string[]
+     */
+    public const DEFAULT_EMBED_HOSTS = [
+        'www.youtube.com',
+        'youtube.com',
+        'www.youtube-nocookie.com',
+        'youtube-nocookie.com',
+        'player.vimeo.com',
+        'vimeo.com',
+    ];
+
+    /**
      * Resolve the configured iframe mode, defaulting to secure for any unset or
      * unrecognised value (fail safe: an invalid config must not weaken isolation).
      *
@@ -89,6 +109,22 @@ final class player_iframe {
             return 'allow-scripts allow-same-origin allow-popups allow-forms allow-popups-to-escape-sandbox';
         }
         return 'allow-scripts allow-popups allow-forms';
+    }
+
+    /**
+     * Normalized host whitelist for external video embeds (lowercase, de-duplicated).
+     *
+     * @return string[]
+     */
+    public static function embed_whitelist(): array {
+        $clean = [];
+        foreach (self::DEFAULT_EMBED_HOSTS as $host) {
+            $host = strtolower(trim((string) $host));
+            if ($host !== '') {
+                $clean[$host] = true;
+            }
+        }
+        return array_keys($clean);
     }
 
     /**

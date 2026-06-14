@@ -487,6 +487,22 @@ if (!$mainfile) {
         echo html_writer::tag('script', $trackerjs . $bootjs);
     }
 
+    // Parent-side external-embed relay (js/exe_embed_relay.js). Independent of SCORM:
+    // in secure mode every package is opaque, so whitelisted video iframes and PDFs are
+    // promoted to this page and overlaid inline as real players (the baked shim reports
+    // their geometry). Inlined like the SCORM relay so its listener is installed before
+    // the iframe loads. No-op in legacy mode (same-origin: external players already work
+    // inline and the in-iframe shim stays dormant).
+    if ($securemode) {
+        $embedcfg = json_encode(
+            ['whitelist' => \mod_exelearning\local\ui\player_iframe::embed_whitelist()],
+            JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+        );
+        $embedrelayjs = file_get_contents(__DIR__ . '/js/exe_embed_relay.js');
+        $embedbootjs = "\n(function () { window.exeEmbedRelay.init($embedcfg); })();";
+        echo html_writer::tag('script', $embedrelayjs . $embedbootjs);
+    }
+
     // Fullscreen control (issue #13 #6, DEC-0024): a right-aligned button above the
     // player. The iframe already advertises allow="fullscreen"; amd/src/fullscreen.js
     // drives the Fullscreen API on it (and falls back to vendor-prefixed methods).

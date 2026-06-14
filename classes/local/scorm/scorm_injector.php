@@ -83,6 +83,22 @@ final class scorm_injector {
                 "\n    <script src=\"../libs/scorm_tracker.js\"></script>" .
                 "\n    <script src=\"../libs/exe_scorm_bridge.js\"></script>\n";
 
+        // External-embed shim (independent of SCORM). It self-activates only in the
+        // secure opaque-origin iframe, replacing whitelisted/PDF iframes with
+        // placeholders whose geometry is relayed to the parent (js/exe_embed_relay.js).
+        // The host whitelist is baked as a JS global the shim reads.
+        $embedmarker = '<!-- mod_exelearning:embed-shim -->';
+        $embedwl = json_encode(
+            \mod_exelearning\local\ui\player_iframe::embed_whitelist(),
+            JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+        );
+        $embed = $embedmarker .
+                "\n    <script>window.__exeEmbedWhitelist=$embedwl;</script>" .
+                "\n    <script src=\"libs/exe_embed_shim.js\"></script>\n";
+        $embedhtml = $embedmarker .
+                "\n    <script>window.__exeEmbedWhitelist=$embedwl;</script>" .
+                "\n    <script src=\"../libs/exe_embed_shim.js\"></script>\n";
+
         // Iterate over all HTML files in the filearea.
         $files = $fs->get_area_files(
             $contextid,
@@ -112,6 +128,16 @@ final class scorm_injector {
             if (strpos($newhtml, $bridgemarker) === false) {
                 $bridgepayload = ($path === '/') ? $bridge : $bridgehtml;
                 $replaced = preg_replace('~(<head[^>]*>)~i', '${1}' . $bridgepayload, $newhtml, 1);
+                if ($replaced !== null && $replaced !== $newhtml) {
+                    $newhtml = $replaced;
+                    $changed = true;
+                }
+            }
+
+            // External-embed shim at the top of <head> (independent of the bridge).
+            if (strpos($newhtml, $embedmarker) === false) {
+                $embedpayload = ($path === '/') ? $embed : $embedhtml;
+                $replaced = preg_replace('~(<head[^>]*>)~i', '${1}' . $embedpayload, $newhtml, 1);
                 if ($replaced !== null && $replaced !== $newhtml) {
                     $newhtml = $replaced;
                     $changed = true;

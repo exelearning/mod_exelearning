@@ -1,0 +1,246 @@
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+/**
+ * In-iframe external-embed shim for the secure (opaque-origin) package mode.
+ *
+ * Baked into the package (libs/exe_embed_shim.js) and loaded from the <head> of every
+ * page, alongside the SCORM bridge. In secure mode the package runs in an opaque-origin
+ * sandbox, so the sandbox flag propagates to nested iframes and cross-origin players
+ * (YouTube, Vimeo) plus PDFs render blank. This shim replaces each whitelisted-video or
+ * .pdf iframe with a same-size placeholder and reports its geometry to the parent, which
+ * overlays the real player inline (see js/exe_embed_relay.js). It self-activates ONLY in
+ * the opaque origin (so the same baked file stays dormant in legacy same-origin mode,
+ * where external players already render inline and the relay is not loaded).
+ *
+ * The whitelist is provided by the host as window.__exeEmbedWhitelist. postMessage
+ * targetOrigin is '*' because the opaque origin has no stable value; the parent
+ * authenticates messages by event.source instead.
+ *
+ * Exposed two ways from a single body: window.exeEmbedShim (browser bootstrap) and
+ * module.exports (Vitest). See research ADR DEC-0059.
+ */
+(function () {
+    'use strict';
+
+    /**
+     * Whether this document runs in an opaque origin (secure sandbox). In an opaque
+     * origin document.cookie throws and window.origin is "null".
+     *
+     * @returns {boolean}
+     */
+    function isOpaqueOrigin() {
+        try {
+            void document.cookie;
+            return window.origin === 'null';
+        } catch (e) {
+            return true;
+        }
+    }
+
+    /**
+     * Hostname of a URL resolved against the document, lowercased ('' on parse error).
+     *
+     * @param {string} url
+     * @returns {string}
+     */
+    function hostOf(url) {
+        try {
+            return new URL(url, window.location.href).hostname.toLowerCase();
+        } catch (e) {
+            return '';
+        }
+    }
+
+    /**
+     * Whether a URL path ends in .pdf (PDFs also fail under the opaque sandbox).
+     *
+     * @param {string} url
+     * @returns {boolean}
+     */
+    function isPdfUrl(url) {
+        try {
+            return /\.pdf$/i.test(new URL(url, window.location.href).pathname);
+        } catch (e) {
+            return false;
+        }
+    }
+
+    /**
+     * Whether an iframe src should be promoted to the parent.
+     *
+     * @param {string} src
+     * @param {string[]} whitelist
+     * @returns {boolean}
+     */
+    function isPromotable(src, whitelist) {
+        var host = hostOf(src);
+        for (var i = 0; i < (whitelist || []).length; i++) {
+            if (whitelist[i] === host) {
+                return true;
+            }
+        }
+        return isPdfUrl(src);
+    }
+
+    /**
+     * Render a width/height attribute value as a CSS length.
+     *
+     * @param {?string} value
+     * @param {string} fallback
+     * @returns {string}
+     */
+    function cssSize(value, fallback) {
+        if (!value) {
+            return fallback;
+        }
+        return /^[0-9]+$/.test(String(value)) ? value + 'px' : String(value);
+    }
+
+    /**
+     * Replace whitelisted/PDF iframes with placeholders that reserve their box and
+     * carry the embed id + url. Returns the created placeholder elements.
+     *
+     * @param {Document|Element} root A document or a container element to scan.
+     * @param {string[]} whitelist
+     * @param {Object} counter {n:int} mutable id counter (kept across calls).
+     * @returns {Element[]}
+     */
+    function promote(root, whitelist, counter) {
+        var created = [];
+        var maker = root.ownerDocument || root;
+        var frames = root.querySelectorAll('iframe[src]');
+        for (var i = 0; i < frames.length; i++) {
+            var frame = frames[i];
+            if (frame.getAttribute('data-exe-embed-id')) {
+                continue;
+            }
+            var src = frame.getAttribute('src');
+            if (!isPromotable(src, whitelist)) {
+                continue;
+            }
+            var rect = frame.getBoundingClientRect ? frame.getBoundingClientRect() : { width: 0, height: 0 };
+            var placeholder = maker.createElement('div');
+            counter.n += 1;
+            placeholder.setAttribute('data-exe-embed-id', 'exe-embed-' + counter.n);
+            placeholder.setAttribute('data-exe-embed-url', src);
+            placeholder.className = frame.className;
+            placeholder.style.display = 'block';
+            placeholder.style.maxWidth = '100%';
+            placeholder.style.width = cssSize(frame.getAttribute('width'), (rect.width || 0) + 'px');
+            placeholder.style.height = cssSize(frame.getAttribute('height'), (rect.height || 0) + 'px');
+            placeholder.style.background = '#000';
+            frame.parentNode.replaceChild(placeholder, frame);
+            created.push(placeholder);
+        }
+        return created;
+    }
+
+    /**
+     * Collect the geometry of every placeholder in the document.
+     *
+     * @param {Document} doc
+     * @returns {Object[]}
+     */
+    function collect(doc) {
+        var embeds = [];
+        var nodes = doc.querySelectorAll('[data-exe-embed-id]');
+        for (var i = 0; i < nodes.length; i++) {
+            var node = nodes[i];
+            var rect = node.getBoundingClientRect();
+            embeds.push({
+                id: node.getAttribute('data-exe-embed-id'),
+                url: node.getAttribute('data-exe-embed-url'),
+                x: rect.left,
+                y: rect.top,
+                w: rect.width,
+                h: rect.height
+            });
+        }
+        return embeds;
+    }
+
+    /**
+     * Bootstrap inside the package iframe (no-op outside the secure opaque origin).
+     */
+    function init() {
+        if (window.parent === window || !isOpaqueOrigin()) {
+            return;
+        }
+        var whitelist = Array.isArray(window.__exeEmbedWhitelist) ? window.__exeEmbedWhitelist : [];
+        var counter = { n: 0 };
+        var scheduled = false;
+
+        function report() {
+            window.parent.postMessage({ type: 'exe-embed', action: 'sync', embeds: collect(document) }, '*');
+        }
+        function schedule() {
+            if (scheduled) {
+                return;
+            }
+            scheduled = true;
+            window.requestAnimationFrame(function () {
+                scheduled = false;
+                report();
+            });
+        }
+        function run() {
+            promote(document, whitelist, counter);
+            report();
+        }
+
+        run();
+        if (window.MutationObserver) {
+            new MutationObserver(function () {
+                promote(document, whitelist, counter);
+                schedule();
+            }).observe(document.documentElement, { childList: true, subtree: true });
+        }
+        window.addEventListener('scroll', schedule, true);
+        window.addEventListener('resize', schedule);
+        window.addEventListener('load', report);
+        window.addEventListener('message', function (event) {
+            if (event.source !== window.parent) {
+                return;
+            }
+            var data = event.data;
+            if (data && data.type === 'exe-embed' && data.action === 'request') {
+                run();
+            }
+        });
+    }
+
+    var exp = {
+        isOpaqueOrigin: isOpaqueOrigin,
+        isPdfUrl: isPdfUrl,
+        isPromotable: isPromotable,
+        promote: promote,
+        collect: collect,
+        init: init
+    };
+    // Test runner (Vitest/Node) consumes module.exports.
+    if (typeof module !== 'undefined' && module.exports) { module.exports = exp; }
+    // Browser bootstrap consumes window.exeEmbedShim; auto-run inside the iframe.
+    if (typeof window !== 'undefined') {
+        window.exeEmbedShim = exp;
+        if (typeof document !== 'undefined') {
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', init);
+            } else {
+                init();
+            }
+        }
+    }
+})();
