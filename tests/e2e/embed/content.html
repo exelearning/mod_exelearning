@@ -1,0 +1,19 @@
+<!doctype html>
+<!--
+  E2E harness — the "content" half (runs in the opaque sandbox).
+  Mirrors what an .elpx exports: whitelisted-video iframes + a RELATIVE local PDF +
+  a non-whitelisted iframe. Loads the real in-iframe shim (js/exe_embed_shim.js).
+-->
+<html><head><meta charset="utf-8">
+<script>
+window.__exeEmbedWhitelist = [
+    'www.youtube.com', 'youtube.com', 'www.youtube-nocookie.com',
+    'youtube-nocookie.com', 'player.vimeo.com', 'vimeo.com'
+];
+</script>
+</head><body>
+<iframe id="yt" src="https://www.youtube-nocookie.com/embed/aqz-KE-bpKQ" width="480" height="270"></iframe>
+<iframe id="pdf" src="local.pdf" width="400" height="300"></iframe>
+<iframe id="ext" src="https://example.com/" width="200" height="120"></iframe>
+<script src="/js/exe_embed_shim.js"></script>
+</body></html>

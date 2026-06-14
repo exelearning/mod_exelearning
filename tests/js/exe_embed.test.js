@@ -139,3 +139,36 @@ describe('exe_embed_shim promotion decisions', () => {
         expect(reported).toMatch(/files\/local-sample\.pdf$/);
     });
 });
+
+describe('exe_embed_relay makePlayer() attributes', () => {
+    it('builds a video player with autoplay/fullscreen grants + strict-origin referrer', () => {
+        const frame = relay.makePlayer({ url: 'https://www.youtube-nocookie.com/embed/abc123', kind: 'video' });
+        expect(frame.tagName).toBe('IFRAME');
+        expect(frame.getAttribute('allow')).toContain('autoplay');
+        expect(frame.getAttribute('allow')).toContain('fullscreen');
+        expect(frame.hasAttribute('allowfullscreen')).toBe(true);
+        expect(frame.getAttribute('referrerpolicy')).toBe('strict-origin-when-cross-origin');
+        expect(frame.src).toContain('youtube-nocookie.com');
+    });
+
+    it('builds a PDF player with no-referrer and no autoplay grant', () => {
+        const frame = relay.makePlayer({ url: 'https://files.test/manual.pdf', kind: 'pdf' });
+        expect(frame.getAttribute('referrerpolicy')).toBe('no-referrer');
+        expect(frame.getAttribute('allow') || '').not.toContain('autoplay');
+    });
+});
+
+describe('exe_embed_shim collect() geometry report', () => {
+    it('reports id + (absolute) url + numeric geometry for each placeholder', () => {
+        const root = document.createElement('div');
+        root.innerHTML =
+            '<iframe src="https://www.youtube-nocookie.com/embed/aqz-KE-bpKQ" width="560" height="315"></iframe>';
+        shim.promote(root, HOSTS, { n: 0 });
+
+        const embeds = shim.collect(root);
+        expect(embeds.length).toBe(1);
+        expect(embeds[0].id).toMatch(/^exe-embed-/);
+        expect(embeds[0].url).toContain('youtube-nocookie.com');
+        ['x', 'y', 'w', 'h'].forEach((k) => expect(typeof embeds[0][k]).toBe('number'));
+    });
+});

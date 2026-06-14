@@ -170,6 +170,25 @@ editor remains):
   [DEC-0059](./research/decisiones/adr/DEC-0059-bridge-scorm-postmessage-origen-opaco.md)
   and [DEC-0060](./research/decisiones/adr/DEC-0060-iframe-seguro-tokenpluginfile.md).
 
+### External embeds (YouTube/Vimeo/PDF) in Secure mode
+
+The opaque-origin sandbox also blanks **embedded YouTube/Vimeo players and PDFs** (the
+sandbox flag propagates to the nested player iframe, and browsers block their PDF viewer
+without `allow-same-origin`). So that authors can still use external media in Secure mode
+**without a separate subdomain**, those embeds are **promoted to the Moodle page and
+rendered inline**: a shim baked into the package (`js/exe_embed_shim.js`, self-activating
+only in the opaque origin) replaces each whitelisted-video / `.pdf` iframe with a
+placeholder and reports its geometry to the parent; a relay on the activity page
+(`js/exe_embed_relay.js`) validates + rebuilds the canonical URL and overlays the real
+player exactly over the placeholder. Local package PDFs always render; any `https` `.pdf`
+renders; a same-origin `.pdf` must belong to the package (served as `application/pdf`).
+This is independent of, and does not affect, the SCORM bridge. See
+[DEC-0061](./research/decisiones/adr/DEC-0061-embeds-externos-promote-to-parent.md).
+
+The mechanism has unit tests (`npm run test:js` — Vitest, incl. a SCORM-coexistence
+guard) and a cross-browser end-to-end test in Firefox (`npm run test:e2e:embed` —
+Playwright, loads the real shim/relay against an opaque-origin harness).
+
 ## Embedded editor management
 
 The plugin supports two editor sources with the following precedence:
