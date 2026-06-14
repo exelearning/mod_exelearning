@@ -211,6 +211,35 @@ describe('exe_embed_relay createRelay() overlays players from messages', () => {
         expect(document.querySelectorAll('.exe-embed-overlay iframe').length).toBe(0);
     });
 
+    it('replaces the player when a reused embed id navigates to a different URL (no lingering video)', () => {
+        const r = relay.createRelay({ whitelist: HOSTS });
+        // Page 1: YouTube reported at id exe-embed-1.
+        r.onMessage({
+            source: iframe.contentWindow,
+            data: {
+                type: 'exe-embed',
+                action: 'sync',
+                embeds: [{ id: 'exe-embed-1', url: 'https://www.youtube.com/embed/abc123', x: 0, y: 0, w: 480, h: 270 }],
+            },
+        });
+        expect(document.querySelector('.exe-embed-overlay iframe').src).toMatch(/youtube-nocookie\.com\/embed\/abc123$/);
+
+        // Page 2: the in-iframe shim restarts its counter, so the Vimeo embed REUSES
+        // id exe-embed-1. The relay must swap the player, not just reposition it.
+        r.onMessage({
+            source: iframe.contentWindow,
+            data: {
+                type: 'exe-embed',
+                action: 'sync',
+                embeds: [{ id: 'exe-embed-1', url: 'https://player.vimeo.com/video/12345', x: 0, y: 0, w: 425, h: 350 }],
+            },
+        });
+        const players = document.querySelectorAll('.exe-embed-overlay iframe');
+        expect(players.length).toBe(1);
+        expect(players[0].src).toMatch(/player\.vimeo\.com\/video\/12345$/);
+        expect(players[0].src).not.toMatch(/youtube/);   // The previous page's video must be gone.
+    });
+
     it('ignores a message whose source is not a known content iframe', () => {
         const r = relay.createRelay({ whitelist: HOSTS });
         r.onMessage({

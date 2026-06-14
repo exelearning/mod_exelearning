@@ -166,6 +166,10 @@
             frame.setAttribute('referrerpolicy', 'no-referrer');
         }
         frame.src = result.url;
+        // Tag the player with the URL it renders so sync() can detect when a reused
+        // embed id (the in-iframe shim restarts its counter per page) now points at a
+        // different URL and must be replaced rather than just repositioned.
+        frame.setAttribute('data-exe-embed-src', result.url);
         return frame;
     }
 
@@ -238,6 +242,14 @@
                 }
                 seen[embed.id] = true;
                 var player = entry.players[embed.id];
+                // After the content navigates, the shim reuses ids (exe-embed-1, ...) for
+                // the new page's embeds. If this id now renders a different URL, drop the
+                // stale player so the previous page's video does not linger here.
+                if (player && player.getAttribute('data-exe-embed-src') !== result.url) {
+                    player.parentNode.removeChild(player);
+                    delete entry.players[embed.id];
+                    player = null;
+                }
                 if (!player) {
                     player = makePlayer(result);
                     entry.el.appendChild(player);
