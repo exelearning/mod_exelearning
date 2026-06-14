@@ -26,6 +26,8 @@ const relay = window.exeEmbedRelay;
 const HOSTS = [
     'www.youtube.com', 'youtube.com', 'www.youtube-nocookie.com',
     'youtube-nocookie.com', 'player.vimeo.com', 'vimeo.com',
+    'www.dailymotion.com', 'dailymotion.com', 'geo.dailymotion.com',
+    'mediateca.educa.madrid.org',
 ];
 const WL = relay.buildWhitelist(HOSTS);
 const ORIGIN = window.location.origin;
@@ -45,6 +47,27 @@ describe('exe_embed_relay validate() — videos', () => {
     it('rebuilds the canonical Vimeo player URL', () => {
         expect(relay.validate('https://player.vimeo.com/video/76979871', CONTENT_SRC, WL))
             .toEqual({ url: 'https://player.vimeo.com/video/76979871', kind: 'video' });
+    });
+
+    it('rebuilds the canonical Dailymotion embed URL', () => {
+        expect(relay.validate('https://www.dailymotion.com/embed/video/x8abc12', CONTENT_SRC, WL))
+            .toEqual({ url: 'https://www.dailymotion.com/embed/video/x8abc12', kind: 'video' });
+    });
+
+    it('rejects a malformed Dailymotion path', () => {
+        expect(relay.validate('https://www.dailymotion.com/video/x8abc12', CONTENT_SRC, WL)).toBeNull();
+    });
+
+    it('rebuilds the canonical EducaMadrid embed URL (adds /fs)', () => {
+        expect(relay.validate('https://mediateca.educa.madrid.org/video/u555bvi3bk5wsabh', CONTENT_SRC, WL))
+            .toEqual({ url: 'https://mediateca.educa.madrid.org/video/u555bvi3bk5wsabh/fs', kind: 'video' });
+        expect(relay.validate('https://mediateca.educa.madrid.org/video/u555bvi3bk5wsabh/fs', CONTENT_SRC, WL).url)
+            .toBe('https://mediateca.educa.madrid.org/video/u555bvi3bk5wsabh/fs');
+    });
+
+    it('rejects an EducaMadrid look-alike host', () => {
+        expect(relay.validate('https://mediateca.educa.madrid.org.evil.com/video/u555bvi3bk5wsabh', CONTENT_SRC, WL))
+            .toBeNull();
     });
 
     it('rejects a look-alike host (youtube.com.evil.com)', () => {

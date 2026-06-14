@@ -29,6 +29,11 @@
  *
  * Exposed two ways from a single body: window.exeEmbedRelay (browser bootstrap) and
  * module.exports (Vitest). See research ADR DEC-0059.
+ *
+ * CANONICAL SOURCE for the eXeLearning embedder family. wp-exelearning
+ * (assets/js/exe-embed-relay.js) and omeka-s-exelearning (asset/js/exe-embed-relay.js)
+ * mirror this logic (only the export wrapper differs: they are auto-running IIFEs).
+ * Keep the three in sync; tools/check-embed-sync.mjs fails if they drift.
  */
 (function () {
     'use strict';
@@ -119,6 +124,15 @@
             if (host.indexOf('vimeo') !== -1) {
                 match = url.pathname.match(/^\/video\/([0-9]+)$/);
                 return match ? { url: 'https://player.vimeo.com/video/' + match[1], kind: 'video' } : null;
+            }
+            if (host.indexOf('dailymotion') !== -1) {
+                match = url.pathname.match(/^\/embed\/video\/([A-Za-z0-9]{5,})$/);
+                return match ? { url: 'https://www.dailymotion.com/embed/video/' + match[1], kind: 'video' } : null;
+            }
+            if (host === 'mediateca.educa.madrid.org') {
+                // EducaMadrid / Mediateca de Madrid embed: /video/{id}/fs (the watch URL is /video/{id}).
+                match = url.pathname.match(/^\/video\/([A-Za-z0-9]{8,})(?:\/fs)?$/);
+                return match ? { url: 'https://mediateca.educa.madrid.org/video/' + match[1] + '/fs', kind: 'video' } : null;
             }
         }
 
@@ -229,10 +243,15 @@
                     entry.el.appendChild(player);
                     entry.players[embed.id] = player;
                 }
+                // Defence in depth against clickjacking: the overlay is clamped to the
+                // content iframe's box and clips with overflow:hidden, so a player can
+                // never cover host UI outside the iframe. Cap the player size to the
+                // overlay too (the content reports geometry, the parent owns rendering).
+                var rect = entry.iframe.getBoundingClientRect();
                 player.style.left = embed.x + 'px';
                 player.style.top = embed.y + 'px';
-                player.style.width = embed.w + 'px';
-                player.style.height = embed.h + 'px';
+                player.style.width = Math.min(embed.w, rect.width) + 'px';
+                player.style.height = Math.min(embed.h, rect.height) + 'px';
             });
             Object.keys(entry.players).forEach(function (id) {
                 if (!seen[id]) {

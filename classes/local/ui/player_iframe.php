@@ -66,6 +66,10 @@ final class player_iframe {
         'youtube-nocookie.com',
         'player.vimeo.com',
         'vimeo.com',
+        'www.dailymotion.com',
+        'dailymotion.com',
+        'geo.dailymotion.com',
+        'mediateca.educa.madrid.org',
     ];
 
     /**

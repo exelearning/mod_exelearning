@@ -31,6 +31,11 @@
  *
  * Exposed two ways from a single body: window.exeEmbedShim (browser bootstrap) and
  * module.exports (Vitest). See research ADR DEC-0059.
+ *
+ * CANONICAL SOURCE for the eXeLearning embedder family. wp-exelearning
+ * (assets/js/exe-embed-shim.js) and omeka-s-exelearning (asset/js/exe-embed-shim.js)
+ * mirror this logic (only the export wrapper differs: they are auto-running IIFEs).
+ * Keep the three in sync; tools/check-embed-sync.mjs fails if they drift.
  */
 (function () {
     'use strict';

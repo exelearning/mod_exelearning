@@ -26,7 +26,7 @@ test('promotes whitelisted video + relative local PDF to inline parent players (
     await page.goto('/tests/e2e/embed/parent.html');
 
     const players = page.locator('.exe-embed-overlay iframe');
-    await expect.poll(() => players.count(), { timeout: 15000 }).toBe(2);
+    await expect.poll(() => players.count(), { timeout: 15000 }).toBe(3);
 
     const srcs = await players.evaluateAll((els) => els.map((e) => e.src));
     const hosts = srcs.map((s) => {
@@ -35,6 +35,8 @@ test('promotes whitelisted video + relative local PDF to inline parent players (
 
     // The video is rebuilt to the canonical nocookie URL (anchored, not a substring match).
     expect(srcs.some((s) => /^https:\/\/www\.youtube-nocookie\.com\/embed\/aqz-KE-bpKQ\b/.test(s))).toBe(true);
+    // A second provider (Dailymotion) is rebuilt to its canonical embed URL.
+    expect(srcs.some((s) => /^https:\/\/www\.dailymotion\.com\/embed\/video\/x8abc12$/.test(s))).toBe(true);
     // The relative local PDF is reported absolute and rendered (the relative-URL fix).
     expect(srcs.some((s) => /\/local\.pdf$/.test(s))).toBe(true);
     // The non-whitelisted host is never promoted (exact hostname check, not a substring).
