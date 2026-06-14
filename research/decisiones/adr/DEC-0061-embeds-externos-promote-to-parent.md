@@ -49,7 +49,7 @@ blanca + la validación estricta impiden que el contenido haga al padre cargar u
 
 | Pieza | Cambio |
 |---|---|
-| `js/exe_embed_shim.js` (nuevo) | Corre DENTRO del iframe. Se **auto-activa solo en origen opaco** (`isOpaqueOrigin()`: `document.cookie` lanza / `window.origin==='null'`), así que el mismo fichero horneado queda **dormido en modo legacy**. Reemplaza iframes whitelisted/`.pdf` por un placeholder (`data-exe-embed-id` + url, mismo w/h) y reporta `{id,url,x,y,w,h}` en load/scroll/resize/mutation (rAF). Dual-export `window.exeEmbedShim` + `module.exports` (Vitest). |
+| `js/exe_embed_shim.js` (nuevo) | Corre DENTRO del iframe. Se **auto-activa solo en origen opaco** (`isOpaqueOrigin()`: `document.cookie` lanza / `window.origin==='null'`), así que el mismo fichero horneado queda **dormido en modo legacy**. Reemplaza iframes whitelisted/`.pdf` por un placeholder (`data-exe-embed-id` + url **absoluta**, resuelta contra la ubicación del contenido, mismo w/h) y reporta `{id,url,x,y,w,h}` en load/scroll/resize/mutation (rAF). Dual-export `window.exeEmbedShim` + `module.exports` (Vitest). |
 | `js/exe_embed_relay.js` (nuevo) | Corre en el padre. Valida cada URL reportada: `new URL()`, rechaza userinfo (`@`), host exacto contra la lista, exige patrón de id (`/embed/{id}` YT, `/video/{id}` Vimeo) y **reconstruye** la URL canónica (nunca pasa la del contenido tal cual). Crea/posiciona un `<iframe>` player overlay clampado al iframe de contenido. Autentica por `event.source === iframe.contentWindow` (el origen opaco no da `event.origin` útil). |
 | `classes/local/package_manager.php` | Copia `js/exe_embed_shim.js` a `libs/exe_embed_shim.js` del paquete (plugin-owned, refrescado en cada extracción). |
 | `classes/local/scorm/scorm_injector.php` | Hornea `<script>window.__exeEmbedWhitelist=…</script>` + `<script src="libs/exe_embed_shim.js">` al inicio del `<head>` de **todo** HTML del paquete (marker `embed-shim`, idempotente). Independiente del bridge SCORM (reusa la misma iteración de extracción, [[DEC-0054]]). |
@@ -121,13 +121,20 @@ Lista blanca por defecto: `www.youtube.com`, `youtube.com`, `www.youtube-nocooki
   anidadas (`../libs/…`), idempotente, **sin perder** el bridge SCORM ni el wrapper pipwerks.
 - **`phpcs --standard=moodle`** 0/0 sobre `player_iframe.php`, `package_manager.php`,
   `scorm_injector.php`, `view.php` y los tests.
-- **Verificación en vivo** (contenedor `mod_exelearning_3-moodle-1`, `iframemode=secure`): creada una
-  actividad desde `research/fixtures/elpx/external-embeds-demo.elpx` → la extracción **hornea** el shim
-  (marker `embed-shim` + global `__exeEmbedWhitelist` con `youtube-nocookie.com` + asset
-  `libs/exe_embed_shim.js` de 8690 B presente) y el contenido conserva los iframes YouTube/Vimeo + el
-  PDF local. El mecanismo de render inline es **idéntico** al ya verificado visualmente en
-  wp-exelearning (wp-env :8890: YouTube + Vimeo + PDF remoto + PDF local renderizan inline,
-  `example.com` no se promueve) y al wiring vivo de omeka (:8080).
+- **Verificación en vivo** (contenedor `mod_exelearning_3-moodle-1`, `iframemode=secure`):
+  - **Embeds**: una actividad desde `research/fixtures/elpx/external-embeds-demo.elpx` renderiza
+    **4 players inline** (YouTube, Vimeo, PDF remoto y **PDF local del paquete**) sobre el iframe de
+    contenido opaco (servido por `tokenpluginfile`); el iframe `example.com` NO se promueve.
+  - **SCORM scoring (lo más importante)**: respondido un iDevice calificable, el endpoint real
+    `track.php` devuelve `{"ok":true,"attempt":1,"rawscore":100,"status":"completed","peritem":{"1":100,"2":100}}`;
+    quedan 3 filas en `exelearning_attempt` (overall + 2 ítems), el gradebook marca `finalgrade=100` en
+    ambos ítems, el informe de intentos lista el intento y la actividad pasa a "Hecho: recibir
+    calificación". **El shim de embeds NO rompe el scoring** (es independiente del bridge).
+- **Bug encontrado y corregido en la prueba en navegador**: mod sirve los assets del paquete con URLs
+  **relativas** (a diferencia del proxy de wp/omeka que reescribe a absolutas), así que el shim debe
+  **reportar la URL ABSOLUTA** (resuelta contra la ubicación del contenido) — el relay del padre no
+  puede resolver una relativa (la resolvería contra la página host). Fix en el shim de los 3 plugins +
+  test de regresión Vitest (`exe_embed.test.js`: una src relativa se reporta absoluta).
 - **Fixtures**: `research/fixtures/elpx/{youtube-embed,vimeo-embed,external-embeds-demo}.elpx` (el
   último con PDF remoto + PDF local empaquetado + imagen/vídeo remotos + un iframe no-whitelist).
 

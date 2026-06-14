@@ -122,4 +122,20 @@ describe('exe_embed_shim promotion decisions', () => {
         expect(ph.style.width).toBe('560px');
         expect(ph.style.height).toBe('315px');
     });
+
+    it('reports a RELATIVE src as an absolute URL (the parent relay cannot resolve relatives)', () => {
+        // Regression: a local package PDF is referenced relatively (e.g. mod_exelearning
+        // serves package assets without rewriting URLs). The shim runs inside the content,
+        // so it must resolve the src against the content location before reporting; the
+        // parent would otherwise resolve it against the host page and reject it.
+        const root = document.createElement('div');
+        root.innerHTML = '<iframe id="lpdf" src="files/local-sample.pdf" width="600" height="400"></iframe>';
+
+        const created = shim.promote(root, HOSTS, { n: 0 });
+
+        expect(created.length).toBe(1);
+        const reported = created[0].getAttribute('data-exe-embed-url');
+        expect(reported).toMatch(/^https?:\/\//); // absolute, not the raw "files/..."
+        expect(reported).toMatch(/files\/local-sample\.pdf$/);
+    });
 });
