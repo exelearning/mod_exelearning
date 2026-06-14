@@ -138,6 +138,52 @@ Lista blanca por defecto: `www.youtube.com`, `youtube.com`, `www.youtube-nocooki
 - **Fixtures**: `research/fixtures/elpx/{youtube-embed,vimeo-embed,external-embeds-demo}.elpx` (el
   último con PDF remoto + PDF local empaquetado + imagen/vídeo remotos + un iframe no-whitelist).
 
+## Actualización (2026-06-14): re-validación con export real, proveedores, tokens y fix de navegación
+
+### Re-validación de la NECESIDAD con un export real
+Las fixtures sintéticas iniciales (`index.html` a mano) no eran representativas. Con un **export real
+de eXeLearning** (`research/fixtures/elpx/remote-embeds.elpx`: `index.html` + `html/{vimeo,
+mediatecamadrid,remote-pdf}-embed.html`) se repitió el experimento de control en mod (secure):
+- shim **activado** → el vídeo de YouTube renderiza y reproduce;
+- shim **desactivado** (control) → caja en **blanco**.
+
+Causa confirmada en 4 ejes: (1) **no es CSP** — `frame-src 'self' … https:` permite YouTube
+(`player_iframe.php:171`), sin error CSP en consola; (2) es la **propagación del origen opaco** al
+iframe anidado del player; (3) por especificación un contexto de navegación anidado no puede tener
+*menos* restricciones que su padre; (4) lo único que lo "arregla" es `allow-same-origin`, que rompe el
+aislamiento. **No hay alternativa más simple que preserve la seguridad: el overlay promote-to-parent es
+la solución mínima.** (La duda razonable de erseco quedó así verificada, no asumida.)
+
+### Proveedores añadidos
+**Dailymotion** (`www/geo.dailymotion.com`, embed `/embed/video/{id}`) y **EducaMadrid / Mediateca de
+Madrid** (`mediateca.educa.madrid.org`, embed `/video/{id}/fs`), cada uno con validador por proveedor
+que **reconstruye** la URL canónica (nunca pasa la del contenido tal cual). Verificado en vivo
+(EducaMadrid renderiza inline en mod y omeka).
+
+### Alineación de tokens del sandbox (los 3) + fix de CSP oculto
+Token seguro canónico = `allow-scripts allow-popups allow-forms` (los iDevices de eXe usan
+formularios). wp/omeka **no tenían `allow-forms`** ni en el atributo del iframe ni — más grave — en la
+**directiva CSP `sandbox`** del contenido servido (`class-content-proxy.php`, `ContentController.php`,
+hardcodeadas). Sin `allow-forms` en la CSP, el envío de formularios se bloquea aunque el iframe lo
+permita (el sandbox efectivo es la *intersección* de ambos). Corregido en los dos + tests. Legacy
+alineado a `…allow-forms allow-popups-to-escape-sandbox`.
+
+### Bug de navegación entre páginas (reportado por erseco) + fix
+Al paginar contenido eXe multi-página, el embed de la página anterior **quedaba pegado** en la nueva
+(p.ej. YouTube persistía en la página de Vimeo, reescalado a su caja). Causa: el shim **reinicia su
+contador de id por página**, así que el primer embed de cada página reusa `exe-embed-1`; el relay
+reutilizaba el player existente y solo lo reposicionaba, **sin actualizar su `src`**. Reproducido en
+vivo (la altura cambiaba a la de Vimeo pero el `src` seguía en YouTube). Fix: cada player se etiqueta
+con `data-exe-embed-src`; en `sync()` se **reemplaza** cuando un id reusado apunta a otra URL. Test de
+regresión Vitest + verificado en vivo en los 3 (mod: youtube→vimeo→mediateca→pdf cambian limpiamente;
+wp y omeka, idem; el atributo del fix presente en el relevo servido).
+
+### Anti-drift
+La lógica de shim/relay es idéntica en los 3 (solo cambia el envoltorio de export). mod es la **fuente
+canónica** (`js/exe_embed_{shim,relay}.js`); wp/omeka llevan cabecera "MIRROR". `tools/check-embed-sync.mjs`
+normaliza y compara la lógica + whitelist + tokens de las 3 copias y sale ≠0 si divergen (herramienta
+de mantenimiento local, no gate CI cross-repo: no hay infra compartida).
+
 ## Seguimiento
 
 - UI de admin para editar la lista blanca (hoy constante; configurable por filtro/ajuste como
