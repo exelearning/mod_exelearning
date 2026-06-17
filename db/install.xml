@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="mod/exelearning/db" VERSION="20260604" COMMENT="XMLDB file for mod_exelearning"
+<XMLDB PATH="mod/exelearning/db" VERSION="20260617" COMMENT="XMLDB file for mod_exelearning"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
 >
@@ -12,8 +12,6 @@
         <FIELD NAME="name"          TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="intro"         TYPE="text" NOTNULL="false" SEQUENCE="false"/>
         <FIELD NAME="introformat"   TYPE="int"  LENGTH="4"   NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
-        <FIELD NAME="display"       TYPE="int"  LENGTH="4"   NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
-        <FIELD NAME="displayoptions" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
         <FIELD NAME="entrypath"     TYPE="char" LENGTH="255" NOTNULL="true" DEFAULT="/" SEQUENCE="false" COMMENT="Path of the package entry file."/>
         <FIELD NAME="entryname"     TYPE="char" LENGTH="255" NOTNULL="true" DEFAULT="index.html" SEQUENCE="false" COMMENT="Filename of the package entry."/>
         <FIELD NAME="revision"      TYPE="int"  LENGTH="10"  NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Incremented on each file change to bust caches."/>

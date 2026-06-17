@@ -142,7 +142,6 @@ final class package_legacy_test extends advanced_testcase {
         $data = (object) [
             'coursemodule' => $cm->id,
             'packagefile'  => $draftid,
-            'display'      => 0,
             'revision'     => 7,
         ];
 
