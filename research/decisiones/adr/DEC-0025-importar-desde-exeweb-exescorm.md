@@ -1,7 +1,7 @@
 ---
 id: DEC-0025
 titulo: "Importar actividades desde mod_exeweb y mod_exescorm (issue #13 #3)"
-estado: Superseded by DEC-0026
+estado: Superseded
 fecha: 2026-06-03
 agentes:
   - erseco

@@ -4,7 +4,7 @@ titulo: "mod_exeweb — visor de recursos eXeLearning sin calificación"
 tipo: moodle-plugin
 ruta_local: /Users/ernesto/Dropbox/Trabajo/ate/exelearning/mod_exeweb
 url_upstream: "[PENDIENTE]"
-commit_consultado: "[PENDIENTE]"
+commit_consultado: "60d24fb (HEAD clon local 2026-06-17)"
 fecha_consulta: 2026-05-28
 licencia: "GPL-3.0-or-later [PENDIENTE: confirmar]"
 rol_para_mod_exelearning: "Referencia primaria para preservar la sidebar nativa de eXeLearning vía iframe + pluginfile.php."

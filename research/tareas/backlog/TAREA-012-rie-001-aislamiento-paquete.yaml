@@ -1,6 +1,6 @@
 id: TAREA-012
 titulo: "RIE-001: investigar aislamiento fuerte del paquete .elpx"
-estado: Pending
+estado: Done
 fecha: 2026-06-01
 agente: pendiente
 prioridad: alta
@@ -22,4 +22,4 @@ criterios_aceptacion:
   - "Opciones comparadas con impacto funcional y operativo."
   - "Recomendación documentada como ADR o nota AN."
   - "No se degrada la preservación de sidebar nativa."
-notas: "Riesgo medio, probabilidad baja; importante antes de estabilizar."
+notas: "Riesgo medio, probabilidad baja; importante antes de estabilizar. CERRADA (Done) por DEC-0019 (2026-06-02): investigación de aislamiento completada; roadmap de hardening documentado (no implementado por decisión). Ver status.yaml (cierre) y TODO.md (Cerrado)."

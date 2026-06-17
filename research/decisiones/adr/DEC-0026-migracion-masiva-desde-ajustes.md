@@ -11,6 +11,7 @@ fuentes:
 relacionados:
   - DEC-0024
   - DEC-0025
+supersede: DEC-0025
 herramienta_ia:
   interfaz: claude-code
   modelo: claude-opus-4-8

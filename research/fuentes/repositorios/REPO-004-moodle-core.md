@@ -4,7 +4,7 @@ titulo: "Moodle core — referencias relevantes para mod_exelearning"
 tipo: lms-core
 ruta_local: /Users/ernesto/Downloads/git/moodle
 url_upstream: https://github.com/moodle/moodle
-commit_consultado: "[PENDIENTE: registrar HEAD del clon local]"
+commit_consultado: "2104c372962 (HEAD clon local 2026-06-17)"
 fecha_consulta: 2026-05-28
 licencia: GPL-3.0-or-later
 rol_para_mod_exelearning: "Fuente de patrones canónicos: multi-grade-items (mod_workshop), xAPI handler (mod_h5pactivity), bridge SCORM (mod_scorm), grade API (gradelib), core_xapi."

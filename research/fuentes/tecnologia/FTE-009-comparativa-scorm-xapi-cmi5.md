@@ -23,6 +23,12 @@ herramienta_ia:
 
 ## Resumen ejecutivo
 
+> **[ACTUALIZACION 2026-06-17]** Comparativa de bootstrap (2026-05-29). Matiz de staleness: donde el cuerpo
+> afirma como presente que «eXeLearning **no emite** xAPI» (input de DEC-0014/0015), eso **ya no es cierto**:
+> upstream emite statements xAPI por iDevice (PR #1867, **FTE-011**); el consumo + validación canónica está en
+> **FTE-015**, la versión 2.0 / forward-compat en **FTE-017**, y la síntesis en **AN-014** (decisión
+> **DEC-0032/DEC-0063**). La comparativa de estándares sigue válida; solo el «hoy no emite» quedó superado.
+
 Tres estándares de tracking en juego (AICC queda descartado: legado de 1988, grupo
 disuelto en 2014 — iSpring). En una frase:
 

@@ -14,6 +14,7 @@ relacionados:
   - DEC-0010
   - DEC-0034
   - DEC-0035
+supersede: DEC-0035
 herramienta_ia:
   interfaz: claude-code
   modelo: claude-opus-4-8

@@ -5,7 +5,7 @@
 
 metadata:
   proyecto: mod_exelearning
-  fase: "0 - investigacion-bootstrap"
+  fase: "1 - mantenimiento (plugin MATURITY_STABLE)"
   fecha_inicio: 2026-05-28
   agente_actual: claude-code
   regla: append-only
@@ -230,7 +230,8 @@ decisiones_bloqueantes:
       verificado en Docker (Moodle 5.0.7).
   DEC-0035:
     titulo: "Coherencia profesor/alumno en peritem: excluir la nota overall oculta de la agregación"
-    estado: Aceptada
+    estado: Superseded
+    supersede_by: DEC-0038
     ruta: decisiones/adr/DEC-0035-visibilidad-notas-alumno-peritem.md
     fecha: 2026-06-04
     relacionados: [DEC-0008, DEC-0010, DEC-0017, DEC-0018, FTE-012]
