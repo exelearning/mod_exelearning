@@ -56,15 +56,18 @@ final class grade_sync {
      * (DEC-0021). "changed" means the same objectid whose content block hash
      * differs, i.e. an in-place options/scoring edit.
      *
+     * "capped" counts gradable iDevices that could not be registered because the
+     * package exceeds gradeitems::MAX_ITEMNUMBER, so callers can warn the teacher.
+     *
      * @param int $exelearningid
      * @param int|null $contextid
-     * @return array{added:int,removed:int,changed:int}
+     * @return array{added:int,removed:int,changed:int,capped:int}
      */
     public static function sync(int $exelearningid, ?int $contextid = null): array {
         global $CFG, $DB;
         require_once($CFG->libdir . '/gradelib.php');
 
-        $delta = ['added' => 0, 'removed' => 0, 'changed' => 0];
+        $delta = ['added' => 0, 'removed' => 0, 'changed' => 0, 'capped' => 0];
 
         $instance = $DB->get_record('exelearning', ['id' => $exelearningid], '*', MUST_EXIST);
 
@@ -207,6 +210,7 @@ final class grade_sync {
                 // completion-via-grade dropdown and Course overview labelling, so we
                 // stop registering further iDevices once the cap is reached.
                 if ($nextnum >= gradeitems::MAX_ITEMNUMBER) {
+                    $delta['capped']++;
                     if (!$capwarned) {
                         debugging(
                             'mod_exelearning: package has more than '
@@ -334,6 +338,27 @@ final class grade_sync {
             $message .= ' ' . html_writer::link($url, get_string('attemptsreport', 'mod_exelearning'));
         }
         \core\notification::warning($message);
+    }
+
+    /**
+     * Queues a teacher-facing warning when the package has more gradable iDevices
+     * than gradeitems::MAX_ITEMNUMBER, so the cap is no longer silent (it was only a
+     * developer-level debugging() call). The excess iDevices are not registered as
+     * gradebook columns; the teacher should split the content into separate activities.
+     *
+     * @param array $delta From sync(): the "capped" key counts the dropped iDevices.
+     * @return void
+     */
+    public static function warn_if_capped(array $delta): void {
+        $capped = (int) ($delta['capped'] ?? 0);
+        if ($capped <= 0) {
+            return;
+        }
+        \core\notification::warning(get_string(
+            'gradeitemcapexceeded',
+            'mod_exelearning',
+            gradeitems::MAX_ITEMNUMBER
+        ));
     }
 
     /**

@@ -108,3 +108,14 @@ re-audited) and the recorded **direction options** — is in [[DEC-0049]].
 
 The standalone migration tool (issue #13 #3) is tracked separately as PR #15 and is **not**
 part of this round.
+
+## 9. Privacy / gradebook / i18n / schema round (2026-06-17)
+
+A follow-up audit raised four findings, all resolved in one PR (each with tests):
+
+| # | Severity | Finding | Resolution | Evidence |
+|---|---|---|---|---|
+| 1 | HIGH | `exelearning_migration.userid` (the manager who ran a migration, added in upgrade `2026061201` / [[DEC-0050]]) was absent from the privacy provider — not in metadata, export or deletion. | Declared the table; surfaced it at the **system context**; export the manager's audit rows; on erasure **anonymise `userid` to 0** (the table's existing sentinel) instead of deleting, preserving the idempotency map. Mirrors core_tag (anonymise in `context_system`) and gradepenalty_duedate / quizaccess_seb (anonymise `usermodified`); official Privacy API guidance is delete "or overwritten if a structure needs to be maintained". | `classes/privacy/provider.php`; `tests/privacy/provider_test.php`; `research/cumplimiento/privacidad.md` |
+| 2 | MEDIUM | The `gradeitems::MAX_ITEMNUMBER` (100) cap was applied silently in `grade_sync::sync()` (only a `DEBUG_DEVELOPER` `debugging()`), so teachers lost gradebook columns with no feedback. | `sync()` reports a `capped` count; `grade_sync::warn_if_capped()` surfaces a `\core\notification::warning()` from add/update instance, mirroring `warn_if_stale()`. | `classes/grades/grade_sync.php`; `lib.php`; `tests/lib_test.php` |
+| 3 | LOW | Cooficial languages lagged English (es −48, ca/eu/gl −56 keys incl. the new privacy/cap strings). | Backfilled es/ca/eu/gl. New translations carry the project's `~` "machine translation pending human review" prefix; ca/eu/gl (esp. Basque) need a native-speaker pass. | `lang/{es,ca,eu,gl}/exelearning.php` |
+| 4 | LOW | `display` / `displayoptions` columns were inert mod_resource leftovers (`display` read only by the dead `save_draft_file()`, `displayoptions` never read). | Dropped both via upgrade step `2026061700`; removed from `install.xml`, the backup nested element and the dead read. | `db/install.xml`; `db/upgrade.php`; `backup/moodle2/backup_exelearning_stepslib.php`; `classes/exelearning_package_legacy.php` |

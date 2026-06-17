@@ -134,7 +134,11 @@ function exelearning_add_instance($data, $mform = null) {
     // We pass the contextid explicitly because the course_module row is created
     // by Moodle AFTER returning from _add_instance.
     $contextid = context_module::instance($data->coursemodule)->id;
-    exelearning_sync_grade_items($data->id, $contextid);
+    $delta = exelearning_sync_grade_items($data->id, $contextid);
+
+    // Warn the teacher if the package has more gradable iDevices than the gradebook
+    // can register (the excess are dropped); the notice renders on the next page.
+    exelearning_warn_if_grade_items_capped($delta);
 
     return $data->id;
 }
@@ -238,6 +242,9 @@ function exelearning_update_instance($data, $mform = null) {
     // remove or re-score gradable iDevices; warn that old grades are not
     // recomputed (DEC-0021). The notice renders on the post-form redirect.
     exelearning_warn_if_grades_stale($data->id, $delta, (int) $data->coursemodule);
+
+    // Also warn if the package exceeds the gradebook item cap (excess iDevices dropped).
+    exelearning_warn_if_grade_items_capped($delta);
 
     return true;
 }
@@ -806,7 +813,7 @@ function exelearning_remove_all_grade_items(stdClass $instance): void {
  *
  * @param int $exelearningid
  * @param int|null $contextid
- * @return array{added:int,removed:int,changed:int}
+ * @return array{added:int,removed:int,changed:int,capped:int}
  */
 function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null): array {
     return \mod_exelearning\grades\grade_sync::sync($exelearningid, $contextid);
@@ -830,6 +837,19 @@ function exelearning_sync_grade_items(int $exelearningid, ?int $contextid = null
  */
 function exelearning_warn_if_grades_stale(int $exelearningid, array $delta, ?int $cmid = null): void {
     \mod_exelearning\grades\grade_sync::warn_if_stale($exelearningid, $delta, $cmid);
+}
+
+/**
+ * Queues a teacher-facing warning when the package has more gradable iDevices than
+ * the gradebook can register (gradeitems::MAX_ITEMNUMBER). The excess items are
+ * silently dropped from the gradebook, so this surfaces the cap instead of leaving
+ * it to a developer-only debugging() call.
+ *
+ * @param array $delta From exelearning_sync_grade_items(): the "capped" key counts dropped iDevices.
+ * @return void
+ */
+function exelearning_warn_if_grade_items_capped(array $delta): void {
+    \mod_exelearning\grades\grade_sync::warn_if_capped($delta);
 }
 
 /**

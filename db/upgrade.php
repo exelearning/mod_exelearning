@@ -519,5 +519,20 @@ function xmldb_exelearning_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026061202, 'exelearning');
     }
 
+    // Stage 18 (2026061700): drop the inert display/displayoptions columns. They were
+    // inherited from mod_resource and never read by the plugin (the only reference,
+    // exelearning_package_legacy::save_draft_file(), is dead in production), so they
+    // carried no data the plugin uses.
+    if ($oldversion < 2026061700) {
+        $instance = new xmldb_table('exelearning');
+        foreach (['display', 'displayoptions'] as $fieldname) {
+            $field = new xmldb_field($fieldname);
+            if ($dbman->field_exists($instance, $field)) {
+                $dbman->drop_field($instance, $field);
+            }
+        }
+        upgrade_mod_savepoint(true, 2026061700, 'exelearning');
+    }
+
     return true;
 }
