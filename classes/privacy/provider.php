@@ -63,6 +63,21 @@ class provider implements
             'usermodified' => 'privacy:metadata:exelearning:usermodified',
         ], 'privacy:metadata:exelearning');
 
+        // The migration tool records which manager migrated each mod_exeweb/mod_exescorm
+        // activity into mod_exelearning (DEC-0026 / DEC-0050). This is a system-level
+        // audit and idempotency map: deleting a row would let a re-run duplicate the
+        // target, so on erasure the userid is anonymised to 0 (the table's existing
+        // "pre-upgrade / unknown" sentinel) rather than deleted. This mirrors core_tag,
+        // which keeps the shared/structural row and clears only the identity.
+        $collection->add_database_table('exelearning_migration', [
+            'userid'          => 'privacy:metadata:exelearning_migration:userid',
+            'sourcecomponent' => 'privacy:metadata:exelearning_migration:sourcecomponent',
+            'sourcecmid'      => 'privacy:metadata:exelearning_migration:sourcecmid',
+            'targetcmid'      => 'privacy:metadata:exelearning_migration:targetcmid',
+            'timecreated'     => 'privacy:metadata:exelearning_migration:timecreated',
+            'timemodified'    => 'privacy:metadata:exelearning_migration:timemodified',
+        ], 'privacy:metadata:exelearning_migration');
+
         // The plugin also pushes each user's scores into the Moodle gradebook
         // via grade_update() (track.php / lib.php), so declare that data flow.
         $collection->add_subsystem_link('core_grades', [], 'privacy:metadata:core_grades');
@@ -116,6 +131,16 @@ class provider implements
             'userid'   => $userid,
         ]);
 
+        // The migration audit table is a system-level record of which manager ran each
+        // migration; surface the system context when the user appears there (idiom: core_tag).
+        $contextlist->add_from_sql(
+            "SELECT c.id
+               FROM {context} c
+               JOIN {exelearning_migration} mig ON mig.userid = :userid
+              WHERE c.contextlevel = :syslevel",
+            ['userid' => $userid, 'syslevel' => CONTEXT_SYSTEM]
+        );
+
         return $contextlist;
     }
 
@@ -126,6 +151,18 @@ class provider implements
      */
     public static function get_users_in_context(userlist $userlist): void {
         $context = $userlist->get_context();
+
+        if ($context instanceof \context_system) {
+            // Managers who ran a migration (system-level audit record); the anonymised
+            // userid 0 is not a real user, so exclude it.
+            $userlist->add_from_sql(
+                'userid',
+                "SELECT userid FROM {exelearning_migration} WHERE userid <> 0",
+                []
+            );
+            return;
+        }
+
         if (!$context instanceof \context_module) {
             return;
         }
@@ -157,6 +194,10 @@ class provider implements
         $user = $contextlist->get_user();
 
         foreach ($contextlist->get_contexts() as $context) {
+            if ($context instanceof \context_system) {
+                self::export_migrations_for_user($context, $user);
+                continue;
+            }
             if (!$context instanceof \context_module) {
                 continue;
             }
@@ -195,12 +236,51 @@ class provider implements
     }
 
     /**
+     * Export the migration audit rows the given user (a manager) created, in the
+     * system context.
+     *
+     * @param \context $context The system context.
+     * @param \stdClass $user
+     */
+    protected static function export_migrations_for_user(\context $context, \stdClass $user): void {
+        global $DB;
+
+        $records = $DB->get_records('exelearning_migration', ['userid' => $user->id], 'timecreated ASC');
+        if (!$records) {
+            return;
+        }
+
+        $data = [];
+        foreach ($records as $r) {
+            $data[] = [
+                'sourcecomponent' => $r->sourcecomponent,
+                'sourcecmid'      => $r->sourcecmid,
+                'targetcmid'      => $r->targetcmid,
+                'timecreated'     => \core_privacy\local\request\transform::datetime($r->timecreated),
+                'timemodified'    => \core_privacy\local\request\transform::datetime($r->timemodified),
+            ];
+        }
+
+        writer::with_context($context)->export_data(
+            [get_string('privacy:path:migrations', 'mod_exelearning')],
+            (object) ['migrations' => $data]
+        );
+    }
+
+    /**
      * Delete all user data for all users in the given context.
      *
      * @param \context $context
      */
     public static function delete_data_for_all_users_in_context(\context $context): void {
         global $DB;
+
+        if ($context instanceof \context_system) {
+            // Anonymise every migration audit row: keep the idempotency map, clear the
+            // manager identity (set userid to the table's "unknown" sentinel, 0).
+            $DB->set_field_select('exelearning_migration', 'userid', 0, 'userid <> 0', []);
+            return;
+        }
 
         if (!$context instanceof \context_module) {
             return;
@@ -229,6 +309,12 @@ class provider implements
 
         $user = $contextlist->get_user();
         foreach ($contextlist->get_contexts() as $context) {
+            if ($context instanceof \context_system) {
+                // Anonymise this manager's migration audit rows (keep the rows, drop
+                // the identity), mirroring core_tag.
+                $DB->set_field('exelearning_migration', 'userid', 0, ['userid' => $user->id]);
+                continue;
+            }
             if (!$context instanceof \context_module) {
                 continue;
             }
@@ -253,6 +339,19 @@ class provider implements
         global $DB;
 
         $context = $userlist->get_context();
+
+        if ($context instanceof \context_system) {
+            $userids = $userlist->get_userids();
+            if (empty($userids)) {
+                return;
+            }
+            // Anonymise these managers' migration audit rows (keep the rows, drop the
+            // identity), mirroring core_tag.
+            [$insql, $inparams] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED);
+            $DB->set_field_select('exelearning_migration', 'userid', 0, "userid $insql", $inparams);
+            return;
+        }
+
         if (!$context instanceof \context_module) {
             return;
         }

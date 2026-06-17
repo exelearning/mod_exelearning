@@ -181,10 +181,10 @@ class exelearning_package_legacy {
 
         $draftitemid = $data->packagefile;
         if ($draftitemid) {
+            // Published packages are always extracted and served with their native
+            // sidebar, never embedded as a single file, so there is no display mode to
+            // honour here.
             $options = ['subdirs' => false, 'embed' => false];
-            if ($data->display == RESOURCELIB_DISPLAY_EMBED) {
-                $options['embed'] = true;
-            }
             file_save_draft_area_files($draftitemid, $context->id, 'mod_exelearning', 'package', $data->revision, $options);
         }
         $files = $fs->get_area_files($context->id, 'mod_exelearning', 'package', $data->revision, '', false);

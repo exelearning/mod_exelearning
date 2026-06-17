@@ -8,10 +8,12 @@ no una hipótesis.
 
 ## Datos personales almacenados (estado actual)
 
-El plugin guarda datos personales en una única tabla, `exelearning_attempt` (historial de
-intentos plano, DEC-0007). `provider::get_metadata()` la declara campo a campo y añade un
-enlace al subsistema `core_grades`, porque el plugin publica las puntuaciones de cada usuario
-en el libro de calificaciones de Moodle mediante `grade_update()`.
+El plugin guarda datos personales de **alumnado** en `exelearning_attempt` (historial de
+intentos plano, DEC-0007) y datos de **profesorado/gestores** en `exelearning_migration`
+(traza de auditoría de la herramienta de migración, DEC-0026/DEC-0050). `provider::get_metadata()`
+declara ambas campo a campo y añade un enlace al subsistema `core_grades`, porque el plugin
+publica las puntuaciones de cada usuario en el libro de calificaciones de Moodle mediante
+`grade_update()`.
 
 Campos declarados en los metadatos (`exelearning_attempt`, ver `db/install.xml`):
 
@@ -32,6 +34,30 @@ Además, `provider::get_metadata()` declara el campo `usermodified` de la tabla 
 
 `sessiontoken` existe en la tabla pero **no** se exporta: es un token de correlación por carga
 de página, no identificativo del usuario.
+
+## Tabla de migración (`exelearning_migration`) — auditoría a nivel de sistema
+
+`exelearning_migration` es un mapa de **auditoría e idempotencia** de la herramienta de
+migración (qué actividad de `mod_exeweb`/`mod_exescorm` se migró a `mod_exelearning`, con
+índice único `(sourcecomponent, sourcecmid)`). Guarda `userid`: el gestor que ejecutó la
+migración (`migration_service.php`, `$USER->id`). La migración es una operación a **nivel de
+sistema** (evento `migration_started` en `context_system`), así que el provider trata esta
+tabla en **`context_system`**, no en el contexto de módulo:
+
+- `get_metadata()` declara `userid`, `sourcecomponent`, `sourcecmid`, `targetcmid`,
+  `timecreated`, `timemodified`.
+- `get_contexts_for_userid()` devuelve el contexto de sistema si el usuario aparece como
+  gestor en alguna fila; `get_users_in_context()` lista esos `userid` (excluyendo el 0).
+- `export_user_data()` exporta las filas del gestor bajo el subcontexto
+  «Activity migrations».
+- **Borrado = anonimización, no borrado de fila.** Las tres rutas de borrado ponen
+  `userid = 0` (el centinela «desconocido/pre-upgrade» ya definido en `install.xml`)
+  conservando la fila. Borrar la fila rompería la idempotencia (re-migrar el mismo origen
+  duplicaría la actividad destino). Esto sigue la guía oficial del Privacy API («borrar *o*
+  *overwritten if a structure needs to be maintained*») y el patrón de Moodle core: `core_tag`
+  anonimiza `userid → 0` en `context_system` («Do not delete … in case they are used by
+  somebody else»), y `gradepenalty_duedate`/`quizaccess_seb` anonimizan `usermodified → 0`
+  sobre filas estructurales.
 
 ## Interfaces implementadas
 

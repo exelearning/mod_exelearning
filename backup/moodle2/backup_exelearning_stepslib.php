@@ -49,7 +49,7 @@ class backup_exelearning_activity_structure_step extends backup_activity_structu
         // completionstatusrequired is the custom completion rule's stored config
         // (DEC-0052); it must round-trip so a restored copy keeps the rule.
         $exelearning = new backup_nested_element('exelearning', ['id'], [
-            'course', 'name', 'intro', 'introformat', 'display', 'displayoptions',
+            'course', 'name', 'intro', 'introformat',
             'entrypath', 'entryname', 'revision', 'gradeenabled', 'grademax',
             'grademin', 'gradepass', 'gradedisplaytype', 'grademethod', 'grademodel',
             'gradecat', 'maxattempt', 'reviewmode', 'teachermodevisible',
