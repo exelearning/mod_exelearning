@@ -213,7 +213,7 @@ jobs:
         # must never break CI, so fail_ci_if_error stays false. Requires the
         # CODECOV_TOKEN repository secret.
         if: ${{ matrix.coverage && !cancelled() }}
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: ateeducacion/mod_exelearning
@@ -269,7 +269,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
@@ -283,7 +283,7 @@ jobs:
       - name: Upload JS coverage to Codecov
         # A failed/missing upload must never break CI. Requires the CODECOV_TOKEN secret.
         if: ${{ !cancelled() }}
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: ateeducacion/mod_exelearning
