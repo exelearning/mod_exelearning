@@ -84,7 +84,11 @@
     function isCrossOriginHttps(src) {
         try {
             var u = new URL(src, window.location.href);
-            return u.protocol === 'https:' && u.hostname.toLowerCase() !== window.location.hostname.toLowerCase();
+            // Strip a single trailing dot so the LMS host in its FQDN-root form
+            // ('host.') counts as same-host and is not reported as a candidate.
+            var host = u.hostname.toLowerCase().replace(/\.$/, '');
+            var here = window.location.hostname.toLowerCase().replace(/\.$/, '');
+            return u.protocol === 'https:' && host !== here;
         } catch (e) {
             return false;
         }

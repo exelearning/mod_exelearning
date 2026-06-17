@@ -34,6 +34,7 @@ function resolveMirrors() {
 // are ignored, so tabs-vs-spaces and the IIFE wrapper do not count as drift).
 const RELAY_INVARIANTS = [
     'isCrossOriginHttps',                  // open-mode structural invariant (DEC-0061)
+    'normalizeHost',                       // trailing-dot FQDN-root normalisation (no host. bypass)
     'url.origin === window.location.origin', // cross-origin gate (rejects same-origin)
     'allow-scripts allow-same-origin allow-popups allow-forms allow-presentation', // video sandbox
     'data-exe-embed-player',              // forged-message defence (D2)

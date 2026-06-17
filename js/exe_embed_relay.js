@@ -121,15 +121,31 @@
     }
 
     /**
+     * Lowercase a hostname and strip a single trailing dot. 'lms.example.org.' (the
+     * FQDN-root form) resolves to the same vhost as 'lms.example.org' but compares
+     * unequal as a raw string, so without this it would slip past the same-origin /
+     * related-to-LMS gate below and be promoted as a cross-origin player.
+     *
+     * @param {string} host
+     * @returns {string}
+     */
+    function normalizeHost(host) {
+        return (host || '').toLowerCase().replace(/\.$/, '');
+    }
+
+    /**
      * Whether a host equals, is a subdomain of, or is a superdomain of the LMS host
      * (dotted boundary so 'evil-lms.example' does not match 'lms.example'). Such hosts
-     * may share the LMS cookies, so they are rejected.
+     * may share the LMS cookies, so they are rejected. Both sides are normalised so the
+     * trailing-dot FQDN-root form cannot evade the comparison.
      *
      * @param {string} host
      * @param {string} lmsHost
      * @returns {boolean}
      */
     function isRelatedToLms(host, lmsHost) {
+        host = normalizeHost(host);
+        lmsHost = normalizeHost(lmsHost);
         if (!lmsHost) { return false; }
         return host === lmsHost || host.endsWith('.' + lmsHost) || lmsHost.endsWith('.' + host);
     }
@@ -147,9 +163,9 @@
         if (url.protocol !== 'https:') { return false; }
         if (url.username || url.password) { return false; }
         if (url.origin === window.location.origin) { return false; }
-        var host = url.hostname.toLowerCase();
+        var host = normalizeHost(url.hostname);
         if (isIpOrLocalHost(host)) { return false; }
-        var lmshost = (window.location && window.location.hostname) ? window.location.hostname.toLowerCase() : '';
+        var lmshost = (window.location && window.location.hostname) ? window.location.hostname : '';
         if (isRelatedToLms(host, lmshost)) { return false; }
         return true;
     }
@@ -467,6 +483,7 @@
         packageId: packageId,
         isSameOriginPackageFile: isSameOriginPackageFile,
         isIpOrLocalHost: isIpOrLocalHost,
+        normalizeHost: normalizeHost,
         isRelatedToLms: isRelatedToLms,
         isCrossOriginHttps: isCrossOriginHttps,
         validate: validate,

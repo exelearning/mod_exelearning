@@ -68,7 +68,10 @@
      * @returns {boolean} True when the message is a valid, authenticated track message.
      */
     function acceptTrack(data, expectednonce) {
-        return isTrackMessage(data) && data.exelearningBridge === expectednonce;
+        // The !!expectednonce guard means an empty/undefined expected nonce can never
+        // authenticate: otherwise a forged message that simply omits the field would
+        // satisfy undefined === undefined and collapse the nonce factor.
+        return isTrackMessage(data) && !!expectednonce && data.exelearningBridge === expectednonce;
     }
 
     /**
@@ -177,7 +180,9 @@
 
         function onMessage(e) {
             var fr = iframe();
-            if (!fr || e.source !== fr.contentWindow) { return; }   // Window identity (primary anchor).
+            // Window identity (primary anchor). The explicit contentWindow check rejects
+            // the degenerate null === null match if the frame is present but not navigable.
+            if (!fr || !fr.contentWindow || e.source !== fr.contentWindow) { return; }
             var data = e.data;
             if (isReadyMessage(data)) {
                 clearWatchdog();   // The iframe is alive; secure mode rendered.

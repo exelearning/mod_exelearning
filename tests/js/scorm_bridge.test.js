@@ -199,6 +199,14 @@ describe('relay pure validators', () => {
         expect(relay.acceptTrack(msg, 'OTHER')).toBe(false);
         expect(relay.acceptTrack({ type: 'scorm', action: 'track', cmi: {}, exelearningBridge: undefined }, 'N')).toBe(false);
     });
+
+    it('acceptTrack never authenticates against a falsy expected nonce (no undefined===undefined)', () => {
+        // A relay constructed without a nonce must reject even a perfectly-shaped message
+        // that omits the field, rather than collapsing the nonce factor.
+        expect(relay.acceptTrack({ type: 'scorm', action: 'track', cmi: {} }, undefined)).toBe(false);
+        expect(relay.acceptTrack({ type: 'scorm', action: 'track', cmi: {}, exelearningBridge: undefined }, undefined)).toBe(false);
+        expect(relay.acceptTrack({ type: 'scorm', action: 'track', cmi: {}, exelearningBridge: '' }, '')).toBe(false);
+    });
 });
 
 describe('relay createRelay (message handling)', () => {
@@ -239,6 +247,19 @@ describe('relay createRelay (message handling)', () => {
     it('ignores a track message from a window other than the iframe', () => {
         const { r, fetchCalls } = setup();
         r.onMessage({ source: { foreign: true }, data: { type: 'scorm', action: 'track', exelearningBridge: 'N', cmi: {} } });
+        expect(fetchCalls).toHaveLength(0);
+    });
+
+    it('ignores a message when the iframe has no contentWindow (no null===null match)', () => {
+        const fetchCalls = [];
+        const iframe = { contentWindow: null };   // present element, not navigable.
+        const doc = { getElementById: (id) => (id === 'exelearningobject' ? iframe : null) };
+        const r = relay.createRelay(
+            { iframeid: 'exelearningobject', cmid: 42, trackurl: '/track.php?id=42', session: 'tok', nonce: 'N', teachermodevisible: 0 },
+            { document: doc, window: { addEventListener: () => {} }, fetch: (url, opts) => { fetchCalls.push({ url, opts }); return { catch: () => {} }; } }
+        );
+        // event.source === null would equal a null contentWindow without the guard.
+        r.onMessage({ source: null, data: { type: 'scorm', action: 'track', exelearningBridge: 'N', cmi: {} } });
         expect(fetchCalls).toHaveLength(0);
     });
 

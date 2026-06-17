@@ -142,6 +142,16 @@ describe('exe_embed_relay structural helpers', () => {
         expect(relay.isRelatedToLms('evil-lms.example.org', 'lms.example.org')).toBe(false); // look-alike
         expect(relay.isRelatedToLms('youtube.com', 'lms.example.org')).toBe(false);
     });
+
+    it('isRelatedToLms normalises the trailing-dot FQDN-root form (no host. bypass)', () => {
+        // 'lms.example.org.' resolves to the same vhost but compares unequal as a raw
+        // string; without normalisation it would slip past the related-to-LMS gate and
+        // be promoted as a cross-origin player with allow-same-origin.
+        expect(relay.isRelatedToLms('lms.example.org.', 'lms.example.org')).toBe(true);   // dotted host
+        expect(relay.isRelatedToLms('lms.example.org', 'lms.example.org.')).toBe(true);   // dotted lmsHost
+        expect(relay.isRelatedToLms('cdn.lms.example.org.', 'lms.example.org')).toBe(true); // dotted subdomain
+        expect(relay.normalizeHost('LMS.Example.ORG.')).toBe('lms.example.org');
+    });
 });
 
 describe('exe_embed_shim promotion decisions', () => {

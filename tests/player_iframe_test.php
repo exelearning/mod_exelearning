@@ -136,21 +136,29 @@ final class player_iframe_test extends advanced_testcase {
     }
 
     /**
-     * content_headers() emits the CSP + Permissions-Policy only for an HTML document in
-     * secure mode, and derives the CSP origin from $CFG->wwwroot (path stripped).
+     * content_headers() emits Referrer-Policy + nosniff on every secure-mode file and adds
+     * the document-level CSP + Permissions-Policy for an HTML document, deriving the CSP
+     * origin from $CFG->wwwroot (path stripped). Legacy mode emits nothing.
      */
     public function test_content_headers(): void {
         $this->resetAfterTest();
 
-        // Secure (default) + HTML document: both headers, origin stripped from wwwroot.
+        // Secure (default) + HTML document: all four headers, origin stripped from wwwroot.
         $headers = player_iframe::content_headers('index.html', 'https://moodle.example.net/sub');
         $this->assertArrayHasKey('Content-Security-Policy', $headers);
         $this->assertArrayHasKey('Permissions-Policy', $headers);
+        $this->assertSame('no-referrer', $headers['Referrer-Policy']);
+        $this->assertSame('nosniff', $headers['X-Content-Type-Options']);
         $this->assertStringContainsString("'self' https://moodle.example.net;", $headers['Content-Security-Policy']);
         $this->assertStringNotContainsString('/sub', $headers['Content-Security-Policy']);
 
-        // Secure + non-HTML subresource: no headers (they only apply to the document).
-        $this->assertSame([], player_iframe::content_headers('libs/base.css', 'https://moodle.example.net'));
+        // Secure + non-HTML subresource: the per-file token-protection headers still apply
+        // (the token rides in the URL of CSS/JS too), but not the document-level CSP.
+        $sub = player_iframe::content_headers('libs/base.css', 'https://moodle.example.net');
+        $this->assertSame('no-referrer', $sub['Referrer-Policy']);
+        $this->assertSame('nosniff', $sub['X-Content-Type-Options']);
+        $this->assertArrayNotHasKey('Content-Security-Policy', $sub);
+        $this->assertArrayNotHasKey('Permissions-Policy', $sub);
 
         // Legacy mode: no headers regardless of file type.
         set_config('iframemode', player_iframe::MODE_LEGACY, 'mod_exelearning');

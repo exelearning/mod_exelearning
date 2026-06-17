@@ -203,25 +203,37 @@ final class player_iframe {
     /**
      * Defense-in-depth response headers for a served package file (DEC-0060).
      *
-     * Returns the Permissions-Policy + Content-Security-Policy to emit for the package
-     * HTML document, but ONLY in secure mode and ONLY for an HTML document (subresources
-     * ignore these headers). Returns an empty array otherwise, so the caller
-     * (exelearning_pluginfile) is just a header-emitting loop. Keeping the decision and
-     * the values here makes them unit-testable (the pluginfile callback that emits them
-     * exits via send_stored_file and cannot be unit-tested directly).
+     * In secure mode EVERY served file gets Referrer-Policy: no-referrer and
+     * X-Content-Type-Options: nosniff. The per-user file token lives in the URL path, so
+     * even a CSS/JS subresource that pulls a cross-origin image must not leak it via the
+     * Referer header; and nosniff forces each file to be interpreted by its declared
+     * Content-Type, so a package cannot smuggle executable HTML behind, e.g., a .pdf path
+     * (the promoted PDF player is unsandboxed). The document-level Content-Security-Policy
+     * and Permissions-Policy are added only for an HTML document (subresources ignore
+     * them). Returns an empty array in legacy mode, so the caller (exelearning_pluginfile)
+     * is just a header-emitting loop. Keeping the decision and the values here makes them
+     * unit-testable (the pluginfile callback that emits them exits via send_stored_file
+     * and cannot be unit-tested directly).
      *
-     * @param string $filename The served file name (only *.html(?) get the headers).
+     * @param string $filename The served file name (only *.html(?) get CSP/Permissions-Policy).
      * @param string $wwwroot This Moodle site's $CFG->wwwroot (origin is derived from it).
      * @return array Map of header name => value (empty when no headers apply).
      */
     public static function content_headers(string $filename, string $wwwroot): array {
-        if (!self::is_secure() || !preg_match('~\.html?$~i', $filename)) {
+        if (!self::is_secure()) {
             return [];
         }
-        $siteorigin = preg_replace('~^(https?://[^/]+).*~i', '$1', $wwwroot);
-        return [
-            'Permissions-Policy' => self::permissions_policy(),
-            'Content-Security-Policy' => self::content_security_policy($siteorigin),
+        // Apply to every served package file (the token rides in the URL for all of them).
+        $headers = [
+            'Referrer-Policy' => 'no-referrer',
+            'X-Content-Type-Options' => 'nosniff',
         ];
+        // CSP + Permissions-Policy are document-level and only meaningful on an HTML page.
+        if (preg_match('~\.html?$~i', $filename)) {
+            $siteorigin = preg_replace('~^(https?://[^/]+).*~i', '$1', $wwwroot);
+            $headers['Permissions-Policy'] = self::permissions_policy();
+            $headers['Content-Security-Policy'] = self::content_security_policy($siteorigin);
+        }
+        return $headers;
     }
 }
