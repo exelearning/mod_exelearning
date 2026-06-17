@@ -13,18 +13,19 @@ siendo `status.yaml` + `tareas/backlog/`.
       origen por URL con sincronización (patrón mod_scorm: selector
       `packagesource` + columna `reference` + `create_file_from_url` + gating por
       `contenthash` + `curl_security_helper` + ajuste admin `allowexternalurl`
-      opt-in) + botón "Actualizar ahora" (Fase 1). Fase 2 opcional: `updatefreq`
-      + `db/tasks.php` + token para el REST de eXeLearning v4. El reemplazo YA
-      está soportado por `update_instance`; falta hacerlo descubrible.
+      opt-in) + botón "Actualizar ahora" (Fase 1). **Fase 2 DESCARTADA por ahora**
+      (DEC-0033 §Resolución de alcance, 2026-06-17): sin `updatefreq`/`db/tasks.php`/
+      token REST eXe v4. El reemplazo YA está soportado por `update_instance`; falta hacerlo descubrible.
 - [ ] TAREA-015 / DEC-0032: implementar la ingesta xAPI dual (listener AMD +
       endpoint + normalizador) reutilizando la tubería existente, sin romper el
       shim SCORM 1.2. Gated a que el PR upstream #1867 congele el contrato.
-- [ ] Auditorías de cumplimiento pendientes: licencias, privacidad y
-      accesibilidad.
-- [ ] TAREA-013 / RIE-001 (M8): investigar sandboxing de JS en cliente para mitigar
-      (ShadowRealm, SES/Compartments, Web Worker + DOM proxy, QuickJS-WASM, librerías
-      tipo `sandboxjs`) manteniendo el servido same-origin. Evaluar viabilidad con el
-      motor eXeLearning (DOM + jQuery + pipwerks). Ver DEC-0019 (M8).
+      **Diseño del endpoint DECIDIDO 2026-06-17** (DEC-0063 §Resoluciones: `scaled∉[0,1]`→rechazo 400,
+      overall recalculado server-side, `registration`/`sessiontoken` conviven, endpoint custom + `core_xapi` opcional).
+- [ ] Cumplimiento: solo **accesibilidad** pendiente (pasada `axe-core`; known-gap post-STABLE, no
+      bloqueante). Licencias y privacidad: vigentes (revisadas 2026-06-17, ver `cumplimiento/`).
+- [x] TAREA-013 / RIE-001: **DECIDIDO 2026-06-17** — RIE-001 **aceptado** (media/baja, mitigación v1
+      sandbox); el hardening (DEC-0019: Permissions-Policy, CSP estricto, origen opaco) lo implementa la rama
+      `feature/secure-iframe-scorm-bridge`, no como bloqueante. No se abre ficha de investigación separada.
 
 ## Cerrado
 

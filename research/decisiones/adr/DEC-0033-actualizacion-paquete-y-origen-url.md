@@ -265,3 +265,11 @@ opcional** — se deja explícitamente para Fase 2 (no bloquea la decisión).
   REST de eXeLearning v4.
 - Cierra la duda del usuario sobre el reemplazo: **sí está contemplado** (A1), se hará
   más visible (A2).
+
+## Resolución de alcance (erseco, 2026-06-17)
+
+**Solo Fase 1.** Se implementará (TAREA-016): reemplazo **descubrible** (botón "Actualizar ahora", ya
+soportado por `update_instance`) + **origen por URL externa detrás de un toggle de admin `allowexternalurl`
+(opt-in, default off)**, con refresco **manual** (patrón B2 de este ADR). La **Fase 2** (auto-sync
+`updatefreq` + `db/tasks.php` + token para el REST de eXeLearning v4) queda **descartada por ahora**; se
+reabre solo si hay demanda. El ADR sigue `Propuesta` hasta implementar Fase 1.

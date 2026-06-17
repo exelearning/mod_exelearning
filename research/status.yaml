@@ -12,6 +12,8 @@ metadata:
   clones_externos_convencion: "../_repos"
   blueprint_metodologico: /Users/ernesto/Downloads/git/learningml-ng
 
+# NOTA (2026-06-17, erseco): el índice navegable COMPLETO de los 59 ADRs es docs/indices/adrs.yaml
+# (autogenerado). Esta sección lista solo decisiones bloqueantes/estructurales; NO es exhaustiva por diseño.
 decisiones_bloqueantes:
   DEC-0001:
     titulo: "Metodología de evidencia y ADRs"
@@ -599,7 +601,11 @@ riesgos:
     titulo: "XSS cross-component desde paquete eXeLearning malicioso"
     severidad: media
     probabilidad: baja
-    estado: identificado
+    estado: aceptado
+    aceptacion: >-
+      ACEPTADO 2026-06-17 (erseco): riesgo media/baja aceptado con la mitigación v1 (sandbox del iframe).
+      El hardening Tier 1/2 (DEC-0019) lo implementa la rama feature/secure-iframe-scorm-bridge
+      (DEC-0059..0062), NO como bloqueante. TAREA-013 (sandboxing JS) queda cubierta ahí; no se crea ficha aparte.
     mitigacion: >-
       v1 VIGENTE: sandbox del iframe sin allow-top-navigation / allow-modals (AN-008).
       Investigación TAREA-012 completada en DEC-0019 (2026-06-02): core NO aísla (mod_scorm
