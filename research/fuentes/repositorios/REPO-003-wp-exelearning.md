@@ -4,7 +4,7 @@ titulo: "wp-exelearning — plugin de WordPress para insertar recursos eXeLearni
 tipo: wordpress-plugin
 ruta_local: /Users/ernesto/Dropbox/Trabajo/ate/exelearning/wp-exelearning
 url_upstream: "[PENDIENTE]"
-commit_consultado: "[PENDIENTE]"
+commit_consultado: "b41dc7b (HEAD clon local 2026-06-17)"
 fecha_consulta: 2026-05-28
 licencia: "GPL-2.0-or-later [PENDIENTE: confirmar en cabecera del plugin]"
 rol_para_mod_exelearning: "Referencia secundaria: técnica de content-proxy + iframe + bloque Gutenberg + editor embebido. Sin grading."

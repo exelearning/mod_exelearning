@@ -4,7 +4,7 @@ titulo: "mod_exescorm — fork de mod_scorm con extensiones eXeLearning"
 tipo: moodle-plugin
 ruta_local: /Users/ernesto/Dropbox/Trabajo/ate/exelearning/mod_exescorm
 url_upstream: "[PENDIENTE: confirmar URL upstream pública]"
-commit_consultado: "[PENDIENTE: registrar sha tras `git rev-parse HEAD`]"
+commit_consultado: "e985f4d (HEAD clon local 2026-06-17; sha de consulta 2026-05-28 no registrado)"
 fecha_consulta: 2026-05-28
 licencia: "GPL-3.0-or-later [PENDIENTE: confirmar en cabeceras de archivos]"
 rol_para_mod_exelearning: "Referencia primaria para tracking SCORM → gradebook y para la integración con eXeLearning Online + editor embebido."

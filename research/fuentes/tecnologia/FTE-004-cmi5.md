@@ -20,6 +20,12 @@ herramienta_ia:
 
 ## Qué es
 
+> **[ACTUALIZACION 2026-06-17]** Ficha de bootstrap (2026-05-29). **cmi5 quedó FUERA DE ALCANCE** para
+> `mod_exelearning`, con respaldo: su modelo (reproductor externo + LRS + AU/launch) no encaja con el recurso
+> HTML embebido same-origin. Ver **DEC-0032 §6**, **AN-014** (reconsideración matizada), **REPO-008**
+> (mod_cmi5launch confirma player+LRS) y **FTE-017** (en xAPI.js cmi5 es paquete aparte `@xapi/cmi5`). Los
+> `[PENDIENTE]` de más abajo se cierran por estar el tema fuera de alcance.
+
 Perfil xAPI + paquete (`cmi5.xml`) definido por AICC/ADL como sucesor moderno de SCORM.
 Cada AU se lanza con `fetchUrl` y reporta vía xAPI.
 

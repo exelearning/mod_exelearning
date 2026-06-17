@@ -1,7 +1,7 @@
 ---
 id: DEC-0035
 titulo: "Coherencia profesor/alumno en peritem: excluir la nota overall oculta de la agregación para no vaciar el total del alumno"
-estado: Aceptada
+estado: Superseded
 fecha: 2026-06-04
 agentes:
   - erseco
