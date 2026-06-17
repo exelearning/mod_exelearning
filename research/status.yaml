@@ -184,6 +184,21 @@ decisiones_bloqueantes:
       PR1 documental. xAPI (exe_xapi.js, upstream #1867) ingiere reutilizando la tubería
       existente (exelearning_attempt plano + objectid→itemnumber), sin tablas
       cabecera/detalle (respeta DEC-0007). Implementación en TAREA-015.
+  DEC-0059:
+    titulo: "Reglas de validación canónica del endpoint xAPI y política de versión (1.0.3 con tolerancia a 2.0)"
+    estado: Propuesta
+    ruta: decisiones/adr/DEC-0059-validacion-canonica-endpoint-xapi-y-version.md
+    fecha: 2026-06-17
+    relacionados: [DEC-0032, DEC-0014, DEC-0003, DEC-0017, DEC-0007, DEC-0029]
+    notas: >-
+      Complementa DEC-0032 (no supersede). Acepta como diseño vinculante para PR2/TAREA-015
+      las reglas de validación canónica del endpoint submit_xapi_statement (rangos score
+      scaled∈[-1,1]/raw∈[min,max], lista blanca de verbos, object.id→itemnumber, ignorar
+      actor/authority/stored/timestamp→$USER, idempotencia por statement.id, highest-score-wins
+      por (registration,ideviceId)) y la política de versión: consumir 1.0.3 pero validar
+      permisivamente (acepta 1.0.x y 2.0.0, nunca rechaza por header). Fuentes nuevas:
+      FTE-015 (xAPI 1.0.3 canónica), FTE-017 (xAPI 2.0 = IEEE 9274.1.1, NO obliga: no somos LRS),
+      AN-014 (síntesis ecosistema ADL). Descarta State/Profile/Signed/cmi5/LRS externo.
   DEC-0033:
     titulo: "Actualización de contenido: reemplazo del .elpx y origen por URL con sincronización"
     estado: Propuesta

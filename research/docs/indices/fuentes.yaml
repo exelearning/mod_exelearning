@@ -14,3 +14,6 @@ items:
   - id: 'FTE-012', titulo: 'Moodle grade API: categoría de un grade item (set_parent), exclusión de la agregación (set_excluded) y vaciado de totales con items ocultos', estado: None, fecha: None, ruta: 'fuentes/tecnologia/FTE-012-moodle-grade-api-categoria-exclusion.md'
   - id: 'FTE-013', titulo: 'Moodle: tipos de plugin, frankenstyle, subplugins, dependencias y empaquetado', estado: None, fecha: None, ruta: 'fuentes/tecnologia/FTE-013-moodle-tipos-plugin-empaquetado.md'
   - id: 'FTE-014', titulo: 'Moodle: selección del grade item para la finalización por nota (completiongradeitemnumber, modelo workshop)', estado: None, fecha: None, ruta: 'fuentes/tecnologia/FTE-014-moodle-completion-grade-item-selection.md'
+  - id: 'FTE-015', titulo: 'xAPI 1.0.3 (especificación canónica ADL) — reglas de validación e idempotencia del endpoint', estado: None, fecha: None, ruta: 'fuentes/tecnologia/FTE-015-xapi-spec-canonica.md'
+  - id: 'FTE-016', titulo: 'xAPI.js (@xapi/xapi, MIT) — tipos del statement, verbos canónicos y fixtures de test', estado: None, fecha: None, ruta: 'fuentes/tecnologia/FTE-016-xapijs-cliente-js.md'
+  - id: 'FTE-017', titulo: 'xAPI 2.0 (IEEE 9274.1.1-2023) — estado, documentación y aplicabilidad a mod_exelearning', estado: None, fecha: None, ruta: 'fuentes/tecnologia/FTE-017-xapi-2.0-ieee-9274.md'
