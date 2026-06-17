@@ -12,6 +12,8 @@ metadata:
   clones_externos_convencion: "../_repos"
   blueprint_metodologico: /Users/ernesto/Downloads/git/learningml-ng
 
+# NOTA (2026-06-17, erseco): el índice navegable COMPLETO de los 59 ADRs es docs/indices/adrs.yaml
+# (autogenerado). Esta sección lista solo decisiones bloqueantes/estructurales; NO es exhaustiva por diseño.
 decisiones_bloqueantes:
   DEC-0001:
     titulo: "Metodología de evidencia y ADRs"

@@ -156,3 +156,22 @@ impondrá, **antes** de normalizar a `itemscores`:
   `backup_cmi5launch_stepslib.php` antes de citarlo como anti-patrón); decisión `custom vs core_xapi` (FTE-007/
   AN-003); `registration ↔ sessiontoken` (formato UUID server-side).
 - Continúa TAREA-015 (gated a #1867) y PREG-002 (cambios upstream).
+
+## Resoluciones de diseño (erseco, 2026-06-17)
+
+Resueltas las preguntas abiertas que el ADR/AN-014 dejaban al maintainer. El núcleo de la decisión
+(validación canónica + política de versión) no cambia; el ADR sigue **Propuesta** (gated a #1867):
+
+1. **`result.score.scaled` fuera de `[0,1]` → RECHAZO (400), no clamp.** El emisor de eXeLearning solo
+   produce `[0,1]` (`s/10` por iDevice, `f/100` por paquete); un valor fuera de rango es señal de statement
+   malformado o de origen no-eXe → rechazo ruidoso + log. (Se mantiene también el rechazo de `scaled∉[-1,1]`
+   de la spec; el dominio efectivo aceptado es `[0,1]`.)
+2. **Overall (`itemnumber=0`) = RECÁLCULO server-side desde los `answered`**, con paridad total con el camino
+   SCORM (`recompute_overall_pct`, DEC-0018). El statement de paquete (`passed`/`failed`) se usa solo como
+   señal de `status`/`success`, **no** como fuente del agregado; el servidor nunca confía el overall del cliente.
+3. **`registration` ↔ `sessiontoken`: CONVIVEN.** SCORM mantiene `sessiontoken` (`random_string(20)`); xAPI usa
+   `registration` (UUID generado/controlado server-side) como su llave de intento sobre la **misma** tabla
+   `exelearning_attempt`. No se toca el camino SCORM productivo.
+4. **Vía de ingesta = ENDPOINT CUSTOM** (`classes/external/submit_xapi_statement`, ignora `actor`→`$USER`,
+   reusa `apply_item_scores`) **+ handler `core_xapi` OPCIONAL más tarde** solo para eventos/analítica. Cierra
+   la duda `custom vs core_xapi` del Seguimiento.

@@ -24,6 +24,7 @@ items:
   - ruta: 'tareas/diario/2026-06-13-secure-iframe-scorm-bridge.yaml', fecha: '2026-06-13'
   - ruta: 'tareas/diario/2026-06-13-secure-iframe-tokenpluginfile.yaml', fecha: '2026-06-13'
   - ruta: 'tareas/diario/2026-06-17-adr-validacion-xapi-y-2.0.yaml', fecha: '2026-06-17'
+  - ruta: 'tareas/diario/2026-06-17-decisiones-endpoint-y-roadmap.yaml', fecha: '2026-06-17'
   - ruta: 'tareas/diario/2026-06-17-investigacion-adl-xapi.yaml', fecha: '2026-06-17'
   - ruta: 'tareas/diario/2026-06-17-limpieza-fixtures.yaml', fecha: '2026-06-17'
   - ruta: 'tareas/diario/2026-06-17-limpieza-research.yaml', fecha: '2026-06-17'

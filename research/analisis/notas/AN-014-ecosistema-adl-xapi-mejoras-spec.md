@@ -154,3 +154,10 @@ añade un **matiz de diseño**: precisamente porque cmi5launch **delega** `passe
 - **`DEC-0063` (Propuesta)** formaliza como diseño vinculante (PR2/TAREA-015) las mejoras **M1, M2, M3, M4, M5,
   M6** y la M-versión, citando FTE-015 + FTE-017. Las mejoras **M7** (fixtures `@xapi/xapi`), **M8** (backup
   `userinfo`) y **M9** (`Moodle-PHP-Libs` no-dependencia) quedan como seguimiento, no decididas en este ADR.
+
+**Resoluciones de diseño (erseco, 2026-06-17)** — las preguntas abiertas del endpoint quedan decididas y
+registradas en **DEC-0063 §Resoluciones de diseño**: `scaled∉[0,1]` → **rechazo 400**; overall → **recálculo
+server-side** (DEC-0018); `registration`/`sessiontoken` **conviven**; ingesta = **endpoint custom** +
+`core_xapi` opcional luego. En paralelo: DEC-0033 → **solo Fase 1** (reemplazo descubrible + URL externa
+opt-in admin, refresco manual); DEC-0045 → **diferida** (la salida definitiva es xAPI); RIE-001 → **aceptado**
++ roadmap en la rama `feature/secure-iframe-scorm-bridge`.
