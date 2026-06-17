@@ -179,6 +179,7 @@ final class provider_test extends provider_testcase {
         $names = array_map(static fn($item) => $item->get_name(), $collection->get_collection());
         $this->assertContains('exelearning_attempt', $names);
         $this->assertContains('exelearning', $names);
+        $this->assertContains('exelearning_migration', $names);
     }
 
     /**
@@ -212,5 +213,132 @@ final class provider_test extends provider_testcase {
         provider::delete_data_for_users($userlist);
 
         $this->assertSame($before, $DB->count_records('exelearning_attempt'));
+    }
+
+    /**
+     * Insert a migration audit row attributed to the given manager.
+     *
+     * @param int $userid The manager who ran the migration.
+     * @param int $sourcecmid Source course module id (kept unique by the table index).
+     * @return int The inserted record id.
+     */
+    protected function seed_migration(int $userid, int $sourcecmid): int {
+        global $DB;
+        return (int) $DB->insert_record('exelearning_migration', (object) [
+            'sourcecomponent' => 'mod_exeweb',
+            'sourcecmid'      => $sourcecmid,
+            'targetcmid'      => $sourcecmid + 1000,
+            'userid'          => $userid,
+            'timecreated'     => 1700000000,
+            'timemodified'    => 1700000000,
+        ]);
+    }
+
+    /**
+     * A manager who ran a migration is found at the system context.
+     */
+    public function test_migration_get_contexts_for_userid(): void {
+        $manager = $this->getDataGenerator()->create_user();
+        $this->seed_migration((int) $manager->id, 11);
+
+        $contextlist = provider::get_contexts_for_userid($manager->id);
+        $contextids = $contextlist->get_contextids();
+        $this->assertContains(\context_system::instance()->id, $contextids);
+    }
+
+    /**
+     * Managers with migration rows are listed for the system context; the
+     * anonymised sentinel (userid 0) is not.
+     */
+    public function test_migration_get_users_in_system_context(): void {
+        $manager1 = $this->getDataGenerator()->create_user();
+        $manager2 = $this->getDataGenerator()->create_user();
+        $this->seed_migration((int) $manager1->id, 21);
+        $this->seed_migration((int) $manager2->id, 22);
+        $this->seed_migration(0, 23);
+
+        $system = \context_system::instance();
+        $userlist = new userlist($system, $this->component);
+        provider::get_users_in_context($userlist);
+
+        $userids = array_map('intval', $userlist->get_userids());
+        $this->assertContains((int) $manager1->id, $userids);
+        $this->assertContains((int) $manager2->id, $userids);
+        $this->assertNotContains(0, $userids);
+    }
+
+    /**
+     * A manager's migration rows are exported in the system context.
+     */
+    public function test_migration_export_user_data(): void {
+        $manager = $this->getDataGenerator()->create_user();
+        $this->seed_migration((int) $manager->id, 31);
+
+        $system = \context_system::instance();
+        $this->export_context_data_for_user($manager->id, $system, $this->component);
+
+        $writer = writer::with_context($system);
+        $this->assertTrue($writer->has_any_data());
+        $data = $writer->get_data([get_string('privacy:path:migrations', 'mod_exelearning')]);
+        $this->assertNotEmpty($data->migrations);
+        $this->assertCount(1, $data->migrations);
+    }
+
+    /**
+     * Erasing a manager anonymises (userid = 0) their migration rows but keeps the
+     * audit/idempotency rows, leaving other managers untouched.
+     */
+    public function test_migration_delete_for_user_anonymises(): void {
+        global $DB;
+        $manager1 = $this->getDataGenerator()->create_user();
+        $manager2 = $this->getDataGenerator()->create_user();
+        $this->seed_migration((int) $manager1->id, 41);
+        $this->seed_migration((int) $manager2->id, 42);
+        $total = $DB->count_records('exelearning_migration');
+
+        $system = \context_system::instance();
+        $approved = new approved_contextlist($manager1, $this->component, [$system->id]);
+        provider::delete_data_for_user($approved);
+
+        // The row survives (idempotency map preserved) but is no longer attributed.
+        $this->assertSame($total, $DB->count_records('exelearning_migration'));
+        $this->assertSame(0, $DB->count_records('exelearning_migration', ['userid' => $manager1->id]));
+        $this->assertSame(1, $DB->count_records('exelearning_migration', ['userid' => $manager2->id]));
+    }
+
+    /**
+     * delete_data_for_users anonymises the named managers' migration rows only.
+     */
+    public function test_migration_delete_for_users_anonymises(): void {
+        global $DB;
+        $manager1 = $this->getDataGenerator()->create_user();
+        $manager2 = $this->getDataGenerator()->create_user();
+        $this->seed_migration((int) $manager1->id, 51);
+        $this->seed_migration((int) $manager2->id, 52);
+
+        $system = \context_system::instance();
+        $userlist = new approved_userlist($system, $this->component, [$manager1->id]);
+        provider::delete_data_for_users($userlist);
+
+        $this->assertSame(0, $DB->count_records('exelearning_migration', ['userid' => $manager1->id]));
+        $this->assertSame(1, $DB->count_records('exelearning_migration', ['userid' => $manager2->id]));
+    }
+
+    /**
+     * delete_data_for_all_users_in_context at system level anonymises every
+     * migration row while preserving the audit map.
+     */
+    public function test_migration_delete_all_in_system_anonymises(): void {
+        global $DB;
+        $manager1 = $this->getDataGenerator()->create_user();
+        $manager2 = $this->getDataGenerator()->create_user();
+        $this->seed_migration((int) $manager1->id, 61);
+        $this->seed_migration((int) $manager2->id, 62);
+        $total = $DB->count_records('exelearning_migration');
+
+        provider::delete_data_for_all_users_in_context(\context_system::instance());
+
+        $this->assertSame($total, $DB->count_records('exelearning_migration'));
+        $this->assertSame($total, $DB->count_records('exelearning_migration', ['userid' => 0]));
     }
 }
