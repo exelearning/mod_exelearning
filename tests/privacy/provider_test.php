@@ -183,33 +183,35 @@ final class provider_test extends provider_testcase {
     }
 
     /**
-     * The provider safely ignores non-module contexts.
+     * The provider safely ignores contexts it does not handle (neither the module
+     * context with attempts nor the system context with migration audit rows).
      */
-    public function test_non_module_contexts_are_ignored(): void {
-        $system = \context_system::instance();
+    public function test_unhandled_contexts_are_ignored(): void {
+        $course = \context_course::instance($this->instance->course);
 
-        // A non-module context deletes nothing and adds no users.
-        provider::delete_data_for_all_users_in_context($system);
+        // A context the provider does not handle deletes nothing and adds no users.
+        provider::delete_data_for_all_users_in_context($course);
 
-        $userlist = new userlist($system, $this->component);
+        $userlist = new userlist($course, $this->component);
         provider::get_users_in_context($userlist);
         $this->assertCount(0, $userlist->get_userids());
     }
 
     /**
-     * Export and per-user deletion skip non-module contexts without touching data.
+     * Export and per-user deletion skip contexts the provider does not handle
+     * without touching any stored data.
      */
-    public function test_export_and_delete_skip_non_module_context(): void {
+    public function test_export_and_delete_skip_unhandled_context(): void {
         global $DB;
-        $system = \context_system::instance();
+        $course = \context_course::instance($this->instance->course);
         $user = $this->getDataGenerator()->create_user();
         $before = $DB->count_records('exelearning_attempt');
 
-        $approved = new approved_contextlist($user, $this->component, [$system->id]);
+        $approved = new approved_contextlist($user, $this->component, [$course->id]);
         provider::export_user_data($approved);
         provider::delete_data_for_user($approved);
 
-        $userlist = new approved_userlist($system, $this->component, [$user->id]);
+        $userlist = new approved_userlist($course, $this->component, [$user->id]);
         provider::delete_data_for_users($userlist);
 
         $this->assertSame($before, $DB->count_records('exelearning_attempt'));
@@ -340,5 +342,48 @@ final class provider_test extends provider_testcase {
 
         $this->assertSame($total, $DB->count_records('exelearning_migration'));
         $this->assertSame($total, $DB->count_records('exelearning_migration', ['userid' => 0]));
+    }
+
+    /**
+     * Cross-context isolation: a module-context erasure removes attempts but must
+     * NOT touch the system-level migration audit rows.
+     */
+    public function test_module_erasure_leaves_migration_intact(): void {
+        global $DB;
+        $manager = $this->getDataGenerator()->create_user();
+        $this->seed_migration((int) $manager->id, 71);
+
+        // Every module-context erasure entry point (all operate on attempts only).
+        provider::delete_data_for_all_users_in_context($this->context);
+        $approved = new approved_contextlist($this->student1, $this->component, [$this->context->id]);
+        provider::delete_data_for_user($approved);
+        $userlist = new approved_userlist($this->context, $this->component, [$this->student2->id]);
+        provider::delete_data_for_users($userlist);
+
+        // The migration row and its attribution survive a module-context erasure.
+        $this->assertSame(1, $DB->count_records('exelearning_migration', ['userid' => $manager->id]));
+    }
+
+    /**
+     * Cross-context isolation: a system-context erasure anonymises migration rows
+     * but must NOT touch the module-level attempt history.
+     */
+    public function test_system_erasure_leaves_attempts_intact(): void {
+        global $DB;
+        $manager = $this->getDataGenerator()->create_user();
+        $this->seed_migration((int) $manager->id, 81);
+        $before = $DB->count_records('exelearning_attempt');
+
+        $system = \context_system::instance();
+        // Every system-context erasure entry point (all operate on migration only).
+        $approved = new approved_contextlist($manager, $this->component, [$system->id]);
+        provider::delete_data_for_user($approved);
+        provider::delete_data_for_all_users_in_context($system);
+        $userlist = new approved_userlist($system, $this->component, [$manager->id]);
+        provider::delete_data_for_users($userlist);
+
+        // Attempts are untouched by a system-context erasure; migration is anonymised.
+        $this->assertSame($before, $DB->count_records('exelearning_attempt'));
+        $this->assertSame(0, $DB->count_records('exelearning_migration', ['userid' => $manager->id]));
     }
 }

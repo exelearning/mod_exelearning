@@ -119,7 +119,6 @@ final class package_legacy_test extends advanced_testcase {
      */
     public function test_save_draft_file_stores_package(): void {
         global $CFG, $USER;
-        require_once($CFG->libdir . '/resourcelib.php');
         $this->resetAfterTest();
         $this->setAdminUser();
 

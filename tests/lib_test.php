@@ -841,8 +841,9 @@ final class lib_test extends advanced_testcase {
 
         // The cap emits a developer-level debugging() once; acknowledge it.
         $this->assertDebuggingCalled();
-        // The fixture's iDevices could not be registered above the cap.
-        $this->assertGreaterThan(0, $delta['capped']);
+        // The default fixture has exactly two gradable iDevices, both pushed over the
+        // cap by the filler, so the dropped count is deterministic.
+        $this->assertSame(2, $delta['capped']);
         // No grade item is registered beyond the cap.
         $this->assertSame(0, $DB->count_records_select(
             'exelearning_grade_item',
