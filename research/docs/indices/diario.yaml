@@ -22,4 +22,5 @@ items:
   - ruta: 'tareas/diario/2026-06-13-reconciliacion-stable-y-behat.yaml', fecha: '2026-06-13'
   - ruta: 'tareas/diario/2026-06-17-adr-validacion-xapi-y-2.0.yaml', fecha: '2026-06-17'
   - ruta: 'tareas/diario/2026-06-17-investigacion-adl-xapi.yaml', fecha: '2026-06-17'
+  - ruta: 'tareas/diario/2026-06-17-limpieza-fixtures.yaml', fecha: '2026-06-17'
   - ruta: 'tareas/diario/2026-06-17-limpieza-research.yaml', fecha: '2026-06-17'

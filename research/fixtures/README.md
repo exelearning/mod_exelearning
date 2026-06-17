@@ -16,6 +16,17 @@ sus tests de integración. Se replican aquí para que los experimentos de
 > fixtures desde el upstream y registrar la fecha en este README. No editarlas a
 > mano.
 
+> **[RETIRADA 2026-06-17]** Para reducir peso (regla «no commitear binarios pesados») se eliminaron del repo
+> ~13 MB de fixtures **sin referencia** desde `tests/`/`scripts/`/`blueprint.json`: `arrows.elpx`,
+> `really-simple-test-project.elpx`, `contenido-prueba-estilos-cata.elpx`, `actividad-evaluable_2/_3/4.elpx`,
+> el ZIP **duplicado** `scorm-export/actividad-evaluable_scorm12.zip` (md5 idéntico a
+> `scorm/actividad-evaluable_scorm.zip`) y los árboles **extraídos** `web-export/really-simple_web/` y
+> `scorm-export/really-simple_scorm12/`. Las entradas de abajo se conservan como **documentación/evidencia**
+> (conteos esperados de DEC-0037, análisis SCO de AN-005); los binarios se **regeneran** con la sección
+> «Cómo regenerar las fixtures». **Se conservan en disco** (en uso): `actividad-evaluable.elpx` (tests),
+> `multipage-gradable.elpx` (tests), `superelpx.elpx` (`lib_test.php`), `scorm/actividad-evaluable_scorm.zip`
+> y `h5p/question-set-demo.h5p` (blueprint).
+
 ## Origen upstream
 
 [`https://github.com/exelearning/exelearning`](https://github.com/exelearning/exelearning),
