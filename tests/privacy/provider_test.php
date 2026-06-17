@@ -244,7 +244,7 @@ final class provider_test extends provider_testcase {
         $this->seed_migration((int) $manager->id, 11);
 
         $contextlist = provider::get_contexts_for_userid($manager->id);
-        $contextids = $contextlist->get_contextids();
+        $contextids = array_map('intval', $contextlist->get_contextids());
         $this->assertContains(\context_system::instance()->id, $contextids);
     }
 

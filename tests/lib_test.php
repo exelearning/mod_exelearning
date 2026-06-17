@@ -690,7 +690,7 @@ final class lib_test extends advanced_testcase {
         // Re-syncing the unchanged package is a no-op delta.
         $delta = exelearning_sync_grade_items($instance->id, $contextid);
         $this->assertSame(
-            ['added' => 0, 'removed' => 0, 'changed' => 0],
+            ['added' => 0, 'removed' => 0, 'changed' => 0, 'capped' => 0],
             $delta
         );
 
