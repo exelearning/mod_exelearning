@@ -227,6 +227,7 @@ $string['gradedisplay_real_percentage']  = 'Real and percentage';
 $string['gradeenabled'] = 'Graded activity';
 $string['gradeenabled_help'] = 'When enabled (the default), the iDevices the author marked for assessment are tracked, shown as gradebook columns and in the reports. When disabled, the activity behaves like a plain resource: no grade columns, no reports and no attempt tracking.';
 $string['gradeitem_overall'] = 'Overall';
+$string['gradeitemcapexceeded'] = 'This package has more than {$a} gradable iDevices. Only the first {$a} are registered as gradebook columns; the remaining items are not graded. Consider splitting the content into separate activities.';
 $string['grademax']       = 'Maximum grade per item';
 $string['grademax_help']  = 'Each gradable iDevice in the package (trueorfalse, guess, drag-and-drop, quizzes…) is registered as a separate column in the gradebook with this maximum value.';
 $string['grademethod']            = 'Attempts grading method';

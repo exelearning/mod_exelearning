@@ -792,6 +792,66 @@ final class lib_test extends advanced_testcase {
     }
 
     /**
+     * The grade-item cap warning is queued only when sync dropped iDevices over the
+     * gradeitems::MAX_ITEMNUMBER cap; a zero "capped" count stays silent.
+     */
+    public function test_warn_if_grade_items_capped(): void {
+        $this->create_activity();
+
+        // No overflow: silent.
+        \core\notification::fetch();
+        exelearning_warn_if_grade_items_capped(['capped' => 0]);
+        $this->assertCount(0, \core\notification::fetch());
+
+        // Overflow: exactly one warning.
+        \core\notification::fetch();
+        exelearning_warn_if_grade_items_capped(['capped' => 3]);
+        $this->assertCount(1, \core\notification::fetch());
+    }
+
+    /**
+     * sync() reports the number of gradable iDevices it could not register because
+     * the package exceeds gradeitems::MAX_ITEMNUMBER, and registers none beyond the cap.
+     */
+    public function test_sync_caps_grade_items(): void {
+        global $DB;
+
+        $instance = $this->create_activity();
+        $max = \mod_exelearning\grades\gradeitems::MAX_ITEMNUMBER;
+
+        // Drop the registered fixture iDevices so they re-detect as new on the next
+        // sync, and seed a filler row at the cap so MAX(itemnumber) == MAX_ITEMNUMBER.
+        $DB->delete_records('exelearning_grade_item', ['exelearningid' => $instance->id]);
+        $DB->insert_record('exelearning_grade_item', (object) [
+            'exelearningid' => $instance->id,
+            'itemnumber'    => $max,
+            'objectid'      => 'filler-cap',
+            'pageid'        => null,
+            'idevicetype'   => 'filler',
+            'name'          => 'filler',
+            'grademax'      => 100,
+            'grademin'      => 0,
+            'deleted'       => 0,
+            'contenthash'   => null,
+            'timecreated'   => time(),
+            'timemodified'  => time(),
+        ]);
+
+        $delta = exelearning_sync_grade_items($instance->id);
+
+        // The cap emits a developer-level debugging() once; acknowledge it.
+        $this->assertDebuggingCalled();
+        // The fixture's iDevices could not be registered above the cap.
+        $this->assertGreaterThan(0, $delta['capped']);
+        // No grade item is registered beyond the cap.
+        $this->assertSame(0, $DB->count_records_select(
+            'exelearning_grade_item',
+            'exelearningid = ? AND itemnumber > ?',
+            [$instance->id, $max]
+        ));
+    }
+
+    /**
      * Gradebook deep-link (issue #13 #4, DEC-0023): exelearning_grade_item_view_url()
      * maps an itemnumber to its iDevice objectid so grade.php can forward the click
      * straight to that iDevice; itemnumber 0 and unknown numbers fall back to the
