@@ -1,5 +1,5 @@
 ---
-id: DEC-0059
+id: DEC-0063
 titulo: "Reglas de validación canónica del endpoint xAPI y política de versión (1.0.3 con tolerancia a 2.0)"
 estado: Propuesta
 fecha: 2026-06-17
@@ -151,7 +151,7 @@ impondrá, **antes** de normalizar a `itemscores`:
 ## Seguimiento
 
 - Al implementar (PR2): fundir las reglas en `docs/xapi-integration-plan.md` y `tracking-architecture.md`, y
-  añadir docblocks citando `(DEC-0059)` y `(see FTE-015/FTE-017)`.
+  añadir docblocks citando `(DEC-0063)` y `(see FTE-015/FTE-017)`.
 - Pendientes heredados (AN-014): backup del tracking envuelto por `userinfo` (M8, verificar
   `backup_cmi5launch_stepslib.php` antes de citarlo como anti-patrón); decisión `custom vs core_xapi` (FTE-007/
   AN-003); `registration ↔ sessiontoken` (formato UUID server-side).

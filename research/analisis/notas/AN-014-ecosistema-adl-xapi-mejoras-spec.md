@@ -10,7 +10,7 @@ fuentes:
   - FTE-017
   - FTE-011
 relacionados:
-  - DEC-0059
+  - DEC-0063
   - DEC-0032
   - DEC-0003
   - DEC-0014
@@ -143,7 +143,7 @@ añade un **matiz de diseño**: precisamente porque cmi5launch **delega** `passe
 - `[PENDIENTE]` re-verificar verbatim las cláusulas MUST/SHOULD de FTE-015 contra `xAPI-Data.md`/
   `xAPI-Communication.md` al commit fijado antes de citarlas literal en un ADR.
 
-## Actualización 2026-06-17 — xAPI 2.0 y formalización en DEC-0059
+## Actualización 2026-06-17 — xAPI 2.0 y formalización en DEC-0063
 
 - **xAPI 2.0 (IEEE 9274.1.1-2023) NO obliga a `mod_exelearning`** (FTE-017): no somos un LRS; el modelo de
   Statement es retro-compatible (`result.score` idéntico; solo `contextAgents`/`contextGroups` nuevos y
@@ -151,6 +151,6 @@ añade un **matiz de diseño**: precisamente porque cmi5launch **delega** `passe
   same-origin. Como el emisor upstream envía `1.0.3`, la política recomendada es **consumir 1.0.3 pero validar
   la versión de forma permisiva** (aceptar `1.0.x` y, defensivamente, `2.0.0`; nunca rechazar por header). →
   **M-versión**, destino `xapi-integration-plan.md` §4 + `xapi_listener.js`, prioridad media.
-- **`DEC-0059` (Propuesta)** formaliza como diseño vinculante (PR2/TAREA-015) las mejoras **M1, M2, M3, M4, M5,
+- **`DEC-0063` (Propuesta)** formaliza como diseño vinculante (PR2/TAREA-015) las mejoras **M1, M2, M3, M4, M5,
   M6** y la M-versión, citando FTE-015 + FTE-017. Las mejoras **M7** (fixtures `@xapi/xapi`), **M8** (backup
   `userinfo`) y **M9** (`Moodle-PHP-Libs` no-dependencia) quedan como seguimiento, no decididas en este ADR.
