@@ -81,6 +81,38 @@ to the SCORM endpoint today):
 | Server entry | `track.php` (SCORM) + `save_track` WS (mobile) | `xapi_track.php` (plain AJAX, sesskey, mirrors `track.php`) — no `db/services.php` entry |
 | Events | `course_module_viewed`, `attempt_started`/`attempt_completed` | **deferred**: optional `core_xapi` handler + iDevice/package events |
 
+## SCORM 1.2 vs xAPI — comparison
+
+Both channels feed the same gradebook through the same pipeline; they differ in *how the
+package talks to Moodle* and *how much it can say*. This plugin uses **exactly one** channel
+per package — xAPI when the package emits it, SCORM otherwise (DEC-0064).
+
+| Dimension | SCORM 1.2 (legacy path) | xAPI (this layer) | Edge |
+|---|---|---|---|
+| Transport | pipwerks `window.API` shim that Moodle injects and force-inits | `postMessage` emitted natively by the package | **xAPI** — no shim, no pipwerks dependency |
+| Per-iDevice detail | parsed out of the `cmi.suspend_data` string with a locale-sensitive regex | one structured `answered` statement per iDevice | **xAPI** — no brittle string parsing |
+| Score field | `cmi.core.score.raw` + the suspend_data format eXeLearning serialises | typed `result.score.{scaled,raw,min,max}` | **xAPI** — breaks only if the spec changes, not the producer's string |
+| Interaction richness | overall score + lesson status | verbs, per-iDevice results, context, extensions | **xAPI** — captures far more than a final score |
+| Weighted overall | recomputed server-side from items (weights travel inline in suspend_data) | taken from the package `finalScore` (answered statements carry no weight) and validated | **SCORM** — weights travel with each item; xAPI leans on the package statement (parity preserved here) |
+| Identity / trust | package asserts nothing; server uses `$USER` | actor is anonymous by design; server uses `$USER` | **tie** — both fully server-trusted |
+| Idempotency | none (the attempt upsert absorbs repeats) | de-duplicated by `statement.id` (`exelearning_tracking_events`) | **xAPI** — exactly-once auditing |
+| Offline / mobile / non-browser | no (needs the SCORM runtime in a browser) | yes (the same statements can also reach an LRS) | **xAPI** — portable beyond the embedded iframe |
+| Coupling to the producer | needs pipwerks injected + the `form`/`scrambled-list` save-guard patch (DEC-0042) | none — the emitter is always-on in every export | **xAPI** — fewer serve-time mutations |
+| Standard status | legacy (SCORM 1.2, 2004-era) | current (xAPI 1.0.3, forward-compatible with 2.0) | **xAPI** — modern, actively maintained |
+| LMS / tooling ubiquity | near-universal, decades of support | modern standard, growing adoption | **SCORM** — widest compatibility |
+| Maturity in this plugin | productive, the default since DEC-0003 | new in this layer | **SCORM** — battle-tested |
+| Analytics / LRS readiness | none (data stays as Moodle grades) | statements are LRS-shaped (future `core_xapi` handler, deferred) | **xAPI** — a path to learning analytics |
+
+**In short**
+
+- **SCORM 1.2 is better at** ubiquity and maturity, and carries per-iDevice weights inline so
+  the weighted overall needs no separate signal. It stays as the compatibility path for
+  packages that predate the xAPI emitter (DEC-0003).
+- **xAPI is better at** structured per-interaction granularity, dropping the fragile
+  `suspend_data` regex and the pipwerks dependency, idempotent auditing, portability
+  (mobile/offline/LRS), and being the modern, future-proof standard. It is the primary
+  channel for packages that emit it (DEC-0064).
+
 ## Scope
 
 In scope: consuming `exe_xapi.js` statements via `postMessage` and grading through the
