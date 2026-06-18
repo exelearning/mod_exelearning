@@ -1,9 +1,17 @@
-# Tracking architecture — dual SCORM 1.2 + xAPI ingestion
+# Tracking architecture — SCORM 1.2 + xAPI ingestion
 
-> Status: **target architecture** decided in DEC-0032 (Spanish ADR,
-> `research/decisiones/adr/DEC-0032-ingesta-dual-scorm-xapi.md`). The xAPI channel is
-> **not implemented yet** (PR2 / TAREA-015); this document fixes how it will plug in.
-> See also `scorm-shim-current-flow.md` (today) and `xapi-integration-plan.md` (the plan).
+> Status: **implemented** (DEC-0032 architecture + **DEC-0064** implementation; Spanish ADRs under
+> `research/decisiones/adr/`). The xAPI channel shipped in PR2 / TAREA-015 now that eXeLearning
+> PR #1867 is merged (`e3b1bd13`). See also `scorm-shim-current-flow.md` (the SCORM path) and
+> `xapi-integration-plan.md` (the design + what shipped).
+>
+> **xAPI-primary (DEC-0064):** a package that bundles `libs/xapi/exe_xapi.js` is graded via xAPI and
+> its `window.API` is an **inert stub** (`js/scorm_tracker.js` `disableTracking`); legacy packages keep
+> SCORM. So a given package uses exactly one grade channel — no double-counting. The listener is the
+> inline IIFE `js/xapi_listener.js` and the endpoint is the plain script `xapi_track.php`
+> (sesskey, mirroring `track.php`), delegating to `\mod_exelearning\local\xapi\{statement_normalizer,
+> ingestor}`. The overall (`itemnumber=0`) is taken from the package statement and validated
+> server-side, because per-iDevice `answered` statements carry no weight.
 
 ## Principle
 
@@ -34,16 +42,16 @@ flowchart TD
     XAPI["exe_xapi.js emitter (PR #1867)"]
   end
 
-  SCORM -->|"LMSSetValue → window.API shim (view.php)"| ITEMS
-  XAPI -->|"postMessage {type:'exe-xapi-statement', statement}"| LIS["xapi_listener.js  (PR2)"]
-  LIS -->|"validate origin; POST sesskey + cmid"| EP["xAPI endpoint  (PR2)"]
-  EP -->|"normalize statement → itemscores; ignore actor → \$USER"| ITEMS
+  SCORM -->|"LMSSetValue → window.API (legacy pkgs only; INERT stub for xAPI pkgs)"| ITEMS
+  XAPI -->|"postMessage {type:'exe-xapi-statement', statement}"| LIS["js/xapi_listener.js (inline IIFE)"]
+  LIS -->|"validate event.origin; POST sesskey + cmid + registration"| EP["xapi_track.php (plain AJAX, like track.php)"]
+  EP -->|"statement_normalizer (validate, DEC-0063) → ingestor; ignore actor → \$USER"| ITEMS
 
-  ITEMS["itemscores { objectid: { scorepct, weighted, title } }"] --> TR["track::apply_item_scores / recompute_overall_pct"]
+  ITEMS["itemscores { objectid: { scorepct, weighted, title } }"] --> TR["track::apply_item_scores (+ overall from package statement)"]
   TR --> AT["attempts::record_item / aggregate_scaled  (exelearning_attempt, flat)"]
   AT --> GB["grade_update() → Moodle gradebook"]
   AT --> CO["completion_info::update_state()"]
-  EP -. optional .-> HND["core_xapi handler → Moodle events (analytics)"]
+  EP -. deferred .-> HND["core_xapi handler → Moodle events (analytics)"]
 ```
 
 ## Trust boundary
@@ -65,13 +73,13 @@ to the SCORM endpoint today):
 
 ## Reused vs new
 
-| Concern | Reused (today) | New (PR2) |
+| Concern | Reused | New (DEC-0064) |
 |---|---|---|
-| Internal model | `exelearning_attempt`, `exelearning_grade_item` | — (optional `exelearning_tracking_events` for audit/idempotency) |
-| Routing / grading | `track::ingest()` (→ `apply_item_scores`, `recompute_overall_pct`, `attempts::*`, `grade_update`) | a thin `statement → itemscores` normalizer |
-| Client capture | `view.php` SCORM shim; mobile app | `amd/src/xapi_listener.js`; host injects `window.exeXapi` |
-| Server entry | `track.php` (SCORM web) + `save_track` WS (mobile), both via `track::ingest()` | xAPI endpoint (custom external or `core_xapi`) |
-| Events | `course_module_viewed` | optional `core_xapi` handler + iDevice/package events |
+| Internal model | `exelearning_attempt`, `exelearning_grade_item` | `exelearning_tracking_events` (`statementid` UNIQUE — audit/idempotency) |
+| Routing / grading | `track::apply_item_scores`, `attempts::*`, `grade_update` | `\local\xapi\statement_normalizer` + `\local\xapi\ingestor` (thin `statement → itemscores`; overall from the package statement) |
+| Client capture | `js/scorm_tracker.js` (legacy pkgs) | `js/xapi_listener.js` (inline IIFE); `\local\xapi\config_injector` sets `parentOrigin`/`actor:null` |
+| Server entry | `track.php` (SCORM) + `save_track` WS (mobile) | `xapi_track.php` (plain AJAX, sesskey, mirrors `track.php`) — no `db/services.php` entry |
+| Events | `course_module_viewed`, `attempt_started`/`attempt_completed` | **deferred**: optional `core_xapi` handler + iDevice/package events |
 
 ## Scope
 

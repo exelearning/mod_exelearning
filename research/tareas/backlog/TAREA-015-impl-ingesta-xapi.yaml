@@ -1,8 +1,8 @@
 id: TAREA-015
 titulo: "Implementar la ingesta xAPI dual (listener + endpoint + normalizador) reutilizando la tubería existente"
-estado: Pending
+estado: Done
 fecha: 2026-06-04
-agente: pendiente
+agente: claude-code
 prioridad: media
 objetivo: >-
   Consumir en mod_exelearning los statements xAPI que emite exe_xapi.js (PR upstream #1867)
@@ -17,6 +17,8 @@ pasos:
   - "Tests PHPUnit + JS según los criterios; regenerar amd/build con grunt amd."
 relacionados:
   - DEC-0032
+  - DEC-0063
+  - DEC-0064
   - DEC-0014
   - DEC-0007
   - DEC-0017
