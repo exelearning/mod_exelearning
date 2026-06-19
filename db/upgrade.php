@@ -534,5 +534,34 @@ function xmldb_exelearning_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026061700, 'exelearning');
     }
 
+    // Stage 19 (2026061800): xAPI ingestion audit/idempotency table (DEC-0032/DEC-0064).
+    // One row per processed xAPI statement.id so a repeated statement is not re-applied
+    // (LRS idempotency, DEC-0063). The grade/UI never depend on this table — the flat
+    // exelearning_attempt table (DEC-0007) does; it is audit/dedup only.
+    if ($oldversion < 2026061800) {
+        $table = new xmldb_table('exelearning_tracking_events');
+        if (!$dbman->table_exists($table)) {
+            $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+            $table->add_field('exelearningid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+            $table->add_field('userid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+            $table->add_field('statementid', XMLDB_TYPE_CHAR, '36', null, XMLDB_NOTNULL, null, null);
+            $table->add_field('verb', XMLDB_TYPE_CHAR, '32', null, XMLDB_NOTNULL, null, null);
+            $table->add_field('objectid', XMLDB_TYPE_CHAR, '191', null, null, null, null);
+            $table->add_field('registration', XMLDB_TYPE_CHAR, '40', null, null, null, null);
+            $table->add_field('scaled', XMLDB_TYPE_NUMBER, '10, 5', null, null, null, null);
+            $table->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+
+            $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+            $table->add_key('exelearningid_fk', XMLDB_KEY_FOREIGN, ['exelearningid'], 'exelearning', ['id']);
+            $table->add_key('userid_fk', XMLDB_KEY_FOREIGN, ['userid'], 'user', ['id']);
+
+            $table->add_index('statementid', XMLDB_INDEX_UNIQUE, ['statementid']);
+            $table->add_index('exelearningid_userid', XMLDB_INDEX_NOTUNIQUE, ['exelearningid', 'userid']);
+
+            $dbman->create_table($table);
+        }
+        upgrade_mod_savepoint(true, 2026061800, 'exelearning');
+    }
+
     return true;
 }

@@ -1,8 +1,24 @@
 # xAPI integration plan
 
-> Status: **plan only** (PR1 is documentation). Implementation is PR2 / TAREA-015, gated on
-> eXeLearning PR #1867 freezing its contract. Decision: DEC-0032. Emitter contract: `FTE-011`.
+> Status: **implemented** (PR2 / TAREA-015, **DEC-0064**). eXeLearning PR #1867 is **merged**
+> (commit `e3b1bd13`, 2026-06-18) so the contract is frozen. Decision trail: DEC-0032 (architecture),
+> DEC-0063 (validation/version), DEC-0064 (implementation). Emitter contract: `FTE-011`.
 > Statement→model mapping & trust analysis: `AN-012`. Moodle `core_xapi`: `FTE-007`.
+>
+> **What shipped (DEC-0064), refining the plan below:**
+> - **xAPI-primary, not dual-on-the-same-package.** When the served package bundles
+>   `libs/xapi/exe_xapi.js` (detected by `exelearning_package_emits_xapi()`), Moodle grades via xAPI
+>   and boots `window.API` as an **inert SCORM stub** (`js/scorm_tracker.js` `disableTracking`), so the
+>   two channels never double-count. Legacy packages (no emitter) keep SCORM grading. This is safe
+>   because the same `gamification.scorm.sendScoreNew()` drives both `gamification.track('answered')`
+>   and the pipwerks `set()` — the channels are coextensive.
+> - **Endpoint = a plain AJAX script** `xapi_track.php` (sesskey + capability, mirroring `track.php`),
+>   not a `core_external` service. **Listener = an inline IIFE** `js/xapi_listener.js` (the
+>   `js/scorm_tracker.js` / DEC-0056 pattern, Vitest-tested), not an `amd/src` module. Both delegate to
+>   `\mod_exelearning\local\xapi\statement_normalizer` + `\mod_exelearning\local\xapi\ingestor`.
+> - **Overall comes from the package statement** (`passed`/`failed`/`completed` `finalScore`), validated
+>   server-side — per-iDevice `answered` statements carry no weight to recompute a weighted overall from
+>   (refines §5 below and DEC-0063 §2; honours DEC-0018 by validating, not blind-trusting).
 
 ## 1. Upstream contract (eXeLearning `exe_xapi.js`, PR #1867)
 
@@ -53,29 +69,37 @@ window.exeXapi = {
 
 This keeps PII out of the page and makes honest packages post **only** to Moodle.
 
-## 3. Listener (`amd/src/xapi_listener.js`)
+## 3. Listener (`js/xapi_listener.js`) — *as shipped (DEC-0064)*
 
-- Listen to `window` `message` events; accept **only** `event.data.type ===
-  'exe-xapi-statement'`.
-- **Validate `event.origin`** against the iframe `pluginfile.php` origin; drop `'*'` /
-  mismatched senders (defense in depth even though `parentOrigin` is set — RIE-013).
+Implemented as an **inline IIFE** (the `js/scorm_tracker.js` / DEC-0056 pattern), dual-exposed via
+`window.exeXapiListener` + `module.exports` for Vitest, **not** an `amd/src` module (grade-critical
+client JS is injected synchronously and needs no AMD build).
+
+- Listen to `window` `message` events; accept **only** `event.data.type === 'exe-xapi-statement'`.
+- **Validate `event.origin`** against the iframe `pluginfile.php`/wwwroot origin; drop `'*'` /
+  mismatched senders (defense in depth even though `config_injector` sets `parentOrigin` — RIE-013).
 - De-dup by `statement.id` within the page session.
-- Forward to the endpoint with `sesskey`, `cmid`, and the current `registration` if known.
+- Forward to `xapi_track.php` with `sesskey`, `cmid`, and the page-load `registration`.
 - Never read or expose PII in JS.
-- After editing, rebuild `amd/build/` with Moodle's `grunt amd` (per `AGENTS.md`).
 
-## 4. Server endpoint
+## 4. Server endpoint (`xapi_track.php`) — *as shipped (DEC-0064)*
 
-Two viable routes (analysis in `AN-012`):
+The endpoint is a **plain AJAX script** `xapi_track.php` (`AJAX_SCRIPT`, `require_sesskey()` +
+`require_capability('mod/exelearning:savetrack')`), **mirroring `track.php`** — not a `core_external`
+service (so there is **no `db/services.php` entry**). It decodes the statement, runs
+`\mod_exelearning\local\xapi\statement_normalizer` (the canonical DEC-0063 validation) and delegates
+to `\mod_exelearning\local\xapi\ingestor`, which reuses `track::apply_item_scores` / `attempts::*` /
+`grade_update`. A plain script still satisfies DEC-0063's "custom endpoint that ignores the actor and
+reuses the pipeline" — the recorded choice was *custom endpoint vs `core_xapi`*, and a script **is** a
+custom endpoint. An **optional** `core_xapi` handler (FTE-007, h5pactivity pattern AN-003) is
+**deferred** to a follow-up, purely for events/analytics.
+
+The route analysis (`AN-012`) that weighed a `core_external` service vs `core_xapi`:
 
 | Route | Pros | Cons |
 |---|---|---|
-| **Custom external** `classes/external/submit_xapi_statement` (ajax, like `manage_embedded_editor` + `db/services.php`) | Full control of the trust model: ignore `actor` → `$USER`; trivially reuses `apply_item_scores` | Not the `core_xapi` subsystem (no automatic events/state) |
-| **Native** `core_xapi_statement_post` + `mod_exelearning\xapi\handler` (FTE-007, h5pactivity pattern AN-003) | Standard; emits Moodle events; less bespoke code | `core_xapi` binds processing to actor identity; our anonymous actor needs care to be accepted as the session user |
-
-**Recommendation:** a custom endpoint for ingestion/grading (clean fit for "ignore actor,
-reuse the pipeline"), plus an **optional** `core_xapi` handler later purely for
-events/analytics. Final call in PR2.
+| **Custom endpoint** (chosen: plain `xapi_track.php`) | Full control of the trust model: ignore `actor` → `$USER`; trivially reuses `apply_item_scores`; symmetric with `track.php` | Not the `core_xapi` subsystem (no automatic events/state) |
+| **Native** `core_xapi_statement_post` + `mod_exelearning\xapi\handler` (FTE-007) | Standard; emits Moodle events; less bespoke code | `core_xapi` binds processing to actor identity; our anonymous actor needs care to be accepted as the session user |
 
 The endpoint must:
 
@@ -90,6 +114,10 @@ The endpoint must:
    `track::apply_item_scores()`; take the package `passed`/`failed` as the overall (the
    producer already weights it), re-validating server-side.
 7. Idempotency: optionally persist by `statement.id` (`exelearning_tracking_events`).
+8. Bound every accepted field server-side (the body is attacker-controllable): sanitise +
+   cap `registration` to `char(40)`/`PARAM_ALPHANUMEXT`, require a real RFC UUID for
+   `statement.id` (reject the nil UUID), and swallow only the genuine `UNIQUE(statementid)`
+   race when auditing. See **Edge cases & failure modes** in `tracking-architecture.md`.
 
 ## 5. Statement → internal model mapping
 
@@ -118,8 +146,10 @@ The endpoint must:
 
 ## 7. Out of scope / sequencing
 
-- **Out of scope:** cmi5, external-LRS dependency, and the `'*'` origin fallback.
-- **PR1 (this):** documentation + ADR only; no plugin code.
-- **PR2 (TAREA-015):** listener + endpoint + normalizer + optional handler/events +
-  optional audit table + PHPUnit/JS tests, **gated** on PR #1867 freezing the envelope and
-  `parentOrigin`. SCORM 1.2 stays as the compatibility path (DEC-0003).
+- **Out of scope:** cmi5, external-LRS dependency, the `'*'` origin as a trusted target, and the
+  `core_xapi` events/analytics handler (deferred to a follow-up).
+- **PR1 (done):** documentation + ADRs (DEC-0032/DEC-0063).
+- **PR2 (done, TAREA-015 / DEC-0064):** `js/xapi_listener.js` + `xapi_track.php` + normalizer +
+  ingestor + `config_injector` + `exelearning_tracking_events` + the `disableTracking` inert SCORM
+  stub + PHPUnit/Vitest tests. SCORM 1.2 stays as the compatibility path for legacy packages
+  (DEC-0003); xAPI-primary for packages that emit it (DEC-0064).

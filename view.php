@@ -433,6 +433,22 @@ if (!$mainfile) {
     // channel, with this parent only forwarding it to track.php so the sesskey stays on
     // the trusted side. In legacy mode the package is same-origin, window.API is injected
     // here in the parent, and the iframe's pipwerks walks window.parent to find it.
+    // One page-load token groups all of this view's commits into a single attempt,
+    // shared by whichever channel grades (DEC-0007).
+    $sessiontoken = random_string(20);
+    // Channel choice (DEC-0064, constrained by DEC-0059): a package that bundles the
+    // upstream xAPI emitter grades via xAPI, but ONLY in legacy (same-origin) mode. The
+    // parent-side xapi_listener trusts a statement by event.origin === host origin; in
+    // secure mode the package runs in an opaque origin (event.origin is "null"), so that
+    // origin check can never match and the listener would silently drop every statement.
+    // There the SCORM bridge relay (validated by window identity + nonce, not origin) is
+    // the working channel, so the SCORM shim must stay LIVE — disabling it would record
+    // zero grades, the DEC-0062 failure this mode exists to fix. Bridging xAPI over the
+    // secure relay is a deferred follow-up. The site-wide master switch
+    // (exelearning_xapi_primary_enabled) can also force every package back onto SCORM.
+    $emitsxapi = !$securemode
+            && exelearning_xapi_primary_enabled()
+            && exelearning_package_emits_xapi($context->id, (int) $exelearning->revision);
     $trackurl = (new moodle_url(
         '/mod/exelearning/track.php',
         ['id' => $cm->id, 'sesskey' => sesskey(), 'mode' => $mode]
@@ -467,7 +483,7 @@ if (!$mainfile) {
             'iframeid' => 'exelearningobject',
             'cmid' => (int) $cm->id,
             'trackurl' => $trackurl,
-            'session' => random_string(20),
+            'session' => $sessiontoken,
             'nonce' => random_string(32),
             'teachermodevisible' => (int) !empty($exelearning->teachermodevisible),
             'blockedid' => 'exelearning-secure-blocked',
@@ -480,10 +496,15 @@ if (!$mainfile) {
         // pipwerks findAPI() runs — an async AMD load would race the SCO and break
         // grading. Config (cmid, track URL, per-page attempt token) is passed as JSON
         // to the createScormApi() factory instead of string-substituted placeholders.
+        // disableTracking makes the shim inert for an xAPI-primary package (DEC-0064):
+        // window.API still answers pipwerks so the iDevices run and emit statements, but
+        // it never POSTs to track.php, leaving xAPI as the sole grade channel. It is only
+        // ever true here (legacy mode); see $emitsxapi above.
         $emitinlinemodule('scorm_tracker.js', [
             'cmid' => (int) $cm->id,
             'trackurl' => $trackurl,
-            'session' => random_string(20),
+            'session' => $sessiontoken,
+            'disableTracking' => $emitsxapi,
         ], 'window.API = window.exeScormTracker.createScormApi(%s).api;');
     }
 
@@ -502,6 +523,32 @@ if (!$mainfile) {
             'mode' => $embedmode,
             'whitelist' => $embedstrict ? \mod_exelearning\local\ui\player_iframe::embed_whitelist() : [],
         ], 'window.exeEmbedRelay.init(%s);');
+    }
+
+    // The xAPI listener (DEC-0064): for an xAPI-capable package, receive the emitter's
+    // exe-xapi-statement postMessages in this parent page, validate the origin and
+    // forward each to xapi_track.php. Same inline single-source-of-truth pattern as the
+    // SCORM tracker (js/xapi_listener.js, Vitest-tested). It shares $sessiontoken as the
+    // xAPI registration so every statement of this view maps to the same attempt.
+    if ($emitsxapi) {
+        $xapitrackurl = (new moodle_url(
+            '/mod/exelearning/xapi_track.php',
+            ['id' => $cm->id, 'sesskey' => sesskey(), 'mode' => $mode]
+        ))->out(false);
+        $hostorigin = preg_replace('~^(https?://[^/]+).*~', '$1', $CFG->wwwroot);
+        $xapicfg = json_encode(
+            [
+                'cmid' => (int) $cm->id,
+                'trackurl' => $xapitrackurl,
+                'registration' => $sessiontoken,
+                'mode' => $mode,
+                'allowedOrigin' => $hostorigin,
+            ],
+            JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+        );
+        $listenerjs = file_get_contents(__DIR__ . '/js/xapi_listener.js');
+        $listenerboot = "\n(function () { window.exeXapiListener.createListener($xapicfg).start(); })();";
+        echo html_writer::tag('script', $listenerjs . $listenerboot);
     }
 
     // Fullscreen control (issue #13 #6, DEC-0024): a right-aligned button above the

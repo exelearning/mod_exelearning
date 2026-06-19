@@ -2,7 +2,7 @@
 id: FTE-011
 titulo: "Emisión xAPI en eXeLearning (exe_xapi.js, PR upstream #1867)"
 categoria: api-otro
-version_consultada: "exelearning/exelearning PR #1867 (draft) — commit 59b9b9b"
+version_consultada: "exelearning/exelearning PR #1867 — MERGED en commit e3b1bd13 (2026-06-18); contrato verificado antes en el draft 59b9b9b"
 enlaces_oficiales:
   - https://github.com/exelearning/exelearning/pull/1867
   - https://raw.githubusercontent.com/exelearning/exelearning/59b9b9b46f20a92dd86631c173b325f6c0940274/public/app/common/xapi/exe_xapi.js
@@ -21,11 +21,22 @@ herramienta_ia:
 
 ## Qué es
 
+> **Actualización 2026-06-18 — PR #1867 MERGEADO (`e3b1bd13`).** El contrato está
+> **congelado** y coincide con lo documentado abajo (verbos, envoltorio
+> `{type:'exe-xapi-statement', statement}`, `object.id={baseIri}/idevice/{ideviceId}`,
+> `result.score.scaled`, actor anónimo, `parentOrigin` configurable). Dos adiciones de
+> seguridad upstream: (a) **anonimización de PII** al difundir a `'*'` sin `parentOrigin`
+> (`_postToParent` sustituye el actor por anónimo); (b) **escape XSS** (`</script>`,
+> U+2028/U+2029) en la inyección `window.exeXapi={…}` (`serializeForScript`). Confirmado
+> además: el `answered` por iDevice **no lleva peso** (vive en `_state`, plegado en el
+> `finalScore` del statement de paquete) y el export web sirve `odeId` vacío (routear por
+> el `idevice-id` extension). Esto desbloquea **TAREA-015** e informa **DEC-0064**.
+
 `exe_xapi.js` es el **emisor xAPI siempre-activo** que el PR upstream
 [`exelearning/exelearning#1867`](https://github.com/exelearning/exelearning/pull/1867)
-(`feat(export): emit xAPI statements from published packages`, **estado draft/open**,
-rama `feature/add-xapi-support`, commit `59b9b9b46f20a92dd86631c173b325f6c0940274`,
-actualizado 2026-06-03) añade a **todos** los formatos de exportación
+(`feat(export): emit xAPI statements from published packages`, **mergeado 2026-06-18 en
+`e3b1bd13`**; contrato observado en el draft `59b9b9b46f20a92dd86631c173b325f6c0940274`,
+rama `feature/add-xapi-support`) añade a **todos** los formatos de exportación
 (`public/app/common/xapi/exe_xapi.js:16-22`). Se incluye vía `BASE_LIBRARIES`, de modo
 que cualquier paquete publicado es "xAPI-compatible out of the box", **sin opción de
 exportación**.
