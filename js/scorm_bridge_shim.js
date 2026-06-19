@@ -72,7 +72,9 @@
     /**
      * Detect whether the current window is a sandboxed, opaque-origin document
      * (secure mode). Opaque origins serialize to the string "null"; as a secondary
-     * probe, real web storage access throws. Either signal means "activate".
+     * probe, web storage access throws a SecurityError (ONLY that — a QuotaExceededError
+     * or a disabled-storage policy in a real same-origin iframe must not count). Either
+     * signal means "activate".
      *
      * @param {Window} win The window to test (default: the global window).
      * @returns {boolean} True when running in an opaque sandbox.
@@ -87,7 +89,14 @@
             var probe = '__exeprobe__';
             win.localStorage.setItem(probe, '1');
             win.localStorage.removeItem(probe);
-        } catch (e2) { return true; }
+        } catch (e2) {
+            // Only an opaque origin denies web storage with a SecurityError. A
+            // QuotaExceededError (storage full) or a browser/policy that blocks first-party
+            // storage in a REAL same-origin iframe also throws here; treating those as
+            // "opaque" would activate the shim in legacy mode (where no parent relay listens),
+            // so buffered scores would post into a postMessage void and be silently lost.
+            return !!(e2 && e2.name === 'SecurityError');
+        }
         return false;
     }
 

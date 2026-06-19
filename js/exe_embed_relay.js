@@ -233,13 +233,16 @@
     }
 
     /**
-     * Create a SANDBOXED player iframe for a validated embed. The video player gets
-     * allow-same-origin so the cross-origin provider keeps its own origin and renders,
-     * while NO allow-top-navigation/allow-modals stops a hostile embed from redirecting
-     * the LMS tab or spamming dialogs. The PDF player omits allow-scripts (so any PDF JS
-     * cannot run) but keeps allow-same-origin so the browser viewer renders.
+     * Create the player iframe for a validated embed. The video player gets allow-same-origin
+     * (so the cross-origin provider keeps its own origin and renders) while omitting
+     * allow-top-navigation/allow-modals, so a hostile embed cannot redirect the LMS tab or
+     * spam dialogs. A same-origin package PDF is served as application/pdf + nosniff (never
+     * executable HTML) and is left unsandboxed so the browser's built-in viewer renders it; a
+     * CROSS-ORIGIN PDF URL comes from the untrusted package, so it is sandboxed WITHOUT
+     * allow-top-navigation (a server can serve scripted HTML at a .pdf path, which unsandboxed
+     * could top-navigate the parent tab to a phishing page).
      *
-     * @param {Object} result {url, kind} from validate().
+     * @param {Object} result {url, kind, sameorigin?} from validate().
      * @returns {HTMLIFrameElement}
      */
     function makePlayer(result) {
@@ -252,14 +255,23 @@
             frame.setAttribute('allow', 'autoplay; encrypted-media; fullscreen; picture-in-picture; clipboard-write');
             frame.setAttribute('allowfullscreen', '');
             frame.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+        } else if (result.sameorigin) {
+            // Same-origin PDF that belongs to THIS package: served application/pdf + nosniff
+            // (never executable HTML, so it cannot script or navigate), left unsandboxed so the
+            // browser's built-in viewer renders it (it shows the broken-document icon inside a
+            // sandbox). The load guard still removes it if it redirects to the LMS origin.
+            frame.setAttribute('allow', 'fullscreen');
+            frame.setAttribute('referrerpolicy', 'no-referrer');
         } else {
-            // The browser's built-in PDF viewer does NOT run inside a sandboxed iframe
-            // (it renders the broken-document icon), so the PDF player is left unsandboxed
-            // -- unchanged from before DEC-0061, where PDFs were already "any https .pdf".
-            // A cross-origin PDF is isolated by SOP; the same-origin path is restricted to
-            // this package's own files; the load guard below still removes a PDF that
-            // redirects to the LMS origin. Residual (documented): a server that serves
-            // HTML at a .pdf path could run scripts here -- pre-existing and low.
+            // Cross-origin PDF whose URL is controlled by the untrusted package. A server can
+            // serve scripted HTML at a ".pdf" path; unsandboxed, that frame could top-navigate
+            // the Moodle tab to a phishing page on a click (a package must never change the
+            // parent URL). Sandbox it WITHOUT allow-top-navigation/allow-scripts; allow-same-
+            // origin keeps the provider's own origin (SOP-isolated from the LMS). Trade-off: a
+            // genuine cross-origin PDF may render the broken-document icon under the sandbox --
+            // accepted, since local package PDFs (the common case) take the branch above and
+            // blocking the tab-redirect vector matters more than inlining a remote PDF.
+            frame.setAttribute('sandbox', 'allow-same-origin');
             frame.setAttribute('allow', 'fullscreen');
             frame.setAttribute('referrerpolicy', 'no-referrer');
         }

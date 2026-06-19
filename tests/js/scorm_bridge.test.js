@@ -71,12 +71,21 @@ describe('shim isSandboxedOpaque', () => {
         expect(shim.isSandboxedOpaque({ origin: 'null' })).toBe(true);
     });
 
-    it('is true when web storage access throws (opaque origin)', () => {
+    it('is true when web storage access throws a SecurityError (opaque origin)', () => {
         const win = {
             origin: 'https://moodle.test',
-            get localStorage() { throw new Error('SecurityError'); },
+            get localStorage() { throw new DOMException('blocked', 'SecurityError'); },
         };
         expect(shim.isSandboxedOpaque(win)).toBe(true);
+    });
+
+    it('is FALSE when storage throws a non-SecurityError in a real same-origin iframe (legacy, not opaque)', () => {
+        // A QuotaExceededError (or a disabled-storage policy) must NOT be mistaken for an
+        // opaque origin, or the shim would wrongly activate in legacy mode and lose grades.
+        const quota = { origin: 'https://moodle.test', get localStorage() { throw new DOMException('full', 'QuotaExceededError'); } };
+        expect(shim.isSandboxedOpaque(quota)).toBe(false);
+        const generic = { origin: 'https://moodle.test', get localStorage() { throw new Error('nope'); } };
+        expect(shim.isSandboxedOpaque(generic)).toBe(false);
     });
 
     it('is false for a same-origin window with working storage', () => {

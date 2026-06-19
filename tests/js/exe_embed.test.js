@@ -218,8 +218,20 @@ describe('exe_embed_relay makePlayer() — sandboxed players', () => {
         expect(frame.getAttribute('referrerpolicy')).toBe('strict-origin-when-cross-origin');
     });
 
-    it('PDF player is NOT sandboxed (the browser PDF viewer fails inside a sandbox)', () => {
+    it('cross-origin PDF player is sandboxed WITHOUT top-navigation/scripts (cannot redirect the tab)', () => {
+        // A server can serve scripted HTML at a .pdf path; the sandbox stops it top-navigating
+        // the Moodle tab. allow-same-origin keeps the provider origin (SOP-isolated).
         const frame = relay.makePlayer({ url: 'https://files.test/manual.pdf', kind: 'pdf' });
+        const sb = frame.getAttribute('sandbox');
+        expect(sb).not.toBeNull();
+        expect(sb).toContain('allow-same-origin');
+        expect(sb).not.toContain('allow-top-navigation');
+        expect(sb).not.toContain('allow-scripts');
+        expect(frame.getAttribute('referrerpolicy')).toBe('no-referrer');
+    });
+
+    it('same-origin package PDF is left unsandboxed (served application/pdf, the viewer needs it)', () => {
+        const frame = relay.makePlayer({ url: ORIGIN + '/pluginfile.php/5/mod_exelearning/content/3/files/local.pdf', kind: 'pdf', sameorigin: true });
         expect(frame.hasAttribute('sandbox')).toBe(false);
         expect(frame.getAttribute('referrerpolicy')).toBe('no-referrer');
     });
