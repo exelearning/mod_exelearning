@@ -77,7 +77,8 @@
     /**
      * Create a relay bound to a config + (injectable) environment.
      *
-     * @param {Object} config {iframeid, cmid, trackurl, session, nonce, teachermodevisible}.
+     * @param {Object} config {iframeid, cmid, trackurl, session, nonce, teachermodevisible,
+     *     blockedid, disableTracking}.
      * @param {Object} [deps] {document, window, fetch, sendBeacon} for testing.
      * @returns {Object} {init, onMessage, flushBeacon, postTrack, acceptTrack}.
      */
@@ -98,6 +99,11 @@
         var nonce = config.nonce;
         var teachermodevisible = config.teachermodevisible ? 1 : 0;
         var blockedid = config.blockedid;
+        // xAPI-primary (DEC-0065): keep the bridge fully live (handshake, window.API,
+        // watchdog, teacher-mode) but forward NO SCORM score, because the package is graded
+        // via xAPI. The decision lives here, on the trusted parent, not in the baked-in
+        // shim — so it holds even for a package whose shim predates this flag.
+        var disabletracking = config.disableTracking === true;
         var watchdogms = config.watchdogms || 8000;
         var gracems = config.gracems || 2500;
         var latest = null;
@@ -197,6 +203,10 @@
                 return;
             }
             if (!acceptTrack(data, nonce)) { return; }              // type + action + nonce + shape.
+            // xAPI-primary: validate the message but suppress the SCORM POST. The shim
+            // cannot reach track.php itself (opaque origin, no sesskey), so this is the
+            // single authoritative drop point — no double grading with the xAPI channel.
+            if (disabletracking) { return; }
             postTrack(data.cmi, data.itemscores);
         }
 

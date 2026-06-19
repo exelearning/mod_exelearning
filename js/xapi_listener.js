@@ -97,6 +97,17 @@
         var mode = config.mode || 'grading';
         var allowed = config.allowedOrigin
             || ((typeof window !== 'undefined' && window.location) ? window.location.origin : '');
+        // Trust gate. Legacy (same-origin) trusts a statement by event.origin === host
+        // origin (RIE-013). Secure mode (DEC-0065) serves the package in an opaque origin
+        // where event.origin is the string "null", so origin can never authenticate; there
+        // the anchor is WINDOW IDENTITY — event.source === the package iframe's
+        // contentWindow, exactly like the SCORM bridge relay (js/scorm_bridge_relay.js).
+        // Setting iframeid (or, for tests, expectedSource) selects window-identity mode;
+        // otherwise the origin check is used.
+        var iframeid = config.iframeid || null;
+        var injectedsource = config.expectedSource;   // explicit window (tests) or null/undefined
+        var usewindowidentity = !!(iframeid || (injectedsource !== undefined && injectedsource !== null));
+        var docref = config.document || (typeof document !== 'undefined' ? document : null);
         var xhrFactory = config.xhrFactory || function () { return new XMLHttpRequest(); };
         // Bounded resend so a transient non-2xx / network blip does not silently lose a
         // grade-bearing statement — js/scorm_tracker.js self-heals the same way (a failed
@@ -153,9 +164,34 @@
             }, retryDelay * (attempt + 1));
         }
 
+        // Resolve the only window allowed to deliver statements in window-identity mode.
+        // Lazy (per message): view.php injects this listener inline BEFORE the iframe
+        // element exists, but the element is present by the time the package emits.
+        function expectedSource() {
+            if (injectedsource !== undefined && injectedsource !== null) { return injectedsource; }
+            if (iframeid && docref) {
+                var el = docref.getElementById(iframeid);
+                return el ? el.contentWindow : null;
+            }
+            return null;
+        }
+
+        // Whether an event may be forwarded: window identity in secure mode (the opaque
+        // "null" origin is ignored), or an exact host origin in legacy mode. event.source
+        // is set by the browser to the posting window and cannot be forged by page script,
+        // so it is a sound anchor when the origin is unusable (DEC-0065).
+        function isTrusted(event) {
+            if (!event) { return false; }
+            if (usewindowidentity) {
+                var src = expectedSource();
+                return !!src && event.source === src;
+            }
+            return isTrustedOrigin(event.origin, allowed);
+        }
+
         // Validate, de-dup and forward a single message. Returns true when forwarded.
         function handleMessage(event) {
-            if (!event || !isTrustedOrigin(event.origin, allowed)) { return false; }
+            if (!isTrusted(event)) { return false; }
             if (!isStatementMessage(event.data)) { return false; }
             var statement = event.data.statement;
             var id = statement.id;
