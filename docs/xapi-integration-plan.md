@@ -114,6 +114,10 @@ The endpoint must:
    `track::apply_item_scores()`; take the package `passed`/`failed` as the overall (the
    producer already weights it), re-validating server-side.
 7. Idempotency: optionally persist by `statement.id` (`exelearning_tracking_events`).
+8. Bound every accepted field server-side (the body is attacker-controllable): sanitise +
+   cap `registration` to `char(40)`/`PARAM_ALPHANUMEXT`, require a real RFC UUID for
+   `statement.id` (reject the nil UUID), and swallow only the genuine `UNIQUE(statementid)`
+   race when auditing. See **Edge cases & failure modes** in `tracking-architecture.md`.
 
 ## 5. Statement → internal model mapping
 

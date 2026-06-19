@@ -68,8 +68,13 @@ $statement = is_array($payload['statement'])
 if (!is_array($statement)) {
     throw new \moodle_exception('invalidparameter', 'error');
 }
-$registration = isset($payload['registration'])
-        ? clean_param((string) $payload['registration'], PARAM_ALPHANUMEXT) : '';
+// Bound the attempt-grouping token to the char(40) column width (and the
+// PARAM_ALPHANUMEXT charset) so a long or foreign value cannot overflow
+// exelearning_attempt.sessiontoken / _tracking_events.registration. A non-string body
+// value is ignored; the statement's own context.registration — bounded the same way in
+// the normaliser — is the fallback when the host sends none.
+$registration = (isset($payload['registration']) && is_string($payload['registration']))
+        ? substr(clean_param($payload['registration'], PARAM_ALPHANUMEXT), 0, 40) : '';
 
 // All validation (DEC-0063), normalisation, objectid routing, idempotency, attempt
 // recording, grading and completion live in the shared, unit-tested ingestor.

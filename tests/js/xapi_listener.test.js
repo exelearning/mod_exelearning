@@ -127,3 +127,101 @@ describe('xapi_listener createListener().handleMessage', () => {
         expect(xhr.calls.filter((c) => c.method).length).toBe(1);
     });
 });
+
+/**
+ * XHR factory whose instances expose resolve(status)/fail() so a test can drive the
+ * async onload/onerror callbacks deterministically.
+ *
+ * @returns {Function & {xhrs: Array}}
+ */
+function makeControllableXhrFactory() {
+    const xhrs = [];
+    const factory = function () {
+        const xhr = {
+            status: 0,
+            open(method, url) { this.method = method; this.url = url; },
+            setRequestHeader() {},
+            send(body) { this.body = body; },
+            onload: null,
+            onerror: null,
+            resolve(status) { this.status = status; if (this.onload) { this.onload(); } },
+            fail() { if (this.onerror) { this.onerror(); } },
+        };
+        xhrs.push(xhr);
+        return xhr;
+    };
+    factory.xhrs = xhrs;
+    return factory;
+}
+
+describe('xapi_listener createListener() bounded resend (DEC-0064)', () => {
+    let factory;
+    let timers;
+    let listener;
+
+    beforeEach(() => {
+        factory = makeControllableXhrFactory();
+        timers = [];                       // captured backoff callbacks, fired manually
+        listener = createListener({
+            cmid: 42,
+            trackurl: '/mod/exelearning/xapi_track.php?id=42&sesskey=abc',
+            registration: 'tok',
+            allowedOrigin: HOST,
+            xhrFactory: factory,
+            maxRetries: 2,
+            retryDelay: 1,
+            schedule: (fn) => { timers.push(fn); },
+        });
+    });
+
+    it('retries a grade statement on a transient non-2xx until the server confirms', () => {
+        expect(listener.handleMessage(messageEvent(answered('R1')))).toBe(true);
+        expect(factory.xhrs.length).toBe(1);
+
+        factory.xhrs[0].resolve(500);       // first attempt fails transiently
+        expect(timers.length).toBe(1);      // a retry was scheduled
+        timers.shift()();                   // fire the backoff -> second attempt
+        expect(factory.xhrs.length).toBe(2);
+
+        factory.xhrs[1].resolve(200);       // server confirms
+        expect(timers.length).toBe(0);      // no further retry queued
+    });
+
+    it('retries on a network/transport error (onerror)', () => {
+        listener.handleMessage(messageEvent(answered('R2')));
+        factory.xhrs[0].fail();             // transport error, no HTTP status
+        expect(timers.length).toBe(1);
+    });
+
+    it('does NOT retry a 409 attempt-cap rejection (the grade must not be written)', () => {
+        listener.handleMessage(messageEvent(answered('R3')));
+        factory.xhrs[0].resolve(409);
+        expect(timers.length).toBe(0);
+        expect(factory.xhrs.length).toBe(1);
+    });
+
+    it('gives up after maxRetries so a dead server cannot loop forever', () => {
+        listener.handleMessage(messageEvent(answered('R4')));  // attempt 0
+        factory.xhrs[0].resolve(500);
+        timers.shift()();                                      // attempt 1
+        factory.xhrs[1].resolve(500);
+        // attempt 1 >= maxRetries (1 from a 0-based count? no: maxRetries=2) -> one more
+        timers.shift()();                                      // attempt 2
+        factory.xhrs[2].resolve(500);
+        // attempt 2 >= maxRetries(2): stop.
+        expect(timers.length).toBe(0);
+        expect(factory.xhrs.length).toBe(3);                  // initial + 2 retries
+    });
+
+    it('does not throw and reports false when the XHR cannot be created', () => {
+        const throwing = createListener({
+            cmid: 42,
+            trackurl: '/x',
+            allowedOrigin: HOST,
+            xhrFactory: () => { throw new Error('boom'); },
+            maxRetries: 0,
+            schedule: () => {},
+        });
+        expect(throwing.handleMessage(messageEvent(answered('R5')))).toBe(false);
+    });
+});

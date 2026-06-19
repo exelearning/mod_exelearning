@@ -217,4 +217,77 @@ final class ingestor_test extends \advanced_testcase {
         $this->assertEquals(0, $DB->count_records('exelearning_attempt', ['exelearningid' => $instance->id]));
         $this->assertEquals(0, $DB->count_records('exelearning_tracking_events', ['exelearningid' => $instance->id]));
     }
+
+    public function test_answered_publishes_the_per_item_grade_in_peritem_mode(): void {
+        // Default grademodel is PERITEM (1): the answered grade is published to the
+        // matching gradebook column (the SCORM apply_item_scores path, reused unchanged).
+        [$instance, $student, $course, $cm] = $this->create_activity();
+        [$itemnumber, $objectid] = $this->first_item($instance);
+
+        $result = ingestor::ingest($instance, $course, $cm, $student->id, $this->answered($objectid, 0.8), 'reg1', false);
+
+        $this->assertTrue($result['ok']);
+        $this->assertArrayHasKey($itemnumber, $result['peritem']);
+        $grades = grade_get_grades($instance->course, 'mod', 'exelearning', $instance->id, $student->id);
+        $this->assertEqualsWithDelta(
+            80.0,
+            (float) $grades->items[$itemnumber]->grades[$student->id]->grade,
+            0.0001
+        );
+    }
+
+    public function test_long_registration_is_bounded_and_does_not_overflow(): void {
+        // A crafted statement with no host registration and an over-long context
+        // registration must NOT throw a dml_write_exception on the char(40) columns: the
+        // normaliser bounds the token to 40 chars before it is used/stored.
+        [$instance, $student, $course, $cm] = $this->create_activity();
+        [$itemnumber, $objectid] = $this->first_item($instance);
+
+        $statement = $this->answered($objectid, 0.6);
+        $statement['context']['registration'] = str_repeat('Z', 120);
+        $result = ingestor::ingest($instance, $course, $cm, $student->id, $statement, '', false);
+
+        $this->assertTrue($result['ok']);
+        $attempt = $this->attempt($instance, $student->id, $itemnumber);
+        $this->assertNotFalse($attempt);
+        $this->assertLessThanOrEqual(40, strlen((string) $attempt->sessiontoken));
+    }
+
+    public function test_lifecycle_statement_is_audited_without_grading(): void {
+        global $DB;
+        [$instance, $student, $course, $cm] = $this->create_activity();
+        $statement = [
+            'id'     => \core\uuid::generate(),
+            'verb'   => ['id' => 'http://adlnet.gov/expapi/verbs/initialized'],
+            'object' => ['id' => 'https://exelearning.net/xapi/abc'],
+        ];
+
+        $result = ingestor::ingest($instance, $course, $cm, $student->id, $statement, 'reg1', false);
+
+        $this->assertTrue($result['ok']);
+        $this->assertTrue(!empty($result['lifecycle']));
+        // Recorded for idempotency/traceability, but it drives no grade.
+        $this->assertEquals(1, $DB->count_records(
+            'exelearning_tracking_events',
+            ['exelearningid' => $instance->id, 'verb' => 'initialized']
+        ));
+        $this->assertEquals(0, $DB->count_records('exelearning_attempt', ['exelearningid' => $instance->id]));
+    }
+
+    public function test_answered_only_attempt_has_no_overall_row(): void {
+        // DEC-0064 edge: the authoritative overall (itemnumber=0) comes from the package
+        // passed/failed/completed statement, emitted right after the answered ones. An
+        // answered-only flow (the terminal package statement never arrives — e.g. the tab
+        // closes first) writes per-iDevice rows but NO overall row, so the participation
+        // summary and status/passgrade completion reflect only package-bearing attempts.
+        // Pinned so a future change to this intentional behaviour is noticed.
+        [$instance, $student, $course, $cm] = $this->create_activity();
+        [$itemnumber, $objectid] = $this->first_item($instance);
+
+        $result = ingestor::ingest($instance, $course, $cm, $student->id, $this->answered($objectid, 1.0), 'reg1', false);
+
+        $this->assertTrue($result['ok']);
+        $this->assertNotFalse($this->attempt($instance, $student->id, $itemnumber)); // Per-iDevice row written.
+        $this->assertFalse($this->attempt($instance, $student->id, 0));              // Overall row absent.
+    }
 }

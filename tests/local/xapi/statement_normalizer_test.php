@@ -186,4 +186,50 @@ final class statement_normalizer_test extends \advanced_testcase {
         $this->assertFalse($out['ok']);
         $this->assertSame('invalidstatement', $out['error']);
     }
+
+    public function test_registration_is_sanitised_and_bounded(): void {
+        // A clean, short token passes through unchanged.
+        $ok = $this->answered('ide-1', 0.5);
+        $ok['context']['registration'] = 'abc-123_XYZ';
+        $this->assertSame('abc-123_XYZ', statement_normalizer::normalize($ok)['registration']);
+
+        // A long token carrying foreign characters is stripped to PARAM_ALPHANUMEXT and
+        // capped to the char(40) column width, so it can never overflow the DB.
+        $bad = $this->answered('ide-1', 0.5);
+        $bad['context']['registration'] = str_repeat('a', 20) . '/<script>!' . str_repeat('b', 40);
+        $reg = statement_normalizer::normalize($bad)['registration'];
+        $this->assertLessThanOrEqual(40, strlen($reg));
+        $this->assertMatchesRegularExpression('~^[A-Za-z0-9_-]+$~', $reg);
+    }
+
+    public function test_non_string_registration_is_dropped(): void {
+        // A crafted array registration must not become the literal "Array" token; it is
+        // simply dropped (the host-injected registration is the authoritative one anyway).
+        $statement = $this->answered('ide-1', 0.5);
+        $statement['context']['registration'] = ['a', 'b'];
+        $out = statement_normalizer::normalize($statement);
+        $this->assertTrue($out['ok']);
+        $this->assertSame('', $out['registration']);
+    }
+
+    public function test_nil_uuid_is_rejected(): void {
+        // The nil UUID would pin the idempotency key to a constant and silently drop every
+        // later statement; it must be rejected like any other non-UUID id.
+        $statement = $this->answered('ide-1', 0.5);
+        $statement['id'] = '00000000-0000-0000-0000-000000000000';
+        $out = statement_normalizer::normalize($statement);
+        $this->assertFalse($out['ok']);
+        $this->assertSame('invalidstatementid', $out['error']);
+    }
+
+    public function test_success_is_read_from_result_not_score(): void {
+        // The success flag lives at result.success (NOT result.score.success): a passed
+        // verb whose result.success is explicitly false must surface false.
+        $statement = $this->package('passed', 0.9);
+        $statement['result']['success'] = false;
+        $this->assertFalse(statement_normalizer::normalize($statement)['success']);
+
+        // Absent result.success falls back to the verb (passed => true).
+        $this->assertTrue(statement_normalizer::normalize($this->package('passed', 0.9))['success']);
+    }
 }

@@ -275,7 +275,14 @@ class ingestor {
                 'timecreated'   => time(),
             ]);
         } catch (\dml_write_exception $e) {
-            // A concurrent insert already claimed this statement.id — fine.
+            // Only the UNIQUE(statementid) race is benign (a concurrent request already
+            // claimed this statement.id). Any other write failure — a NUMBER precision /
+            // length violation, a dropped connection, disk-full — must NOT be hidden: it
+            // would lose the audit row while the grade was already written. Re-check the
+            // dedup key and swallow only the genuine duplicate; rethrow the rest.
+            if (!$DB->record_exists('exelearning_tracking_events', ['statementid' => (string) $norm['statementid']])) {
+                throw $e;
+            }
             debugging(
                 'mod_exelearning: duplicate xAPI statement.id on insert (race), ignored: '
                     . $norm['statementid'],

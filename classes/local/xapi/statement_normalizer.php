@@ -91,9 +91,15 @@ class statement_normalizer {
         }
         // The registration groups statements of one page view into one attempt
         // (analogous to the SCORM sessiontoken); the host is authoritative over it.
+        // Sanitise + bound it to the PARAM_ALPHANUMEXT charset and the char(40) column
+        // width right here — without a Moodle dependency, keeping this class pure — so a
+        // non-string, foreign-charset or over-long value carried by a crafted statement
+        // can never reach exelearning_attempt.sessiontoken / _tracking_events.registration
+        // (this is the unvalidated fallback used when the host injects no registration).
         $registration = '';
-        if (isset($statement['context']['registration'])) {
-            $registration = (string) $statement['context']['registration'];
+        $rawregistration = $statement['context']['registration'] ?? null;
+        if (is_string($rawregistration)) {
+            $registration = substr(preg_replace('~[^A-Za-z0-9_-]~', '', $rawregistration), 0, 40);
         }
 
         $base = [
@@ -148,7 +154,12 @@ class statement_normalizer {
         // carry no weight to recompute it from — DEC-0064). The caller still clamps it
         // to the grade range server-side.
         $status = ($verb === 'completed') ? 'completed' : $verb;
-        $success = array_key_exists('success', $score) ? (bool) $score['success'] : ($verb === 'passed');
+        // The `success` flag lives at result.success in xAPI (NOT result.score.success);
+        // read it there, falling back to the verb (passed => true). It is an
+        // informational field on the output — the persisted grade status is derived from
+        // the verb — but it must at least source the right key.
+        $result = $statement['result'] ?? [];
+        $success = array_key_exists('success', $result) ? (bool) $result['success'] : ($verb === 'passed');
         return $base + [
             'scaled'     => $scaled,
             'overallpct' => $scaled * 100.0,
@@ -241,14 +252,22 @@ class statement_normalizer {
     }
 
     /**
-     * Whether the value matches the canonical UUID form (any version).
+     * Whether the value is a real RFC 4122/9562 UUID (a defined version 1-8 and the
+     * 8|9|a|b variant nibble).
+     *
+     * The stricter shape rejects the nil UUID (00000000-0000-0000-0000-000000000000)
+     * and other all-zero/degenerate ids: statement.id is the SOLE idempotency key
+     * (exelearning_tracking_events.statementid UNIQUE), so a client pinning a constant
+     * id would have its first statement graded and every later one silently dropped as a
+     * duplicate. The emitter issues a fresh v4 UUID per statement, so this never rejects
+     * a genuine one.
      *
      * @param string $value
      * @return bool
      */
     private static function is_uuid(string $value): bool {
         return (bool) preg_match(
-            '~^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$~i',
+            '~^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$~i',
             $value
         );
     }

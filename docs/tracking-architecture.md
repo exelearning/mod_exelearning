@@ -71,6 +71,51 @@ to the SCORM endpoint today):
   `event.origin` against the iframe `pluginfile.php` origin; `'*'`/mismatch is rejected
   (RIE-013).
 
+## Edge cases & failure modes (DEC-0064)
+
+The statement is fully attacker-controlled (an authenticated student can POST a crafted
+body straight to `xapi_track.php`, bypassing the listener), so every accepted field is
+bounded server-side:
+
+- **`registration` is sanitised and bounded.** The attempt-grouping token is cleaned to the
+  `PARAM_ALPHANUMEXT` charset and capped to the `char(40)` column width — both for the POST
+  body (`xapi_track.php`) and for the statement's own `context.registration` fallback
+  (`statement_normalizer`, kept Moodle-dependency-free). A non-string value is dropped, never
+  cast to the literal `"Array"`. Without this an over-long token overflows
+  `exelearning_attempt.sessiontoken` / `exelearning_tracking_events.registration` (an HTTP
+  500 on a strict DB, silent truncation on a lax one).
+- **`statement.id` must be a real RFC 4122/9562 UUID** (defined version `1-8`, variant
+  `8|9|a|b`). The nil UUID and other degenerate constants are rejected: `statement.id` is the
+  sole idempotency key, so a client pinning a constant id would get its first statement
+  graded and every later one dropped as a duplicate.
+- **`result.success`** is read from its correct xAPI location (`result.success`, not
+  `result.score.success`). It is informational only — the persisted grade *status* is derived
+  from the verb (`passed`/`failed`/`completed`).
+- **Idempotency vs genuine failures.** A repeated `statement.id` is a no-op (the
+  `UNIQUE(statementid)` row already exists). `ingestor::record_event` swallows **only** that
+  race — it re-checks the dedup key and rethrows any other write failure (precision/length
+  violation, dropped connection) so a real audit loss is never hidden.
+- **Client resend (grade never silently lost).** `js/xapi_listener.js` inspects the POST
+  result: a `2xx` (or a definitive `409` attempt-cap rejection) is final; a transient
+  non-`2xx`/network error is retried with bounded linear backoff. This mirrors the SCORM
+  tracker's dirty-resend; the server is idempotent by `statement.id`, so a resend never
+  double-grades. Without it a single transient `500` would lose that statement's grade,
+  whereas the SCORM path self-heals.
+- **Answered-only attempts have no overall row.** The authoritative overall (`itemnumber=0`)
+  is taken from the package `passed`/`failed`/`completed` statement, emitted right after the
+  per-iDevice `answered` ones. If that terminal statement never arrives (e.g. the learner
+  closes the tab in the gap, now also covered by the resend above for transient failures),
+  the attempt has per-iDevice rows but **no** `itemnumber=0` row, so the front-page
+  participation summary, `completionstatusrequired`/passgrade completion, and the
+  `aggregate_scaled(itemnumber=0)` overall reflect only package-bearing attempts. This is the
+  documented cost of taking the weighted overall from the package statement (the per-iDevice
+  `answered` statements carry no weight to recompute it from); the SCORM path instead writes
+  an overall on every commit. Pinned by `ingestor_test::test_answered_only_attempt_has_no_overall_row`.
+- **Concurrent same-attempt writes.** `attempts::record_item` is a check-then-insert guarded
+  by a per-`(instance,user)` lock; on a 5 s lock-timeout it proceeds unlocked (the documented
+  SCORM degraded mode it is shared with). A genuine `UNIQUE(exelearningid,userid,attempt,
+  itemnumber)` collision there surfaces as a 500, now recovered by the client resend.
+
 ## Reused vs new
 
 | Concern | Reused | New (DEC-0064) |

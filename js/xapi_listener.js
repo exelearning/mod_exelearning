@@ -98,21 +98,59 @@
         var allowed = config.allowedOrigin
             || ((typeof window !== 'undefined' && window.location) ? window.location.origin : '');
         var xhrFactory = config.xhrFactory || function () { return new XMLHttpRequest(); };
+        // Bounded resend so a transient non-2xx / network blip does not silently lose a
+        // grade-bearing statement — js/scorm_tracker.js self-heals the same way (a failed
+        // commit stays dirty and is re-sent). The server is idempotent by statement.id, so
+        // a resend never double-grades. Both knobs are injectable for the unit tests.
+        var maxRetries = (typeof config.maxRetries === 'number') ? config.maxRetries : 2;
+        var retryDelay = (typeof config.retryDelay === 'number') ? config.retryDelay : 3000;
+        var schedule = config.schedule || function (fn, ms) {
+            return (typeof setTimeout !== 'undefined') ? setTimeout(fn, ms) : null;
+        };
         var seen = {};   // De-dup set keyed by statement.id within this page session.
 
-        // Forward one statement to the server (always async: the grade-bearing
-        // 'answered'/package statements arrive during interaction, never at unload).
-        function send(statement) {
+        // Forward one statement to the server. Async (the grade-bearing 'answered'/package
+        // statements arrive during interaction, never at unload). A confirmed 2xx — or a
+        // definitive 409 attempt-cap rejection — marks the id as seen; a transient failure
+        // clears the claim and schedules a bounded retry so the grade is not lost.
+        function send(statement, attempt) {
+            attempt = attempt || 0;
+            var id = statement && statement.id;
             try {
                 var xhr = xhrFactory();
                 xhr.open('POST', trackurl, true);
                 xhr.setRequestHeader('Content-Type', 'application/json');
+                xhr.onload = function () {
+                    var status = xhr.status || 0;
+                    // 2xx = stored. 409 = a correct attempt-cap rejection that must NOT be
+                    // retried (the grade is not meant to be written). Both are final.
+                    if ((status >= 200 && status < 300) || status === 409) {
+                        if (id) { seen[id] = true; }
+                        return;
+                    }
+                    retry(statement, attempt);
+                };
+                xhr.onerror = function () { retry(statement, attempt); };
                 xhr.send(buildPayload(cmid, statement, registration, mode));
                 return true;
             } catch (e) {
-                // Never let tracking break the activity.
+                // Never let tracking break the activity; still try to recover the grade.
+                retry(statement, attempt);
                 return false;
             }
+        }
+
+        // Re-queue a failed statement: drop the in-flight de-dup claim and resend with a
+        // linear backoff, up to maxRetries. Bounded so a permanently-failing server cannot
+        // loop forever.
+        function retry(statement, attempt) {
+            var id = statement && statement.id;
+            if (id) { delete seen[id]; }
+            if (attempt >= maxRetries) { return; }
+            schedule(function () {
+                if (id) { seen[id] = true; }
+                send(statement, attempt + 1);
+            }, retryDelay * (attempt + 1));
         }
 
         // Validate, de-dup and forward a single message. Returns true when forwarded.
@@ -123,9 +161,9 @@
             var id = statement.id;
             if (id) {
                 if (seen[id]) { return false; }
-                seen[id] = true;
+                seen[id] = true;   // claim in-flight so a duplicate message can't double-POST
             }
-            return send(statement);
+            return send(statement, 0);
         }
 
         function start() {
