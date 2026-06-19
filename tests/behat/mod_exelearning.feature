@@ -142,3 +142,30 @@ Feature: View a mod_exelearning activity and its attempts report
     And I am on the "Evaluable unit" "exelearning activity" page logged in as teacher1
     When I follow "View attempts report"
     Then I should see "Download report data as"
+
+  # Teacher-layer selector (upstream exelearning#1772, server-rendered, no @javascript):
+  # eXeLearning packages hide teacher-only content by default and expose a selector to
+  # show it via the package's own ?exe-teacher=1 URL parameter. The plugin appends that
+  # parameter to the iframe src whenever the per-activity "Show teacher layer selector"
+  # setting (teachermodevisible) is on — for any viewer. The iframe src is server-rendered,
+  # so the non-JS driver can assert on it directly.
+  Scenario: A teacher sees the exe-teacher parameter when the setting is on
+    Given the following "activities" exist:
+      | activity    | name           | course | idnumber | teachermodevisible |
+      | exelearning | Teacher reveal | C1     | exetr    | 1                  |
+    And I am on the "Teacher reveal" "exelearning activity" page logged in as teacher1
+    Then the "src" attribute of "iframe#exelearningobject" "css_element" should contain "exe-teacher=1"
+
+  Scenario: A teacher does not see the exe-teacher parameter when the reveal is off
+    Given the following "activities" exist:
+      | activity    | name             | course | idnumber | teachermodevisible |
+      | exelearning | Teacher noreveal | C1     | exetn    | 0                  |
+    And I am on the "Teacher noreveal" "exelearning activity" page logged in as teacher1
+    Then the "src" attribute of "iframe#exelearningobject" "css_element" should not contain "exe-teacher"
+
+  Scenario: A student also sees the exe-teacher parameter when the setting is on
+    Given the following "activities" exist:
+      | activity    | name               | course | idnumber | teachermodevisible |
+      | exelearning | Teacher student vw | C1     | exets    | 1                  |
+    And I am on the "Teacher student vw" "exelearning activity" page logged in as student1
+    Then the "src" attribute of "iframe#exelearningobject" "css_element" should contain "exe-teacher=1"

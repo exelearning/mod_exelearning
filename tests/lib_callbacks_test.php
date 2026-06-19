@@ -32,13 +32,11 @@ require_once($CFG->dirroot . '/mod/exelearning/lib.php');
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @covers     ::exelearning_view
  * @covers     ::exelearning_get_grade_item_names
- * @covers     ::exelearning_require_teacher_mode_hider
  * @covers     ::exelearning_pluginfile
  * @covers     ::exelearning_extend_settings_navigation
  * @covers     ::exelearning_navigation_before_key
  * @covers     ::exelearning_update_instance
  * @covers     \mod_exelearning\local\urls
- * @covers     \mod_exelearning\local\ui\teacher_mode_hider
  */
 final class lib_callbacks_test extends advanced_testcase {
     /**
@@ -87,14 +85,6 @@ final class lib_callbacks_test extends advanced_testcase {
         $this->assertSame(get_string('gradeitem_overall', 'mod_exelearning'), $names[10]);
         $this->assertNotEmpty($names[11]);
         $this->assertSame('Item #99', $names[12]);
-    }
-
-    /**
-     * exelearning_require_teacher_mode_hider() enqueues page JS without error.
-     */
-    public function test_require_teacher_mode_hider(): void {
-        $this->resetAfterTest();
-        $this->assertNull(exelearning_require_teacher_mode_hider('exelearningobject'));
     }
 
     /**
