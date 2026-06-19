@@ -390,8 +390,11 @@ if (!$mainfile) {
     // Channel choice (DEC-0064): a package that bundles the upstream xAPI emitter grades
     // via xAPI; the SCORM shim stays alive (so pipwerks finds window.API and the iDevices
     // still run and emit their statements) but inert (it never POSTs to track.php). A
-    // legacy package without the emitter keeps SCORM grading exactly as before.
-    $emitsxapi = exelearning_package_emits_xapi($context->id, (int) $exelearning->revision);
+    // legacy package without the emitter keeps SCORM grading exactly as before. The
+    // site-wide master switch (exelearning_xapi_primary_enabled) can force every package
+    // back onto SCORM without a code change.
+    $emitsxapi = exelearning_xapi_primary_enabled()
+            && exelearning_package_emits_xapi($context->id, (int) $exelearning->revision);
 
     $trackurl = (new moodle_url(
         '/mod/exelearning/track.php',

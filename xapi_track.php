@@ -56,6 +56,14 @@ if (!$ispreview) {
     require_capability('mod/exelearning:savetrack', $context);
 }
 
+// Master switch (DEC-0064): when xAPI-primary grading is off site-wide, accept and ignore.
+// The eXeLearning emitter is always-on in the export, so a statement can still reach here
+// (a stale page or a crafted POST); it must not grade — the package is graded via SCORM.
+if (!exelearning_xapi_primary_enabled()) {
+    echo json_encode(['ok' => true, 'disabled' => true]);
+    die;
+}
+
 $raw = file_get_contents('php://input');
 $payload = $raw ? json_decode($raw, true) : null;
 if (!is_array($payload) || !isset($payload['statement'])) {

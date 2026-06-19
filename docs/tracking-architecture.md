@@ -12,6 +12,13 @@
 > (sesskey, mirroring `track.php`), delegating to `\mod_exelearning\local\xapi\{statement_normalizer,
 > ingestor}`. The overall (`itemnumber=0`) is taken from the package statement and validated
 > server-side, because per-iDevice `answered` statements carry no weight.
+>
+> **Kill switch:** the site-admin setting *Use xAPI grading when the package supports it*
+> (`exelearning/xapiprimaryenabled`, default on; helper `exelearning_xapi_primary_enabled()`) turns the
+> whole xAPI channel off without a code change — `view.php` then keeps the SCORM shim live and skips the
+> listener, and `xapi_track.php` accept-and-ignores. This is **not** cmi5 and **not** an external-LRS
+> integration; the endpoint is a custom grading route, not a full Moodle `core_xapi` integration (the
+> `core_xapi` events/analytics handler is a deferred follow-up). SCORM 1.2 stays the compatibility path.
 
 ## Principle
 
@@ -116,6 +123,30 @@ bounded server-side:
   SCORM degraded mode it is shared with). A genuine `UNIQUE(exelearningid,userid,attempt,
   itemnumber)` collision there surfaces as a 500, now recovered by the client resend.
 
+### Monitoring the terminal-statement loss
+
+The answered-only edge above is the most delicate functional point, so it is observable from the
+`exelearning_tracking_events` audit log (one row per processed `statement.id`, with its `verb` and
+`registration`). An operator can find page-views that recorded per-iDevice `answered` statements but
+never a terminal `passed`/`failed`/`completed` for the same `registration`:
+
+```sql
+SELECT a.exelearningid, a.userid, a.registration
+  FROM {exelearning_tracking_events} a
+ WHERE a.verb = 'answered'
+   AND a.registration IS NOT NULL
+   AND NOT EXISTS (
+        SELECT 1 FROM {exelearning_tracking_events} t
+         WHERE t.registration = a.registration
+           AND t.verb IN ('passed', 'failed', 'completed'))
+ GROUP BY a.exelearningid, a.userid, a.registration;
+```
+
+A non-zero, growing count means terminal statements are being lost (network, abrupt tab close, the
+endpoint rejecting the package statement) and those attempts have no overall row — worth alerting on.
+The client resend (above) already covers transient non-2xx; a persistent count points at something
+systemic (origin/CSP, a proxy dropping the unload POST, a package not emitting the package verb).
+
 ## Reused vs new
 
 | Concern | Reused | New (DEC-0064) |
@@ -164,3 +195,11 @@ In scope: consuming `exe_xapi.js` statements via `postMessage` and grading throu
 existing pipeline. **Out of scope** (documented as such, consistent with the emitter):
 **cmi5** (FTE-004/009) and any dependency on an **external LRS**. SCORM 1.2 remains as the
 compatibility path (DEC-0003).
+
+**This is not a full Moodle xAPI integration.** `xapi_track.php` is a *custom grading endpoint*
+that ignores the statement actor and reuses the SCORM grade pipeline — it is deliberately **not**
+the `core_xapi` subsystem (which binds processing to the actor identity). That trade-off is the
+right one for grading; a `core_xapi` handler purely for **events/analytics** (not grading) is a
+**deferred follow-up**, to be opened as a separate issue and pursued only if it adds value. The
+whole channel is gated by the *Use xAPI grading…* admin switch, so a site can stay on SCORM
+grading at any time. See **Manual QA checklist** in `xapi-qa-checklist.md` before release.

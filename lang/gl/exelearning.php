@@ -404,3 +404,7 @@ $string['unsavedchanges'] = 'Ten cambios sen gardar. Está seguro de que desexa 
 $string['updateavailable'] = 'Actualización dispoñible';
 $string['viewattemptsreport'] = '~Ver informe de intentos';
 $string['viewstub'] = '~Esta é unha vista provisional. A representación completa de mod_exelearning (iframe + barra lateral + ponte xAPI) está en construción. Consulte <code>research/</code> no código fonte do plugin para coñecer o historial de deseño.';
+$string['xapiprimaryenabled'] = '~Usar a cualificación xAPI cando o paquete o admita';
+$string['xapiprimaryenabled_desc'] = '~Se está marcado, un paquete que inclúe o emisor xAPI de eXeLearning cualifícase mediante xAPI en lugar de SCORM (recomendado). Desmárqueo para cualificar eses paquetes mediante SCORM 1.2. Os paquetes sen o emisor sempre usan SCORM. Isto non é cmi5 nin unha integración cun LRS externo; SCORM 1.2 segue sendo a vía de compatibilidade.';
+$string['xapisettings'] = '~Inxestión xAPI';
+$string['xapisettings_desc'] = '~Canal de cualificación para paquetes que emiten statements xAPI (DEC-0064). SCORM 1.2 segue sendo a vía de compatibilidade para os paquetes sen o emisor.';
