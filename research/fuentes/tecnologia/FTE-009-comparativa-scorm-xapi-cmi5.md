@@ -82,6 +82,38 @@ disuelto en 2014 — iSpring). En una frase:
 | Soporte LMS | casi universal | medio | creciente |
 | Lanzamiento "LMS→contenido" | sí | no definido | sí (definido) |
 
+## SCORM 1.2 vs xAPI en mod_exelearning (capa implementada, DEC-0064)
+
+> **[ACTUALIZACION 2026-06-18]** Con la ingesta xAPI ya implementada (PR de TAREA-015), esta tabla
+> compara los **dos canales de calificación** tal como conviven en el plugin —a diferencia de la «Tabla de
+> decisión» de arriba, que compara los estándares en abstracto e incluye cmi5—. El plugin usa **exactamente
+> un** canal por paquete: xAPI si el paquete lo emite, SCORM en caso contrario.
+
+| Dimensión | SCORM 1.2 (camino heredado) | xAPI (esta capa) | Ventaja |
+|---|---|---|---|
+| Transporte | shim `window.API` (pipwerks) que Moodle inyecta y fuerza a init | `postMessage` que el paquete emite de forma nativa | **xAPI** — sin shim ni dependencia de pipwerks |
+| Detalle por iDevice | se parsea del string `cmi.suspend_data` con una regex sensible al idioma | un statement `answered` estructurado por iDevice | **xAPI** — sin parseo frágil de cadenas |
+| Campo de puntuación | `cmi.core.score.raw` + el formato que serializa eXeLearning | `result.score.{scaled,raw,min,max}` tipado | **xAPI** — sólo se rompe si cambia la spec, no el formato del productor |
+| Riqueza de interacción | puntuación global + estado | verbos, resultados por iDevice, contexto, extensiones | **xAPI** — captura mucho más que una nota final |
+| Overall ponderado | se recalcula en servidor desde los ítems (los pesos viajan en suspend_data) | se toma del `finalScore` del paquete (los `answered` no llevan peso) y se valida | **SCORM** — el peso viaja con cada ítem; xAPI depende del statement de paquete (aquí se conserva la paridad) |
+| Identidad / confianza | el paquete no afirma nada; el servidor usa `$USER` | el actor es anónimo por diseño; el servidor usa `$USER` | **empate** — ambos de confianza total en servidor |
+| Idempotencia | ninguna (el upsert del intento absorbe repeticiones) | deduplicado por `statement.id` (`exelearning_tracking_events`) | **xAPI** — auditoría exactamente-una-vez |
+| Offline / móvil / sin navegador | no (requiere el runtime SCORM en navegador) | sí (los mismos statements pueden ir a un LRS) | **xAPI** — portable más allá del iframe |
+| Acoplamiento al productor | exige inyectar pipwerks + el parche del guard de `form`/`scrambled-list` (DEC-0042) | ninguno — el emisor está siempre activo en cada export | **xAPI** — menos mutaciones en servido |
+| Estado del estándar | heredado (SCORM 1.2, era 2004) | actual (xAPI 1.0.3, compatible hacia 2.0) | **xAPI** — moderno y mantenido |
+| Ubicuidad LMS / tooling | casi universal, décadas de soporte | estándar moderno, adopción creciente | **SCORM** — máxima compatibilidad |
+| Madurez en el plugin | productivo, por defecto desde DEC-0003 | nuevo en esta capa | **SCORM** — probado |
+| Listo para analítica / LRS | no (los datos quedan como notas Moodle) | statements con forma de LRS (handler `core_xapi` futuro, diferido) | **xAPI** — vía hacia learning analytics |
+
+**En resumen**
+
+- **SCORM 1.2 destaca en** ubicuidad y madurez, y en llevar el peso por iDevice en línea (el overall
+  ponderado no necesita una señal aparte). Permanece como camino de compatibilidad para paquetes
+  anteriores al emisor xAPI (DEC-0003).
+- **xAPI destaca en** granularidad estructurada por interacción, eliminar la regex frágil de
+  `suspend_data` y la dependencia de pipwerks, idempotencia, portabilidad (móvil/offline/LRS) y ser el
+  estándar moderno y a prueba de futuro. Es el canal primario para los paquetes que lo emiten (DEC-0064).
+
 ## Implicación para mod_exelearning (ver DEC-0014 y AN-010)
 
 - Hoy el bridge es **SCORM 1.2** porque eXeLearning **no emite xAPI** (FTE-007).

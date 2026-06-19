@@ -13,5 +13,5 @@ items:
   - ruta: 'tareas/backlog/TAREA-011-e2e-flujos-criticos.yaml', id: 'TAREA-011', titulo: 'Verificación e2e por navegador de flujos críticos', estado: 'Done', fecha: '2026-06-01'
   - ruta: 'tareas/backlog/TAREA-012-rie-001-aislamiento-paquete.yaml', id: 'TAREA-012', titulo: 'RIE-001: investigar aislamiento fuerte del paquete .elpx', estado: 'Done', fecha: '2026-06-01'
   - ruta: 'tareas/backlog/TAREA-014-rie-012-nota-obsoleta-edicion.yaml', id: 'TAREA-014', titulo: 'RIE-012: observar falsos positivos del contenthash al editar contenido calificable', estado: 'Pending', fecha: '2026-06-02'
-  - ruta: 'tareas/backlog/TAREA-015-impl-ingesta-xapi.yaml', id: 'TAREA-015', titulo: 'Implementar la ingesta xAPI dual (listener + endpoint + normalizador) reutilizando la tubería existente', estado: 'Pending', fecha: '2026-06-04'
+  - ruta: 'tareas/backlog/TAREA-015-impl-ingesta-xapi.yaml', id: 'TAREA-015', titulo: 'Implementar la ingesta xAPI dual (listener + endpoint + normalizador) reutilizando la tubería existente', estado: 'Done', fecha: '2026-06-04'
   - ruta: 'tareas/backlog/TAREA-016-impl-reemplazo-y-origen-url.yaml', id: 'TAREA-016', titulo: 'Implementar reemplazo explícito del paquete y origen por URL con sincronización (patrón mod_scorm)', estado: 'Pending', fecha: '2026-06-04'
