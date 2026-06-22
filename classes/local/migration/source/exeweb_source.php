@@ -25,7 +25,7 @@
 namespace mod_exelearning\local\migration\source;
 
 /**
- * Treats mod_exeweb activities as read-only sources of native .elpx packages.
+ * Treats mod_exeweb activities as read-only sources of eXeLearning packages.
  *
  * mod_exeweb stores its package at itemid = {exeweb}.revision (see
  * mod_exeweb/classes/exeweb_package.php save_draft_file(), which calls
@@ -34,6 +34,11 @@ namespace mod_exelearning\local\migration\source;
  * import_service read itemid 0 unconditionally and reported every real exeweb
  * activity as nosource; this handler fixes that, with a fallback scan for revision
  * drift (e.g. restored backups).
+ *
+ * Once located, the stored package is handed to the shared {@see package_probe} so
+ * migratability is decided by content (a recoverable eXeLearning content.xml)
+ * rather than assumed: a legacy package without an ODE source is reported nosource
+ * instead of being created as a degraded activity.
  */
 final class exeweb_source implements source_interface {
     /**
@@ -81,12 +86,48 @@ final class exeweb_source implements source_interface {
     }
 
     /**
-     * Classifies a source: the package must exist in the `package` filearea.
+     * Classifies a source: locate the stored package, then defer to the shared
+     * content-based probe (migratable only when an eXeLearning content.xml is
+     * recoverable). The resolved itemid is threaded through so resolve_elpx() does
+     * not have to re-derive it.
      *
      * @param \stdClass $source A row from list_sources().
      * @return classification
      */
     public function classify(\stdClass $source): classification {
+        [$pkg, $itemid] = $this->locate_package($source);
+        if (!$pkg) {
+            return classification::nosource();
+        }
+        return package_probe::classify($pkg, $itemid);
+    }
+
+    /**
+     * Resolves the package (or its embedded .elpx) to a temporary path.
+     *
+     * @param \stdClass $source A row from list_sources().
+     * @return string|null
+     */
+    public function resolve_elpx(\stdClass $source): ?string {
+        [$pkg, $itemid] = $this->locate_package($source);
+        if (!$pkg) {
+            return null;
+        }
+        return package_probe::resolve($pkg, package_probe::classify($pkg, $itemid));
+    }
+
+    /**
+     * Locates the stored mod_exeweb package and the itemid it lives at.
+     *
+     * mod_exeweb stores the package at itemid = {exeweb}.revision and wipes the
+     * filearea on each save, so the documented location is tried first and a
+     * filearea scan (newest itemid wins) covers revision drift, e.g. restored
+     * backups.
+     *
+     * @param \stdClass $source A row from list_sources().
+     * @return array{0:\stored_file|null,1:int} The package file (or null) and its itemid.
+     */
+    private function locate_package(\stdClass $source): array {
         $fs = get_file_storage();
         // Primary: the documented location, itemid = {exeweb}.revision.
         $files = $fs->get_area_files(
@@ -98,7 +139,7 @@ final class exeweb_source implements source_interface {
             false
         );
         if ($files) {
-            return classification::ok(null, (int) $source->revision);
+            return [reset($files), (int) $source->revision];
         }
         // Fallback: scan every itemid (covers revision drift, e.g. restored backups).
         $all = $fs->get_area_files(
@@ -110,39 +151,11 @@ final class exeweb_source implements source_interface {
             false
         );
         if (!$all) {
-            return classification::nosource();
+            return [null, 0];
         }
         // The filearea is wiped on each save, so >1 file means drift: newest itemid wins.
-        return classification::ok(null, (int) reset($all)->get_itemid());
-    }
-
-    /**
-     * Copies the native .elpx out to a temporary path.
-     *
-     * @param \stdClass $source A row from list_sources().
-     * @return string|null
-     */
-    public function resolve_elpx(\stdClass $source): ?string {
-        $verdict = $this->classify($source);
-        if (!$verdict->is_ok()) {
-            return null;
-        }
-        $fs = get_file_storage();
-        $files = $fs->get_area_files(
-            (int) $source->contextid,
-            'mod_exeweb',
-            'package',
-            $verdict->itemid,
-            'id ASC',
-            false
-        );
-        $pkg = reset($files);
-        if (!$pkg) {
-            return null;
-        }
-        $tmp = make_request_directory() . '/source.elpx';
-        $pkg->copy_content_to($tmp);
-        return $tmp;
+        $pkg = reset($all);
+        return [$pkg, (int) $pkg->get_itemid()];
     }
 
     /**
