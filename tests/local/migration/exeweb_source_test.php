@@ -99,6 +99,39 @@ final class exeweb_source_test extends advanced_testcase {
     }
 
     /**
+     * A content.xml zip (not named .elpx) stored by mod_exeweb is migratable: the
+     * handler classifies by content, not by filename.
+     */
+    public function test_content_xml_zip_is_ok(): void {
+        [, $ctxid] = $this->create_empty_target();
+        $this->store_sibling_package($ctxid, 'mod_exeweb', $this->make_content_xml_zip(), 'web.zip', 2);
+        $source = $this->make_source_row(['contextid' => $ctxid, 'revision' => 2]);
+
+        $src = new exeweb_source();
+        $verdict = $src->classify($source);
+
+        $this->assertTrue($verdict->is_ok());
+        $this->assertSame(2, $verdict->itemid);
+        $this->assertFileExists($src->resolve_elpx($source));
+    }
+
+    /**
+     * A stored package with no recoverable content.xml source (here a legacy .elp
+     * carrying contentv3.xml) is now reported nosource instead of being classified
+     * migratable and failing at extraction. The old handler returned ok whenever any
+     * file existed in the filearea, without inspecting it.
+     */
+    public function test_package_without_content_xml_is_nosource(): void {
+        [, $ctxid] = $this->create_empty_target();
+        $this->store_sibling_package($ctxid, 'mod_exeweb', $this->make_legacy_elp_zip(), 'legacy.elp', 1);
+        $source = $this->make_source_row(['contextid' => $ctxid, 'revision' => 1]);
+
+        $src = new exeweb_source();
+        $this->assertSame(migration_result::STATUS_NOSOURCE, $src->classify($source)->status);
+        $this->assertNull($src->resolve_elpx($source));
+    }
+
+    /**
      * list_sources() enumerates site-wide exeweb activities with their revision.
      */
     public function test_list_sources_returns_site_activities(): void {
