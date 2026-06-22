@@ -18,6 +18,7 @@ namespace mod_exelearning\local\migration;
 
 use advanced_testcase;
 use mod_exelearning\local\migration\source\classification;
+use mod_exelearning\local\migration\source\exescorm_source;
 use mod_exelearning\local\migration\source\source_interface;
 use mod_exelearning\tests\helper_trait;
 use mod_exelearning\tests\stub_source;
@@ -90,6 +91,48 @@ final class migration_service_test extends advanced_testcase {
         $fs = get_file_storage();
         // The imported .elpx is staged at package/{revision}/ (issue 73), not itemid 0.
         $this->assertTrue($fs->file_exists($ctxid, 'mod_exelearning', 'package', (int) $instance->revision, '/', 'imported.elpx'));
+        $this->assertNotEmpty($fs->get_file(
+            $ctxid,
+            'mod_exelearning',
+            'content',
+            (int) $instance->revision,
+            '/',
+            'index.html'
+        ));
+        $this->assertSame(2, $DB->count_records(
+            'exelearning_grade_item',
+            ['exelearningid' => $instance->id, 'deleted' => 0]
+        ));
+    }
+
+    /**
+     * End-to-end: a content.xml package stored under a non-.elpx name is detected by
+     * exescorm_source, resolved, and installs into a servable, graded activity.
+     *
+     * Covers the detection gap (a content.xml package that is neither named .elpx nor
+     * embeds an .elpx) through resolution and installation: the old handler reported
+     * it nosource and never reached install_package().
+     */
+    public function test_content_xml_zip_resolves_and_installs(): void {
+        global $DB;
+        [$instance, $ctxid] = $this->create_empty_target();
+
+        // A separate source context holds the genuine package under a .zip name.
+        [, $srcctxid] = $this->create_empty_target();
+        $this->store_sibling_package($srcctxid, 'mod_exescorm', $this->fixture(), 'content-export.zip', 0);
+        $source = $this->make_source_row(['contextid' => $srcctxid, 'exescormtype' => 'local']);
+
+        $src = new exescorm_source();
+        $verdict = $src->classify($source);
+        $this->assertTrue($verdict->is_ok());
+        $this->assertNull($verdict->elpxentry);
+
+        $path = $src->resolve_elpx($source);
+        $this->assertNotNull($path);
+
+        migration_service::install_package($path, $instance, $ctxid);
+
+        $fs = get_file_storage();
         $this->assertNotEmpty($fs->get_file(
             $ctxid,
             'mod_exelearning',
