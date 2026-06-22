@@ -108,7 +108,14 @@ final class exescorm_source implements source_interface {
     }
 
     /**
-     * Classifies a source by its exescormtype and the layout of its stored package.
+     * Classifies a source by its exescormtype and the eXeLearning source its
+     * stored package carries.
+     *
+     * External / AICC-URL / synchronized types keep no migratable local snapshot
+     * and are unsupported up front. Otherwise the stored package is handed to the
+     * shared {@see package_probe}, which is migratable when it holds a root
+     * content.xml (a native .elpx, a content.xml zip, or an IMS export) or embeds
+     * exactly one .elpx.
      *
      * @param \stdClass $source A row from list_sources().
      * @return classification
@@ -125,40 +132,12 @@ final class exescorm_source implements source_interface {
             return classification::nosource();
         }
 
-        if (str_ends_with(strtolower($pkg->get_filename()), '.elpx')) {
-            // The package is itself the editable .elpx (embedded editor export).
-            return classification::ok(null);
-        }
-
-        // SCORM zip: read only the central directory, no extraction (preflight-cheap).
-        $entries = $pkg->list_files(get_file_packer('application/zip'));
-        if (!is_array($entries)) {
-            // Corrupt or unreadable zip.
-            return classification::nosource();
-        }
-        $elpx = [];
-        foreach ($entries as $entry) {
-            if (empty($entry->is_directory) && str_ends_with(strtolower($entry->pathname), '.elpx')) {
-                // The entry name is attacker-influenced (an uploaded SCORM zip can embed
-                // an .elpx under a path-traversal / absolute / backslash / stream-wrapper
-                // name). Drop any unsafe entry so it is never selected for extraction;
-                // an otherwise-fine package then degrades to nosource, exactly as if it
-                // carried no usable .elpx at all.
-                if (\mod_exelearning\local\zip_utils::is_unsafe_zip_entry($entry->pathname)) {
-                    continue;
-                }
-                $elpx[] = $entry->pathname;
-            }
-        }
-        return match (count($elpx)) {
-            0 => classification::nosource(),
-            1 => classification::ok($elpx[0]),
-            default => classification::ambiguoussource(),
-        };
+        return package_probe::classify($pkg);
     }
 
     /**
-     * Resolves a readable .elpx temp path: the package itself, or the single embedded entry.
+     * Resolves a readable package temp path: the package itself, or its single
+     * embedded .elpx entry.
      *
      * @param \stdClass $source A row from list_sources().
      * @return string|null
@@ -172,29 +151,7 @@ final class exescorm_source implements source_interface {
         if (!$pkg) {
             return null;
         }
-        $tmpdir = make_request_directory();
-        if ($verdict->elpxentry === null) {
-            // Direct .elpx package: copy it out verbatim.
-            $tmp = $tmpdir . '/source.elpx';
-            $pkg->copy_content_to($tmp);
-            return $tmp;
-        }
-        // Defence in depth: classify() already drops unsafe entries, but re-check here
-        // so resolve_elpx() never extracts a hostile name even if reached directly.
-        if (\mod_exelearning\local\zip_utils::is_unsafe_zip_entry($verdict->elpxentry)) {
-            return null;
-        }
-        // Extract ONLY the embedded entry, not the whole SCORM. The packer drops the
-        // $onlyfiles filter when handed a stored_file, so copy the zip out first and
-        // extract from the path (cheap: one small entry instead of the whole package).
-        $ziptmp = $tmpdir . '/scorm.zip';
-        $pkg->copy_content_to($ziptmp);
-        get_file_packer('application/zip')->extract_to_pathname($ziptmp, $tmpdir, [$verdict->elpxentry]);
-        // Verify nothing escaped $tmpdir (no symlinks, every materialised path stays
-        // inside it) before trusting the resolved path.
-        \mod_exelearning\local\zip_utils::assert_extraction_contained($tmpdir, 'migrateextractfailed');
-        $path = $tmpdir . '/' . $verdict->elpxentry;
-        return is_file($path) ? $path : null;
+        return package_probe::resolve($pkg, $verdict);
     }
 
     /**

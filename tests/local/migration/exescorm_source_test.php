@@ -102,6 +102,40 @@ final class exescorm_source_test extends advanced_testcase {
     }
 
     /**
+     * A non-.elpx package carrying content.xml at its root (an eXeLearning content
+     * .zip / IMS export) is now migratable as a direct package. The old handler only
+     * matched a .elpx filename or an embedded .elpx, so this previously reported
+     * nosource; content-based detection recovers it.
+     */
+    public function test_content_xml_zip_without_elpx_is_ok(): void {
+        [, $ctxid] = $this->create_empty_target();
+        $zip = $this->make_content_xml_zip();
+        $this->store_sibling_package($ctxid, 'mod_exescorm', $zip, 'content-export.zip', 0);
+        $source = $this->make_source_row(['contextid' => $ctxid, 'exescormtype' => 'local']);
+
+        $src = new exescorm_source();
+        $verdict = $src->classify($source);
+
+        $this->assertTrue($verdict->is_ok());
+        $this->assertNull($verdict->elpxentry);
+        $this->assertFileExists($src->resolve_elpx($source));
+    }
+
+    /**
+     * A legacy .elp (contentv3.xml, no content.xml) is out of scope: nosource.
+     */
+    public function test_legacy_elp_is_nosource(): void {
+        [, $ctxid] = $this->create_empty_target();
+        $zip = $this->make_legacy_elp_zip();
+        $this->store_sibling_package($ctxid, 'mod_exescorm', $zip, 'legacy.elp', 0);
+        $source = $this->make_source_row(['contextid' => $ctxid, 'exescormtype' => 'local']);
+
+        $src = new exescorm_source();
+        $this->assertSame(migration_result::STATUS_NOSOURCE, $src->classify($source)->status);
+        $this->assertNull($src->resolve_elpx($source));
+    }
+
+    /**
      * A SCORM zip embedding more than one .elpx is ambiguous (manual migration).
      */
     public function test_zip_with_multiple_elpx_is_ambiguous(): void {
