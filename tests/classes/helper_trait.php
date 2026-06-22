@@ -106,6 +106,54 @@ trait helper_trait {
     }
 
     /**
+     * Builds a zip carrying a root content.xml (a genuine ODE 2.0 source) plus an
+     * index.html, with NO embedded .elpx.
+     *
+     * This is the shape of an eXeLearning content .zip / IMS export / web export
+     * that bundles its source: not named .elpx and not wrapping an .elpx, but still
+     * a migratable eXeLearning package because content.xml sits at the root.
+     *
+     * @return string Absolute path to the built zip.
+     */
+    protected function make_content_xml_zip(): string {
+        $stage = make_request_directory();
+        file_put_contents(
+            $stage . '/content.xml',
+            '<?xml version="1.0" encoding="UTF-8"?>'
+                . '<ode xmlns="http://www.intef.es/xsd/ode" version="2.0"></ode>'
+        );
+        file_put_contents($stage . '/index.html', '<!DOCTYPE html><title>web</title><body>web export</body>');
+        $zip = make_request_directory() . '/content-xml.zip';
+        get_file_packer('application/zip')->archive_to_pathname([
+            'content.xml' => $stage . '/content.xml',
+            'index.html'  => $stage . '/index.html',
+        ], $zip);
+        return $zip;
+    }
+
+    /**
+     * Builds a legacy eXeLearning .elp zip: a contentv3.xml source with neither a
+     * content.xml nor an embedded .elpx.
+     *
+     * Used to assert that legacy .elp projects are out of scope (only content.xml
+     * packages migrate) and are reported nosource rather than migrated.
+     *
+     * @return string Absolute path to the built zip.
+     */
+    protected function make_legacy_elp_zip(): string {
+        $stage = make_request_directory();
+        file_put_contents(
+            $stage . '/contentv3.xml',
+            '<instance class="exe.engine.package.Package"></instance>'
+        );
+        $zip = make_request_directory() . '/legacy.elp';
+        get_file_packer('application/zip')->archive_to_pathname([
+            'contentv3.xml' => $stage . '/contentv3.xml',
+        ], $zip);
+        return $zip;
+    }
+
+    /**
      * Creates a fake sibling activity so list_sources() can be tested without the
      * sibling plugin installed: a minimal sibling table, a {modules} registration, a
      * course, the activity row, a real course module and its context.
