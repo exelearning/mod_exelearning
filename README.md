@@ -155,6 +155,39 @@ editor remains):
   editor's built-in styles, and optionally block users from importing styles
   bundled inside an `.elpx`. A dedicated _Styles_ admin page lists and manages
   them.
+* **Package iframe security mode** (`iframemode`, default **Secure**): in _Secure_
+  mode the eXeLearning package runs in a sandboxed, **opaque-origin** iframe so its
+  JavaScript cannot read or modify the surrounding Moodle page, its cookies or the
+  session; SCORM scoring is relayed to Moodle over a validated `postMessage` bridge,
+  and the package is served via `tokenpluginfile.php` so its assets load without the
+  session cookie (which an opaque iframe never sends). The package only receives a
+  read-only file token — never the `sesskey` — so Secure is strictly safer than
+  Legacy. _Legacy_ keeps the previous same-origin behaviour as an opt-in fallback.
+  Secure mode is **never silently downgraded**: where it cannot render (e.g. a host
+  whose service worker can't serve an opaque iframe, such as a PHP-WASM playground), a
+  "blocked by security configuration" notice is shown instead of falling back to
+  Legacy. See
+  [DEC-0059](./research/decisiones/adr/DEC-0059-bridge-scorm-postmessage-origen-opaco.md)
+  and [DEC-0060](./research/decisiones/adr/DEC-0060-iframe-seguro-tokenpluginfile.md).
+
+### External embeds (YouTube/Vimeo/PDF) in Secure mode
+
+The opaque-origin sandbox also blanks **embedded YouTube/Vimeo players and PDFs** (the
+sandbox flag propagates to the nested player iframe, and browsers block their PDF viewer
+without `allow-same-origin`). So that authors can still use external media in Secure mode
+**without a separate subdomain**, those embeds are **promoted to the Moodle page and
+rendered inline**: a shim baked into the package (`js/exe_embed_shim.js`, self-activating
+only in the opaque origin) replaces each whitelisted-video / `.pdf` iframe with a
+placeholder and reports its geometry to the parent; a relay on the activity page
+(`js/exe_embed_relay.js`) validates + rebuilds the canonical URL and overlays the real
+player exactly over the placeholder. Local package PDFs always render; any `https` `.pdf`
+renders; a same-origin `.pdf` must belong to the package (served as `application/pdf`).
+This is independent of, and does not affect, the SCORM bridge. See
+[DEC-0061](./research/decisiones/adr/DEC-0061-embeds-externos-promote-to-parent.md).
+
+The mechanism has unit tests (`npm run test:js` — Vitest, incl. a SCORM-coexistence
+guard) and a cross-browser end-to-end test in Firefox (`npm run test:e2e:embed` —
+Playwright, loads the real shim/relay against an opaque-origin harness).
 
 ## Embedded editor management
 
@@ -191,10 +224,18 @@ attempts, and delete attempts from the teacher report (the grade is
 recalculated). Completion can require a passing grade (SCORM-style, see
 [DEC-0010](./research/decisiones/adr/DEC-0010-finalizacion-estilo-scorm.md)).
 
-Grading runtime uses a SCORM 1.2 bridge: a small `window.API` shim installed by
-`view.php` accepts `LMSSetValue` calls from the iDevice's bundled pipwerks
-wrapper and forwards them to `track.php`, which calls Moodle's `grade_update()`.
-xAPI support via `core_xapi` is on the roadmap.
+Grading runtime uses a SCORM 1.2 bridge whose isolation depends on the **package
+iframe security mode**
+([DEC-0059](./research/decisiones/adr/DEC-0059-bridge-scorm-postmessage-origen-opaco.md)).
+In the default **Secure** mode the package runs in an opaque-origin sandboxed iframe
+served via `tokenpluginfile.php` (so its assets load without the session cookie): a
+`window.API` shim lives _inside_ the iframe and posts buffered scores to the Moodle page
+over a validated `postMessage` channel; the page (which holds the `sesskey`) forwards
+them to `track.php`, which calls Moodle's `grade_update()`. In **Legacy** mode the shim
+is installed by `view.php` in the same-origin parent and the iDevice's bundled pipwerks
+wrapper reaches it directly. See
+[DEC-0060](./research/decisiones/adr/DEC-0060-iframe-seguro-tokenpluginfile.md) for the
+secure serving + CSP hardening. xAPI support via `core_xapi` is on the roadmap.
 
 ## Web services (Mobile API)
 

@@ -13,6 +13,14 @@
 > ingestor}`. The overall (`itemnumber=0`) is taken from the package statement and validated
 > server-side, because per-iDevice `answered` statements carry no weight.
 >
+> **Secure iframe (DEC-0065):** in the default opaque-origin secure mode (DEC-0059/DEC-0060) the same
+> xAPI-primary path applies, but the trust gate changes. The emitter's `event.origin` is the opaque
+> string `"null"`, so `js/xapi_listener.js` trusts a statement by **window identity**
+> (`event.source === the package iframe's contentWindow`) instead of origin — exactly like the SCORM
+> bridge relay. The SCORM channel is kept inert by the **parent-side relay**
+> (`js/scorm_bridge_relay.js` `disableTracking`), not the baked-in shim, so it holds even for packages
+> extracted before the flag existed. Legacy (same-origin) mode keeps the `event.origin` check.
+>
 > **Kill switch:** the site-admin setting *Use xAPI grading when the package supports it*
 > (`exelearning/xapiprimaryenabled`, default on; helper `exelearning_xapi_primary_enabled()`) turns the
 > whole xAPI channel off without a code change — `view.php` then keeps the SCORM shim live and skips the

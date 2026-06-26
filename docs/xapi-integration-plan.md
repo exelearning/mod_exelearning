@@ -76,11 +76,18 @@ Implemented as an **inline IIFE** (the `js/scorm_tracker.js` / DEC-0056 pattern)
 client JS is injected synchronously and needs no AMD build).
 
 - Listen to `window` `message` events; accept **only** `event.data.type === 'exe-xapi-statement'`.
-- **Validate `event.origin`** against the iframe `pluginfile.php`/wwwroot origin; drop `'*'` /
-  mismatched senders (defense in depth even though `config_injector` sets `parentOrigin` — RIE-013).
+- **Trust gate, mode-dependent (DEC-0065).** *Legacy (same-origin):* validate `event.origin` against
+  the wwwroot origin; drop `'*'` / mismatched senders (RIE-013). *Secure (opaque-origin, the default —
+  DEC-0059/DEC-0060):* the emitter's `event.origin` is the string `"null"`, so trust by **window
+  identity** (`event.source === the package iframe's contentWindow`) instead — the same anchor the
+  SCORM bridge relay uses. `view.php` selects the mode via `iframeid` (secure) vs `allowedOrigin`
+  (legacy).
 - De-dup by `statement.id` within the page session.
 - Forward to `xapi_track.php` with `sesskey`, `cmid`, and the page-load `registration`.
 - Never read or expose PII in JS.
+- In **secure mode** the parallel SCORM bridge is kept **inert** (so the package is graded once) by the
+  parent-side relay (`js/scorm_bridge_relay.js` `disableTracking`), not the baked-in shim — robust even
+  for packages extracted before the flag existed (DEC-0065).
 
 ## 4. Server endpoint (`xapi_track.php`) — *as shipped (DEC-0064)*
 
