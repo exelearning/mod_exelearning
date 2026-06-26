@@ -132,7 +132,7 @@ describe('shim activate (handshake + transport)', () => {
         win.API.LMSCommit();
         expect(win.postedToParent.filter((m) => m.action === 'track')).toHaveLength(0);
         // Parent replies with the nonce -> queued track message is flushed.
-        deliver(win, { source: win.parent, data: { type: 'scorm', action: 'config', nonce: 'N1', teachermodevisible: 1 } });
+        deliver(win, { source: win.parent, data: { type: 'scorm', action: 'config', nonce: 'N1' } });
         const tracks = win.postedToParent.filter((m) => m.action === 'track');
         expect(tracks).toHaveLength(1);
         expect(tracks[0].exelearningBridge).toBe('N1');
@@ -142,7 +142,7 @@ describe('shim activate (handshake + transport)', () => {
     it('posts scores immediately once ready', () => {
         const win = makeFakeWin();
         shim.activate(win);
-        deliver(win, { source: win.parent, data: { type: 'scorm', action: 'config', nonce: 'N2', teachermodevisible: 1 } });
+        deliver(win, { source: win.parent, data: { type: 'scorm', action: 'config', nonce: 'N2' } });
         win.API.LMSSetValue('cmi.core.lesson_status', 'completed');
         win.API.LMSCommit();
         const tracks = win.postedToParent.filter((m) => m.action === 'track');
@@ -157,16 +157,8 @@ describe('shim activate (handshake + transport)', () => {
         win.API.LMSSetValue('cmi.core.score.raw', '50');
         win.API.LMSCommit();
         // A config from a foreign window must not unblock the queue.
-        deliver(win, { source: { other: true }, data: { type: 'scorm', action: 'config', nonce: 'EVIL', teachermodevisible: 1 } });
+        deliver(win, { source: { other: true }, data: { type: 'scorm', action: 'config', nonce: 'EVIL' } });
         expect(win.postedToParent.filter((m) => m.action === 'track')).toHaveLength(0);
-    });
-
-    it('hides the teacher-mode toggle when teachermodevisible is falsy', () => {
-        const win = makeFakeWin();
-        shim.activate(win);
-        const before = document.querySelectorAll('style').length;
-        deliver(win, { source: win.parent, data: { type: 'scorm', action: 'config', nonce: 'N3', teachermodevisible: 0 } });
-        expect(document.querySelectorAll('style').length).toBe(before + 1);
     });
 });
 
@@ -228,7 +220,7 @@ describe('relay createRelay (message handling)', () => {
         const beaconCalls = [];
         const sendBeacon = (url, blob) => { beaconCalls.push({ url, blob }); return true; };
         const r = relay.createRelay(
-            { iframeid: 'exelearningobject', cmid: 42, trackurl: '/track.php?id=42', session: 'tok', nonce: 'N', teachermodevisible: 0 },
+            { iframeid: 'exelearningobject', cmid: 42, trackurl: '/track.php?id=42', session: 'tok', nonce: 'N' },
             { document: doc, window: { addEventListener: () => {} }, fetch: fetchImpl, sendBeacon }
         );
         return { r, cw, fetchCalls, beaconCalls };
@@ -238,7 +230,7 @@ describe('relay createRelay (message handling)', () => {
         const { r, cw } = setup();
         r.onMessage({ source: cw, data: { type: 'scorm', action: 'ready' } });
         expect(cw.postMessage).toHaveBeenCalledTimes(1);
-        expect(cw.postMessage.mock.calls[0][0]).toMatchObject({ type: 'scorm', action: 'config', nonce: 'N', teachermodevisible: 0 });
+        expect(cw.postMessage.mock.calls[0][0]).toMatchObject({ type: 'scorm', action: 'config', nonce: 'N' });
     });
 
     it('forwards a valid track message to track.php with the trusted identity', () => {
@@ -264,7 +256,7 @@ describe('relay createRelay (message handling)', () => {
         const iframe = { contentWindow: null };   // present element, not navigable.
         const doc = { getElementById: (id) => (id === 'exelearningobject' ? iframe : null) };
         const r = relay.createRelay(
-            { iframeid: 'exelearningobject', cmid: 42, trackurl: '/track.php?id=42', session: 'tok', nonce: 'N', teachermodevisible: 0 },
+            { iframeid: 'exelearningobject', cmid: 42, trackurl: '/track.php?id=42', session: 'tok', nonce: 'N' },
             { document: doc, window: { addEventListener: () => {} }, fetch: (url, opts) => { fetchCalls.push({ url, opts }); return { catch: () => {} }; } }
         );
         // event.source === null would equal a null contentWindow without the guard.
@@ -295,7 +287,7 @@ describe('relay createRelay (message handling)', () => {
         const fetchCalls = [];
         const beaconCalls = [];
         const r = relay.createRelay(
-            { iframeid: 'exelearningobject', cmid: 42, trackurl: '/track.php?id=42', session: 'tok', nonce: 'N', teachermodevisible: 0, disableTracking: true },
+            { iframeid: 'exelearningobject', cmid: 42, trackurl: '/track.php?id=42', session: 'tok', nonce: 'N', disableTracking: true },
             {
                 document: doc,
                 window: { addEventListener: () => {} },
@@ -414,7 +406,7 @@ describe('shim extra branches (coverage)', () => {
         document.body.innerHTML = '<div class="idevice_node" id="ide-x"></div>';
         const win = makeFakeWin();
         shim.activate(win);
-        deliver(win, { source: win.parent, data: { type: 'scorm', action: 'config', nonce: 'N', teachermodevisible: 1 } });
+        deliver(win, { source: win.parent, data: { type: 'scorm', action: 'config', nonce: 'N' } });
         win.API.LMSSetValue('cmi.suspend_data', '1. "Q"; Score: 60%; Weight: 30%');
         win.API.LMSCommit();
         const tracks = win.postedToParent.filter((m) => m.action === 'track');

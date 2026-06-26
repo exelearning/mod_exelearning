@@ -738,19 +738,6 @@ function exelearning_extract_stored_package(int $contextid, int $revision): void
 }
 
 /**
- * Hide eXeLearning's teacher-mode toggle (#teacher-mode-toggler-wrapper) inside
- * the package iframe (mod_exeweb parity). Queues parent-page JS that injects a
- * <style> into the iframe's content document once it loads. The iframe is
- * same-origin (served via pluginfile.php), so this DOM access is allowed.
- *
- * @param string $iframeid The id attribute of the package iframe.
- * @return void
- */
-function exelearning_require_teacher_mode_hider(string $iframeid): void {
-    \mod_exelearning\local\ui\teacher_mode_hider::require_for_iframe($iframeid);
-}
-
-/**
  * Injects SCORM wrapper script tags into the <head> of index.html and all
  * html/<slug>.html pages of the extracted package.
  *

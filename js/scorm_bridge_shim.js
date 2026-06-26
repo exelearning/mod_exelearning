@@ -32,9 +32,11 @@
  *      whose buffered scores are posted to the Moodle parent over postMessage instead
  *      of being XHR'd here. The parent (js/scorm_bridge_relay.js) holds the sesskey
  *      and performs the authenticated track.php request; this iframe never sees it.
- *   3. Performs a handshake: it announces 'ready', the parent replies with a nonce +
- *      the teacher-mode preference, and the shim hides eXeLearning's teacher toggle
- *      locally (the parent cannot reach this opaque document).
+ *   3. Performs a handshake: it announces 'ready' and the parent replies with a nonce
+ *      that authenticates subsequent score messages. Teacher-mode visibility is NOT
+ *      handled here: the package hides teacher content by default and the host appends
+ *      ?exe-teacher=1 to the iframe src to reveal the selector (read from the package's
+ *      own location.search, which works even under the opaque origin).
  *
  * Exposed two ways from a single body: window.exeScormBridgeShim (browser, with an
  * auto-boot that is a no-op outside an opaque sandbox) and module.exports (Vitest).
@@ -185,15 +187,6 @@
         });
         win.API = instance.api;
 
-        function hideTeacherMode() {
-            try {
-                var d = win.document;
-                var st = d.createElement('style');
-                st.textContent = '#teacher-mode-toggler-wrapper { visibility: hidden !important; }';
-                (d.head || d.documentElement).appendChild(st);
-            } catch (e) { /* best effort */ }
-        }
-
         function onMessage(e) {
             if (e.source !== parentwin) { return; }   // Only trust the hosting Moodle frame.
             var data = e.data;
@@ -201,7 +194,6 @@
             if (data.action === 'config') {
                 nonce = data.nonce;
                 ready = true;
-                if (!data.teachermodevisible) { hideTeacherMode(); }
                 while (queue.length) {
                     var m = queue.shift();
                     m.exelearningBridge = nonce;
@@ -211,14 +203,13 @@
         }
 
         if (win.addEventListener) { win.addEventListener('message', onMessage, false); }
-        // Announce readiness; the parent replies with the nonce + teacher-mode flag.
+        // Announce readiness; the parent replies with the nonce.
         postToParent({ exelearningBridge: null, type: 'scorm', action: 'ready' });
 
         return {
             api: instance.api,
             transport: transport,
-            onMessage: onMessage,
-            hideTeacherMode: hideTeacherMode
+            onMessage: onMessage
         };
     }
 

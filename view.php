@@ -271,6 +271,18 @@ if (!$mainfile) {
             'index.html'
         );
     }
+    // Make the in-package teacher-layer selector available via the package's own URL
+    // parameter (eXeLearning core hides teacher content by default and exposes a
+    // selector to show it with ?exe-teacher=1; see upstream exelearning#1772). It works
+    // in secure mode too: the parameter rides in the iframe src and the package reads
+    // its own location.search even under the opaque origin, so no host CSS injection is
+    // needed. This replaces the former CSS injection that hid the selector (mod_exeweb
+    // parity): the plugin no longer mutates the package. The per-activity
+    // teachermodevisible setting alone controls it — when on, the selector is offered to
+    // every viewer; no role gate.
+    if (!empty($exelearning->teachermodevisible)) {
+        $iframeurl->param('exe-teacher', '1');
+    }
     // Deep-link from the gradebook (issue #13 #4, DEC-0023): grade.php maps a
     // clicked grade item's itemnumber to its iDevice objectid and forwards it
     // here. Exported iDevices render as <article id="<odeIdeviceId>">, so a URL
@@ -475,9 +487,9 @@ if (!$mainfile) {
         // iframe loads and emits its first message. It validates each message by
         // window identity (event.source === iframe.contentWindow), a closed action
         // list and a per-view nonce, then performs the authenticated track.php POST
-        // (and a sendBeacon flush on pagehide). The nonce, the per-page attempt token
-        // and the teacher-mode preference are handed to the in-iframe shim during the
-        // handshake; the sesskey is NEVER sent across the bridge. blockedid points at
+        // (and a sendBeacon flush on pagehide). The nonce and the per-page attempt token
+        // are handed to the in-iframe shim during the handshake; the sesskey is NEVER
+        // sent across the bridge. blockedid points at
         // the hidden notice the relay reveals (watchdog) if the iframe never signals
         // ready, i.e. the secure mode could not render here.
         $emitinlinemodule('scorm_bridge_relay.js', [
@@ -486,7 +498,6 @@ if (!$mainfile) {
             'trackurl' => $trackurl,
             'session' => $sessiontoken,
             'nonce' => random_string(32),
-            'teachermodevisible' => (int) !empty($exelearning->teachermodevisible),
             'blockedid' => 'exelearning-secure-blocked',
             // Inert under xAPI-primary (DEC-0065): keep the bridge live (window.API,
             // handshake, watchdog) but forward no SCORM score; the package is graded via
@@ -607,14 +618,11 @@ if (!$mainfile) {
         'style'  => 'border: 1px solid var(--bs-border-color, #dee2e6); border-radius: .5rem;',
     ]);
 
-    // Hide eXeLearning's teacher-mode toggle inside the package (mod_exeweb parity)
-    // when teachermodevisible=0. In legacy mode the parent injects CSS into the
-    // same-origin iframe document. In secure mode the iframe is opaque-origin and
-    // unreachable from here, so the in-iframe shim hides it locally using the
-    // teachermodevisible flag passed over the bridge handshake (see $relaycfg above).
-    if (empty($exelearning->teachermodevisible) && !$securemode) {
-        exelearning_require_teacher_mode_hider('exelearningobject');
-    }
+    // Teacher-only content is hidden by default inside the eXeLearning package and
+    // revealed via the ?exe-teacher=1 URL parameter appended to the iframe src above
+    // when the teachermodevisible setting is on (legacy and secure mode alike). The
+    // plugin no longer injects CSS into the package to hide the teacher-layer selector
+    // (mod_exeweb parity retired), and the SCORM bridge no longer carries the flag.
 }
 
 echo $OUTPUT->footer();

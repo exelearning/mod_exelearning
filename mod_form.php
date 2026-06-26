@@ -226,8 +226,10 @@ class mod_exelearning_mod_form extends moodleform_mod {
             $mform->disabledIf($gradefield, 'gradeenabled', 'notchecked');
         }
 
-        // Appearance: whether to show the teacher preview/grading toggle in the
-        // activity view (mod_exeweb parity). Default on.
+        // Appearance: whether to show the eXeLearning teacher-layer selector in the
+        // embedded package. The package hides teacher-only content by default; when this
+        // is on the plugin appends the package's supported ?exe-teacher=1 URL parameter so
+        // the selector is available to every viewer. Default off.
         $mform->addElement(
             'header',
             'appearancesection',
