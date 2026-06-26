@@ -24,7 +24,7 @@
         <FIELD NAME="gradeenabled"  TYPE="int"  LENGTH="2"   NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="Master grading switch (DEC-0029): 1=activity is graded (detect iDevices, gradebook columns, reports); 0=not graded (no grade items, no reports, behaves like a plain resource)."/>
         <FIELD NAME="maxattempt"    TYPE="int"  LENGTH="10"  NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Max attempts per user (DEC-0007 phase 2): 0=unlimited."/>
         <FIELD NAME="reviewmode"    TYPE="int"  LENGTH="4"   NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="Student attempt review (DEC-0007 phase 2): 0=never, 1=always, 2=after completion."/>
-        <FIELD NAME="teachermodevisible" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="If 1, show eXeLearning's in-package teacher-mode toggle (#teacher-mode-toggler-wrapper); if 0 (default) inject CSS to hide it (mod_exeweb parity)."/>
+        <FIELD NAME="teachermodevisible" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="If 1, append the eXeLearning package's ?exe-teacher=1 URL parameter so its teacher-layer selector is available; if 0 (default) the package is served unchanged with teacher content hidden."/>
         <FIELD NAME="timecreated"   TYPE="int"  LENGTH="10"  NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="timemodified"  TYPE="int"  LENGTH="10"  NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="usermodified"  TYPE="int"  LENGTH="10"  NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>

@@ -225,6 +225,15 @@ if (!$mainfile) {
         '/',
         'index.html'
     );
+    // Make the in-package teacher-layer selector available via the package's own URL
+    // parameter (eXeLearning core hides teacher content by default and exposes a
+    // selector to show it with ?exe-teacher=1; see upstream exelearning#1772). This
+    // replaces the former CSS injection that hid the selector (mod_exeweb parity): the
+    // plugin no longer mutates the package. The per-activity teachermodevisible setting
+    // alone controls it — when on, the selector is offered to every viewer; no role gate.
+    if (!empty($exelearning->teachermodevisible)) {
+        $iframeurl->param('exe-teacher', '1');
+    }
     // Deep-link from the gradebook (issue #13 #4, DEC-0023): grade.php maps a
     // clicked grade item's itemnumber to its iDevice objectid and forwards it
     // here. Exported iDevices render as <article id="<odeIdeviceId>">, so a URL
@@ -488,13 +497,10 @@ if (!$mainfile) {
         'style'  => 'border: 1px solid var(--bs-border-color, #dee2e6); border-radius: .5rem;',
     ]);
 
-    // Hide eXeLearning's teacher-mode toggle inside the package (mod_exeweb
-    // parity): when teachermodevisible=0, inject CSS into the iframe content to
-    // hide #teacher-mode-toggler-wrapper. The iframe is same-origin (served via
-    // pluginfile.php) so the parent can reach its content document.
-    if (empty($exelearning->teachermodevisible)) {
-        exelearning_require_teacher_mode_hider('exelearningobject');
-    }
+    // Teacher-only content is hidden by default inside the eXeLearning package and
+    // revealed via the ?exe-teacher=1 URL parameter appended to the iframe src above
+    // when the teachermodevisible setting is on. The plugin no longer injects CSS into
+    // the package to hide the teacher-layer selector (mod_exeweb parity retired).
 }
 
 echo $OUTPUT->footer();
