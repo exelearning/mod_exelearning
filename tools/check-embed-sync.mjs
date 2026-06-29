@@ -41,6 +41,7 @@ const RELAY_INVARIANTS = [
     'data-exe-embed-src',                 // the page-navigation (id-reuse) fix
     'Math.min(embed.w, rect.width)',      // overlay clamp (clickjacking defence)
     'youtube-nocookie.com/embed/',        // strict-mode per-provider reconstruction
+    'reconstructProvider',                // id-only provider channel (DEC-0067)
 ];
 
 // Logic invariants every SHIM copy must contain.
@@ -49,6 +50,7 @@ const SHIM_INVARIANTS = [
     'data-exe-embed-id',
     'data-exe-embed-url',
     '.pdf$',                              // the PDF detector (promote PDFs too)
+    'extractProvider',                    // id-only provider channel (DEC-0067)
 ];
 
 // Host + token + setting invariants every sandbox PHP must contain.

@@ -9,7 +9,7 @@ const PORT = 8126;
 
 module.exports = defineConfig({
     testDir: 'tests/e2e',
-    testMatch: 'embed.spec.cjs',
+    testMatch: /.*\.spec\.cjs$/,
     timeout: 30000,
     fullyParallel: false,
     use: { baseURL: 'http://localhost:' + PORT },

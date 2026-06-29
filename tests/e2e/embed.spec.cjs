@@ -26,13 +26,15 @@ test('promotes every cross-origin/PDF iframe to a sandboxed inline player (open 
     await page.goto('/tests/e2e/embed/parent.html');
 
     const players = page.locator('.exe-embed-overlay iframe');
-    await expect.poll(() => players.count(), { timeout: 15000 }).toBe(4);
+    await expect.poll(() => players.count(), { timeout: 15000 }).toBe(5);
 
     const srcs = await players.evaluateAll((els) => els.map((e) => e.src));
 
     // Open mode: cross-origin https iframes are promoted VERBATIM (no host list, no rebuild).
     expect(srcs.some((s) => /^https:\/\/www\.youtube-nocookie\.com\/embed\/aqz-KE-bpKQ\b/.test(s))).toBe(true);
     expect(srcs.some((s) => /^https:\/\/www\.dailymotion\.com\/embed\/video\/x8abc12$/.test(s))).toBe(true);
+    // Vimeo cross-origin embed is promoted too (DEC-0067 e2e coverage).
+    expect(srcs.some((s) => /^https:\/\/player\.vimeo\.com\/video\/76979871\b/.test(s))).toBe(true);
     // An arbitrary cross-origin provider is promoted too (the structural invariant).
     expect(srcs.some((s) => /^https:\/\/example\.com\//.test(s))).toBe(true);
     // The relative local PDF is reported absolute and rendered (the relative-URL fix).

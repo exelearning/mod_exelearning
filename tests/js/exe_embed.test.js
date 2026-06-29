@@ -337,3 +337,99 @@ describe('exe_embed_shim collect() geometry report', () => {
         ['x', 'y', 'w', 'h'].forEach((k) => expect(typeof embeds[0][k]).toBe('number'));
     });
 });
+
+// DEC-0067 option 1: id-only provider channel. For recognized providers the shim sends
+// {provider, objectId} (not the author URL) and the parent reconstructs the canonical URL
+// from a fixed template after re-checking the object id against a strict regex, so a
+// malicious id cannot inject a path/query and escape the canonical embed path. The
+// structural invariant (validate) still runs on the reconstructed URL.
+describe('exe_embed_shim extractProvider() — recognized providers only', () => {
+    it('extracts {provider, objectId} for youtube/vimeo/dailymotion/educamadrid', () => {
+        expect(shim.extractProvider('https://www.youtube.com/embed/aqz-KE-bpKQ'))
+            .toEqual({ provider: 'youtube', objectId: 'aqz-KE-bpKQ' });
+        expect(shim.extractProvider('https://www.youtube-nocookie.com/embed/aqz-KE-bpKQ'))
+            .toEqual({ provider: 'youtube', objectId: 'aqz-KE-bpKQ' });
+        expect(shim.extractProvider('https://youtu.be/aqz-KE-bpKQ'))
+            .toEqual({ provider: 'youtube', objectId: 'aqz-KE-bpKQ' });
+        expect(shim.extractProvider('https://player.vimeo.com/video/76979871'))
+            .toEqual({ provider: 'vimeo', objectId: '76979871' });
+        expect(shim.extractProvider('https://www.dailymotion.com/embed/video/x8abc12'))
+            .toEqual({ provider: 'dailymotion', objectId: 'x8abc12' });
+        expect(shim.extractProvider('https://mediateca.educa.madrid.org/video/u555bvi3bk5wsabh/fs'))
+            .toEqual({ provider: 'mediateca-madrid', objectId: 'u555bvi3bk5wsabh' });
+    });
+
+    it('returns null for unknown hosts and malformed paths (falls back to URL mode)', () => {
+        expect(shim.extractProvider('https://some-new-provider.example/player/42')).toBeNull();
+        expect(shim.extractProvider('https://www.youtube.com/watch?v=aqz-KE-bpKQ')).toBeNull(); // not /embed/
+        expect(shim.extractProvider('https://player.vimeo.com/video/not-a-number')).toBeNull();
+        expect(shim.extractProvider('files/local.pdf')).toBeNull();
+    });
+
+    it('promote() stamps provider + objectId and collect() reports them (no raw author URL needed downstream)', () => {
+        const root = document.createElement('div');
+        root.innerHTML =
+            '<iframe src="https://www.youtube.com/embed/aqz-KE-bpKQ" width="560" height="315"></iframe>';
+        shim.promote(root, { n: 0 });
+        const e = shim.collect(root)[0];
+        expect(e.provider).toBe('youtube');
+        expect(e.objectId).toBe('aqz-KE-bpKQ');
+    });
+});
+
+describe('exe_embed_relay reconstructProvider() — canonical URL from id, strict id regex', () => {
+    it('builds the canonical URL for each provider', () => {
+        expect(relay.reconstructProvider('youtube', 'aqz-KE-bpKQ'))
+            .toBe('https://www.youtube-nocookie.com/embed/aqz-KE-bpKQ');
+        expect(relay.reconstructProvider('vimeo', '76979871'))
+            .toBe('https://player.vimeo.com/video/76979871');
+        expect(relay.reconstructProvider('dailymotion', 'x8abc12'))
+            .toBe('https://www.dailymotion.com/embed/video/x8abc12');
+        expect(relay.reconstructProvider('mediateca-madrid', 'u555bvi3bk5wsabh'))
+            .toBe('https://mediateca.educa.madrid.org/video/u555bvi3bk5wsabh/fs');
+    });
+
+    it('rejects an objectId that tries to escape the canonical path (traversal/slash/query/space)', () => {
+        ['../../evil', 'abc/def', 'abc?x=1', 'abc#frag', 'abc def', 'a b/c', '..', '', 'a@b'].forEach((bad) => {
+            expect(relay.reconstructProvider('youtube', bad)).toBeNull();
+        });
+        expect(relay.reconstructProvider('vimeo', 'not-a-number')).toBeNull();
+        expect(relay.reconstructProvider('unknown-provider', 'abc123')).toBeNull();
+        expect(relay.reconstructProvider('youtube', 42)).toBeNull(); // non-string
+    });
+});
+
+describe('exe_embed_relay createRelay() — id-only embeds', () => {
+    let iframe;
+    beforeEach(() => {
+        document.body.innerHTML = '';
+        iframe = document.createElement('iframe');
+        document.body.appendChild(iframe);
+    });
+
+    it('overlays the reconstructed canonical player from an id-only embed (no url field)', () => {
+        const r = relay.createRelay({ mode: 'open' });
+        r.onMessage({
+            source: iframe.contentWindow,
+            data: {
+                type: 'exe-embed', action: 'sync',
+                embeds: [{ id: 'e1', provider: 'youtube', objectId: 'aqz-KE-bpKQ', x: 0, y: 0, w: 480, h: 270 }],
+            },
+        });
+        const players = document.querySelectorAll('.exe-embed-overlay iframe');
+        expect(players.length).toBe(1);
+        expect(players[0].src).toMatch(/www\.youtube-nocookie\.com\/embed\/aqz-KE-bpKQ$/);
+    });
+
+    it('drops an id-only embed whose objectId tries to escape the canonical path', () => {
+        const r = relay.createRelay({ mode: 'open' });
+        r.onMessage({
+            source: iframe.contentWindow,
+            data: {
+                type: 'exe-embed', action: 'sync',
+                embeds: [{ id: 'e1', provider: 'youtube', objectId: 'x/../../admin', x: 0, y: 0, w: 1, h: 1 }],
+            },
+        });
+        expect(document.querySelectorAll('.exe-embed-overlay iframe').length).toBe(0);
+    });
+});

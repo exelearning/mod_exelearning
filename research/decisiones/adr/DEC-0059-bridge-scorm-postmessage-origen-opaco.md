@@ -208,6 +208,21 @@ modo `secure` por defecto funciona; la limitación es exclusiva de los hosts WAS
   `allow-modals` en secure). Se ejecuta en contenedor/CI (PHPUnit no corre en host).
 - **Behat** (CI): grading e2e en modo secure + escenarios de report (mode-agnósticos).
 
+## Actualización (2026-06-28): teacher-mode por parámetro core + relación con el bridge de medios
+
+- **Teacher-mode ya no depende del bridge.** Esta ADR ocultaba el conmutador de profesor en `secure`
+  con el **flag del handshake** (`teachermodevisible` en `config`, líneas 124/131/145) porque en opaco
+  el padre no puede inyectar CSS. Desde [[DEC-0066]] (PR 86) la **revelación** del contenido de profesor
+  la gobierna el **parámetro core `?exe-teacher`** que viaja en el `src` y el paquete lee desde dentro
+  del iframe — compatible con origen opaco y **sin** inyección. La ocultación vía flag del bridge (y el
+  hider `contentDocument` de legacy) quedan **superseded** para ese fin; el flag puede mantenerse por
+  compatibilidad pero la fuente de verdad es el parámetro de URL.
+- **Dos handshakes distintos.** El bridge **SCORM** de esta ADR (`type:'scorm'`) y el de **medios
+  externos / embeds** ([[DEC-0061]], `type:'exe-embed'`) son **canales independientes** (no se pisan;
+  tipos de mensaje distintos, relés separados). [[DEC-0067]] **alinea ambos** al patrón endurecido
+  **nonce por vista + `MessagePort` con capability** (el de SCORM ya usa nonce; el de embeds lo
+  incorporará), y el de xAPI ([[DEC-0065]]) sigue la misma disciplina de identidad de ventana.
+
 ## Seguimiento
 
 - **TAREA-017**: implementación del bridge seguro (esta ADR).

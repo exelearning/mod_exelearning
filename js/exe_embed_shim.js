@@ -107,6 +107,53 @@
     }
 
     /**
+     * Recognise a known video provider from an embed src and extract its object id, so the
+     * shim can report {provider, objectId} instead of the author URL (DEC-0067 id-only
+     * channel). The parent rebuilds the canonical URL from a fixed template; this avoids
+     * passing the author's URL across the boundary for recognised providers. Returns null
+     * for unknown hosts or unexpected paths (the caller then falls back to URL mode). The
+     * id shape is intentionally permissive here; the parent re-checks it against a strict
+     * regex before templating it.
+     *
+     * @param {string} src
+     * @returns {?{provider: string, objectId: string}}
+     */
+    function extractProvider(src) {
+        var u;
+        try {
+            u = new URL(src, window.location.href);
+        } catch (e) {
+            return null;
+        }
+        if (u.protocol !== 'https:') {
+            return null;
+        }
+        var host = u.hostname.toLowerCase().replace(/\.$/, '');
+        var m;
+        if (host === 'youtu.be') {
+            m = u.pathname.match(/^\/([A-Za-z0-9_-]{6,})$/);
+            return m ? { provider: 'youtube', objectId: m[1] } : null;
+        }
+        if (host.indexOf('youtube') !== -1) {
+            m = u.pathname.match(/^\/embed\/([A-Za-z0-9_-]{6,})$/);
+            return m ? { provider: 'youtube', objectId: m[1] } : null;
+        }
+        if (host.indexOf('vimeo') !== -1) {
+            m = u.pathname.match(/^\/video\/([0-9]+)$/);
+            return m ? { provider: 'vimeo', objectId: m[1] } : null;
+        }
+        if (host.indexOf('dailymotion') !== -1) {
+            m = u.pathname.match(/^\/embed\/video\/([A-Za-z0-9]{5,})$/);
+            return m ? { provider: 'dailymotion', objectId: m[1] } : null;
+        }
+        if (host === 'mediateca.educa.madrid.org') {
+            m = u.pathname.match(/^\/video\/([A-Za-z0-9]{8,})(?:\/fs)?$/);
+            return m ? { provider: 'mediateca-madrid', objectId: m[1] } : null;
+        }
+        return null;
+    }
+
+    /**
      * Render a width/height attribute value as a CSS length.
      *
      * @param {?string} value
@@ -155,6 +202,14 @@
                 absoluteUrl = src;
             }
             placeholder.setAttribute('data-exe-embed-url', absoluteUrl);
+            // For recognised providers also stamp {provider, objectId} so the parent can
+            // rebuild the canonical URL from a fixed template (DEC-0067 id-only channel)
+            // instead of trusting the author URL. Unknown hosts keep URL-only mode.
+            var provider = extractProvider(absoluteUrl);
+            if (provider) {
+                placeholder.setAttribute('data-exe-embed-provider', provider.provider);
+                placeholder.setAttribute('data-exe-embed-object-id', provider.objectId);
+            }
             placeholder.className = frame.className;
             placeholder.style.display = 'block';
             placeholder.style.maxWidth = '100%';
@@ -179,14 +234,21 @@
         for (var i = 0; i < nodes.length; i++) {
             var node = nodes[i];
             var rect = node.getBoundingClientRect();
-            embeds.push({
+            var rec = {
                 id: node.getAttribute('data-exe-embed-id'),
                 url: node.getAttribute('data-exe-embed-url'),
                 x: rect.left,
                 y: rect.top,
                 w: rect.width,
                 h: rect.height
-            });
+            };
+            var provider = node.getAttribute('data-exe-embed-provider');
+            var objectId = node.getAttribute('data-exe-embed-object-id');
+            if (provider && objectId) {
+                rec.provider = provider;
+                rec.objectId = objectId;
+            }
+            embeds.push(rec);
         }
         return embeds;
     }
@@ -249,6 +311,7 @@
         isPdfUrl: isPdfUrl,
         isCrossOriginHttps: isCrossOriginHttps,
         isPromotable: isPromotable,
+        extractProvider: extractProvider,
         promote: promote,
         collect: collect,
         init: init

@@ -262,6 +262,36 @@ Plan, read-only): **"SÍ, con condiciones"**.
 - En vivo (mod localhost:80, modo `open`): YouTube/Vimeo/EducaMadrid/PDF renderizan, el player lleva el
   sandbox correcto (`data-exe-embed-player`), y navegar entre páginas cambia el player (fix de nav).
 
+## Actualización (2026-06-28): dos problemas ortogonales + evolución a [[DEC-0067]]
+
+Al reanudar el trabajo de medios externos conviene **separar con claridad dos problemas** que se
+confunden a menudo (una síntesis automática los mezcló como si `referrerpolicy` arreglara el opaco):
+
+- **Problema A — propagación del sandbox (el de este ADR).** El `sandbox` sin `allow-same-origin` se
+  propaga al iframe anidado del player → pierde su origen `youtube.com`/`vimeo.com` y queda **en blanco**.
+  Lo arregla **únicamente** promover el player fuera del opaco (el overlay de este ADR). **`referrerpolicy`
+  NO lo arregla** (W3C Referrer Policy: origen opaco ⇒ sin referrer). Es lo que esta entrada verificó.
+- **Problema B — Error 153 / referrer.** Independiente del sandbox: ocurre incluso sin sandbox cuando el
+  host envía `Referrer-Policy: no-referrer` y el `<iframe>` no lleva `referrerpolicy`. Lo arregla el
+  **atributo `referrerpolicy`** del player (precedencia element-level sobre la cabecera de la página). Ya
+  presente aquí (punto 3 de la Decisión, `strict-origin-when-cross-origin`). Caso real (red Medusa,
+  Humberto ATE): la infra fijaba `no-referrer` **y Jetpack eliminaba el atributo** del embed → desactivar
+  esa función de Jetpack lo resolvía. Lección host: no dejar que un sanitizador elimine `referrerpolicy`.
+
+Es decir: este ADR ya resuelve **A** (overlay) y **B** (referrerpolicy), por lo que el **vídeo simple ya
+se ve en opaco**. Lo que queda abierto se decide en **[[DEC-0067]]**: (i) **endurecer el trust model** del
+relay (nonce por vista + `MessageChannel` con capability + cruzar sólo `{provider, videoId}`), alineándolo
+al bridge de eXeLearning sin abandonar el overlay inline; (ii) **arreglar el vídeo interactivo remoto**
+—la **limitación** documentada arriba (líneas 187-210)— **modificando el iDevice** de eXeLearning para que,
+en origen opaco, conduzca su control (play/pause/seek/time + hide/show) por el bridge endurecido. Clave:
+como el overlay mantiene el player en la geometría del `#player`, **la layout del iDevice permanece en el
+hijo** y no se reconstruye en el padre (que es lo que hizo frágil el prototipo revertido).
+
+Notas: **Vimeo por dominio** valida el host del Referer; con el player en el padre (origen del LMS) +
+`referrerpolicy=strict-origin-when-cross-origin`, la privacidad por dominio funciona **si** el dominio del
+LMS está en la lista blanca de Vimeo. El **teacher-mode** ya no se oculta por inyección sino por el
+parámetro core `?exe-teacher` ([[DEC-0066]]), compatible con el origen opaco.
+
 ## Seguimiento
 
 - UI de admin para editar la lista blanca (hoy constante; configurable por filtro/ajuste como

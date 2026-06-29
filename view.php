@@ -539,6 +539,28 @@ if (!$mainfile) {
             'mode' => $embedmode,
             'whitelist' => $embedstrict ? \mod_exelearning\local\ui\player_iframe::embed_whitelist() : [],
         ], 'window.exeEmbedRelay.init(%s);');
+
+        // Parent-side media host for the interactive-video iDevice (DEC-0067). When the
+        // package is opaque, eXeLearning's interactive-video iDevice cannot run a nested
+        // YouTube/Vimeo player, so it drives playback through window.exeMediaBridge (the
+        // child runtime baked into the package by eXeLearning). This host completes that
+        // capability handshake (window identity + per-view nonce + a transferred
+        // MessageChannel port) and plays the real provider video in an accessible modal,
+        // controlling it by RAW postMessage (enablejsapi=1 / api=1) so this trusted page
+        // never loads the YouTube IFrame API or the Vimeo SDK. Separate message namespace
+        // (type:'exe-media') from the SCORM bridge ('scorm') and the embed relay
+        // ('exe-embed'), so the three coexist. Policy must load before the host (the host
+        // reads window.exeMediaPolicy at evaluation). No-op for packages exported without
+        // the child runtime (no hello is ever sent) and in legacy mode (same-origin).
+        $mediapolicy = file_get_contents(__DIR__ . '/js/exe_media_policy.js');
+        $mediahost = file_get_contents(__DIR__ . '/js/exe_media_host.js');
+        echo html_writer::tag(
+            'script',
+            $mediapolicy . "\n" . $mediahost . "\n(function () {\n" .
+            "    var f = document.getElementById('exelearningobject');\n" .
+            "    if (f && window.exeMediaHost) { window.exeMediaHost.attach(f, {}); }\n" .
+            "})();"
+        );
     }
 
     // The xAPI listener (DEC-0064; secure mode added by DEC-0065): for an xAPI-capable
