@@ -25,34 +25,34 @@
 namespace mod_exelearning\local\ui;
 
 /**
- * Resolves the configured package iframe mode and the sandbox tokens it implies.
+ * Centralises the package iframe sandbox policy, CSP and headers (DEC-0059).
  *
- * A single site-wide admin setting (mod_exelearning/iframemode) selects how the
- * arbitrary author HTML/JS of an `.elpx` package is embedded in view.php:
+ * The arbitrary author HTML/JS of an `.elpx` package is always embedded in view.php in a
+ * sandboxed, opaque-origin iframe: the iframe drops allow-same-origin, so the package runs
+ * in an opaque origin and cannot read or modify Moodle's DOM, cookies or session. SCORM
+ * scoring is relayed to the parent over a validated postMessage bridge
+ * (js/scorm_bridge_shim.js in the iframe, js/scorm_bridge_relay.js in the parent), and the
+ * parent keeps the sesskey and performs the track.php request. The historical same-origin
+ * "legacy" mode was removed: no production setting re-enables allow-same-origin.
  *
- *  - secure (default): the iframe drops allow-same-origin, so the package runs in
- *    an opaque origin and cannot read or modify Moodle's DOM, cookies or session.
- *    SCORM scoring is relayed to the parent over a validated postMessage bridge
- *    (js/scorm_bridge_shim.js in the iframe, js/scorm_bridge_relay.js in the
- *    parent), and the parent keeps the sesskey and performs the track.php request.
- *  - legacy: the historical same-origin sandbox, kept only as a compatibility
- *    fallback for packages that misbehave under an opaque origin.
- *
- * Centralised here so the token policy is unit-testable without rendering view.php.
+ * Centralised here so the policy is unit-testable without rendering view.php.
  * See research ADR DEC-0059 (advances the Tier 2 roadmap of DEC-0019).
  */
 final class player_iframe {
-    /** @var string Secure mode: opaque-origin iframe + postMessage SCORM bridge. */
+    /** @var string Secure mode: opaque-origin iframe + postMessage SCORM bridge (the only mode). */
     public const MODE_SECURE = 'secure';
-
-    /** @var string Legacy mode: historical same-origin iframe. */
-    public const MODE_LEGACY = 'legacy';
 
     /** @var string Open embeds: promote any cross-origin https iframe (DEC-0061). */
     public const EMBED_OPEN = 'open';
 
-    /** @var string Strict embeds: only the maintained host allowlist. */
+    /** @var string Strict embeds: only the maintained host allowlist (the default). */
     public const EMBED_STRICT = 'strict';
+
+    /** @var string Strict CSP profile (default): no bare https: token-exfiltration channels. */
+    public const CSP_STRICT = 'strict';
+
+    /** @var string Compatible CSP profile: allows https: img/media/script for external assets. */
+    public const CSP_COMPATIBLE = 'compatible';
 
     /**
      * Default host whitelist for external video embeds promoted to the parent page.
@@ -79,14 +79,13 @@ final class player_iframe {
     ];
 
     /**
-     * Resolve the configured iframe mode, defaulting to secure for any unset or
-     * unrecognised value (fail safe: an invalid config must not weaken isolation).
+     * The package iframe mode. Always secure: the legacy same-origin mode was removed, so
+     * untrusted package content is never rendered with allow-same-origin in production.
      *
-     * @return string self::MODE_SECURE or self::MODE_LEGACY.
+     * @return string Always self::MODE_SECURE.
      */
     public static function resolve_mode(): string {
-        $mode = get_config('mod_exelearning', 'iframemode');
-        return ($mode === self::MODE_LEGACY) ? self::MODE_LEGACY : self::MODE_SECURE;
+        return self::MODE_SECURE;
     }
 
     /**
@@ -99,43 +98,48 @@ final class player_iframe {
     }
 
     /**
-     * Sandbox token list for a given mode.
+     * Sandbox token list for the (always opaque) package iframe.
      *
-     * Both modes deliberately OMIT allow-top-navigation (a package must never be
-     * able to change the parent URL) and allow-modals (alert/confirm/prompt are UX
-     * traps). Secure mode additionally OMITS allow-same-origin (forcing an opaque
-     * origin so the package cannot reach Moodle's DOM/cookies/session) and
-     * allow-popups-to-escape-sandbox (an escaped popup would reopen at Moodle's real
-     * origin without the sandbox). allow-scripts/allow-popups/allow-forms are kept
-     * in both modes because eXeLearning v4 iDevices need jQuery + scripts, popups
-     * (interactive-video, hidden-image) and forms (quick-questions, form,
-     * scrambled-list). See research ADR DEC-0059 / DEC-0019 / AN-008.
+     * Deliberately OMITS allow-same-origin (forcing an opaque origin so the package cannot
+     * reach Moodle's DOM/cookies/session), allow-top-navigation (a package must never change
+     * the parent URL), allow-modals (alert/confirm/prompt UX traps) and
+     * allow-popups-to-escape-sandbox (an escaped popup would reopen at Moodle's real origin
+     * without the sandbox). allow-scripts/allow-popups/allow-forms are kept because
+     * eXeLearning v4 iDevices need jQuery + scripts, popups (interactive-video, hidden-image)
+     * and forms (quick-questions, form, scrambled-list). See ADR DEC-0059 / DEC-0019 / AN-008.
      *
-     * @param string $mode self::MODE_SECURE or self::MODE_LEGACY.
      * @return string Space-separated sandbox token list.
      */
-    public static function sandbox_tokens(string $mode): string {
-        if ($mode === self::MODE_LEGACY) {
-            return 'allow-scripts allow-same-origin allow-popups allow-forms allow-popups-to-escape-sandbox';
-        }
+    public static function sandbox_tokens(): string {
         return 'allow-scripts allow-popups allow-forms';
     }
 
     /**
-     * Resolve the external-embed policy (DEC-0061). Default 'open' promotes any
-     * cross-origin https iframe (the player is sandboxed + cross-origin, so SOP isolates
-     * it from Moodle); 'strict' restricts to the maintained host allowlist. An
-     * unrecognised (tampered) value fails to 'strict' (toward the more restrictive),
-     * while an unset value keeps the intended 'open' default.
+     * Resolve the external-embed policy (DEC-0061). Default 'strict' restricts promotion to
+     * the maintained provider allowlist with canonical URL reconstruction; 'open' is an
+     * explicit opt-in that promotes any cross-origin https iframe (the player is sandboxed +
+     * cross-origin, so SOP isolates it from Moodle). Any unset or unrecognised value fails
+     * safe to 'strict' (toward the more restrictive policy).
      *
      * @return string self::EMBED_OPEN or self::EMBED_STRICT.
      */
     public static function embed_mode(): string {
         $value = get_config('mod_exelearning', 'embedmode');
-        if ($value === false || $value === null || $value === '') {
-            return self::EMBED_OPEN;
-        }
-        return $value === self::EMBED_OPEN ? self::EMBED_OPEN : self::EMBED_STRICT;
+        return ($value === self::EMBED_OPEN) ? self::EMBED_OPEN : self::EMBED_STRICT;
+    }
+
+    /**
+     * Resolve the content CSP profile. 'strict' (default) blocks bare https: exfiltration
+     * channels (the per-user file token lives in the URL, so open img/media/script would let
+     * author JS leak it). 'compatible' re-opens img/media/script to https: for content that
+     * loads external author assets (third-party images, a MathJax CDN) — documented weaker.
+     * Any unset or unrecognised value fails safe to 'strict'.
+     *
+     * @return string self::CSP_STRICT or self::CSP_COMPATIBLE.
+     */
+    public static function csp_profile(): string {
+        $value = get_config('mod_exelearning', 'cspprofile');
+        return ($value === self::CSP_COMPATIBLE) ? self::CSP_COMPATIBLE : self::CSP_STRICT;
     }
 
     /**
@@ -173,30 +177,45 @@ final class player_iframe {
     /**
      * Content-Security-Policy header value for the embedded package (DEC-0060).
      *
-     * Tuned to harden without breaking eXeLearning, which relies on inline and eval'd
-     * scripts: object-src and base-uri are closed, framing is restricted to Moodle
-     * (frame-ancestors 'self'), and connect-src is limited to this site so the file
-     * token carried in the URL cannot be exfiltrated to a third-party host via
-     * fetch/XHR/beacon. External script/style/img/media/frame over https: is still
-     * allowed so MathJax, YouTube and author embeds keep working (a stricter,
-     * exfil-proof profile that also blocks those is left as a future admin toggle).
+     * Strict (default): object-src/base-uri closed, frame-ancestors 'self', connect-src
+     * limited to this site, and NO bare https: in script/img/media-src so the per-user file
+     * token in the URL cannot be exfiltrated (e.g. via new Image().src). frame-src is limited
+     * to the maintained providers. Compatible re-opens img/media/script (and frame-src) to
+     * https: for content with external author images or a MathJax CDN — documented weaker.
+     * The CSP-level `sandbox` keeps the document opaque even if the token URL is opened
+     * outside the iframe (a new tab), mirroring the iframe sandbox tokens.
      *
      * @param string $siteorigin The scheme://host[:port] origin of this Moodle site.
+     * @param string|null $profile self::CSP_STRICT/CSP_COMPATIBLE, or null to use csp_profile().
      * @return string The Content-Security-Policy header value.
      */
-    public static function content_security_policy(string $siteorigin): string {
+    public static function content_security_policy(string $siteorigin, ?string $profile = null): string {
+        $profile = ($profile === self::CSP_COMPATIBLE || $profile === self::CSP_STRICT)
+            ? $profile
+            : self::csp_profile();
+        if ($profile === self::CSP_COMPATIBLE) {
+            $scriptsrc = "script-src 'self' $siteorigin 'unsafe-inline' 'unsafe-eval' https:; ";
+            $imgsrc = "img-src 'self' $siteorigin data: blob: https:; ";
+            $mediasrc = "media-src 'self' $siteorigin data: blob: https:; ";
+            $framesrc = "frame-src 'self' $siteorigin https:; ";
+        } else {
+            $providers = 'https://www.youtube-nocookie.com https://player.vimeo.com '
+                . 'https://www.dailymotion.com https://mediateca.educa.madrid.org';
+            $scriptsrc = "script-src 'self' $siteorigin 'unsafe-inline' 'unsafe-eval'; ";
+            $imgsrc = "img-src 'self' $siteorigin data: blob:; ";
+            $mediasrc = "media-src 'self' $siteorigin data: blob:; ";
+            $framesrc = "frame-src 'self' $siteorigin $providers; ";
+        }
         return "default-src 'self' $siteorigin; "
-            . "script-src 'self' $siteorigin 'unsafe-inline' 'unsafe-eval' https:; "
+            . $scriptsrc
             . "style-src 'self' $siteorigin 'unsafe-inline'; "
-            . "img-src 'self' $siteorigin data: blob: https:; "
-            . "media-src 'self' $siteorigin data: blob: https:; "
+            . $imgsrc
+            . $mediasrc
             . "font-src 'self' $siteorigin data:; "
             . "connect-src 'self' $siteorigin; "
-            . "frame-src 'self' $siteorigin https:; "
+            . $framesrc
             . "object-src 'none'; base-uri 'none'; form-action 'self' $siteorigin; "
             . "frame-ancestors 'self'; "
-            // Keep the document opaque even if opened outside the iframe (e.g. the token
-            // URL opened in a new tab); tokens mirror the secure iframe sandbox.
             . "sandbox allow-scripts allow-popups allow-forms";
     }
 
@@ -210,8 +229,8 @@ final class player_iframe {
      * Content-Type, so a package cannot smuggle executable HTML behind, e.g., a .pdf path
      * (the promoted PDF player is unsandboxed). The document-level Content-Security-Policy
      * and Permissions-Policy are added only for an HTML document (subresources ignore
-     * them). Returns an empty array in legacy mode, so the caller (exelearning_pluginfile)
-     * is just a header-emitting loop. Keeping the decision and the values here makes them
+     * them). The caller (exelearning_pluginfile) is just a header-emitting loop, since the
+     * package always renders opaque. Keeping the decision and the values here makes them
      * unit-testable (the pluginfile callback that emits them exits via send_stored_file
      * and cannot be unit-tested directly).
      *
@@ -220,9 +239,6 @@ final class player_iframe {
      * @return array Map of header name => value (empty when no headers apply).
      */
     public static function content_headers(string $filename, string $wwwroot): array {
-        if (!self::is_secure()) {
-            return [];
-        }
         // Apply to every served package file (the token rides in the URL for all of them).
         $headers = [
             'Referrer-Policy' => 'no-referrer',

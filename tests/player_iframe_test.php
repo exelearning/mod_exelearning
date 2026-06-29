@@ -49,22 +49,23 @@ final class player_iframe_test extends advanced_testcase {
     }
 
     /**
-     * The legacy fallback is honoured when explicitly configured.
+     * Legacy mode was removed: a leftover iframemode=legacy config is ignored and the
+     * package still renders secure (no silent downgrade to same-origin).
      */
-    public function test_legacy_mode_is_respected(): void {
+    public function test_legacy_config_is_ignored(): void {
         $this->resetAfterTest();
-        set_config('iframemode', player_iframe::MODE_LEGACY, 'mod_exelearning');
-        $this->assertSame(player_iframe::MODE_LEGACY, player_iframe::resolve_mode());
-        $this->assertFalse(player_iframe::is_secure());
+        set_config('iframemode', 'legacy', 'mod_exelearning');
+        $this->assertSame(player_iframe::MODE_SECURE, player_iframe::resolve_mode());
+        $this->assertTrue(player_iframe::is_secure());
     }
 
     /**
-     * Secure mode runs in an opaque origin: it MUST drop allow-same-origin and
-     * allow-popups-to-escape-sandbox, and MUST keep the scripts/popups/forms the
-     * iDevices need. It must never grant top navigation or modals.
+     * The package always runs in an opaque origin: the sandbox tokens MUST drop
+     * allow-same-origin and allow-popups-to-escape-sandbox, keep the scripts/popups/forms
+     * the iDevices need, and never grant top navigation or modals.
      */
     public function test_secure_sandbox_tokens(): void {
-        $tokens = player_iframe::sandbox_tokens(player_iframe::MODE_SECURE);
+        $tokens = player_iframe::sandbox_tokens();
         $list = explode(' ', $tokens);
 
         $this->assertContains('allow-scripts', $list);
@@ -75,25 +76,6 @@ final class player_iframe_test extends advanced_testcase {
         $this->assertNotContains('allow-popups-to-escape-sandbox', $list);
         $this->assertNotContains('allow-top-navigation', $list);
         $this->assertNotContains('allow-top-navigation-by-user-activation', $list);
-        $this->assertNotContains('allow-modals', $list);
-    }
-
-    /**
-     * Legacy mode keeps the historical same-origin tokens (incl. allow-same-origin
-     * and allow-popups-to-escape-sandbox) but still never grants top navigation or
-     * modals.
-     */
-    public function test_legacy_sandbox_tokens(): void {
-        $tokens = player_iframe::sandbox_tokens(player_iframe::MODE_LEGACY);
-        $list = explode(' ', $tokens);
-
-        $this->assertContains('allow-scripts', $list);
-        $this->assertContains('allow-same-origin', $list);
-        $this->assertContains('allow-popups', $list);
-        $this->assertContains('allow-forms', $list);
-        $this->assertContains('allow-popups-to-escape-sandbox', $list);
-
-        $this->assertNotContains('allow-top-navigation', $list);
         $this->assertNotContains('allow-modals', $list);
     }
 
@@ -129,16 +111,18 @@ final class player_iframe_test extends advanced_testcase {
         // Inline + eval'd scripts are required by the eXeLearning engine.
         $this->assertStringContainsString("'unsafe-inline'", $csp);
         $this->assertStringContainsString("'unsafe-eval'", $csp);
-        // The connect-src must NOT open to the bare `https:` wildcard (any host) — that
-        // would let the file token be exfiltrated. The explicit site origin
-        // (https://host) is fine; the negative lookahead excludes `https://...`.
-        $this->assertDoesNotMatchRegularExpression('~connect-src[^;]*\bhttps:(?!//)~', $csp);
+        // Strict (default): NO bare `https:` in ANY source list, so the per-user file token
+        // in the URL cannot be exfiltrated via img/script/media; only explicit origins like
+        // https://host (followed by //) are allowed. frame-src is limited to the providers.
+        $this->assertDoesNotMatchRegularExpression('~\bhttps:(?!//)~', $csp);
+        $this->assertStringContainsString('https://www.youtube-nocookie.com', $csp);
+        $this->assertStringContainsString('https://player.vimeo.com', $csp);
     }
 
     /**
      * content_headers() emits Referrer-Policy + nosniff on every secure-mode file and adds
      * the document-level CSP + Permissions-Policy for an HTML document, deriving the CSP
-     * origin from $CFG->wwwroot (path stripped). Legacy mode emits nothing.
+     * origin from $CFG->wwwroot (path stripped). The package always renders secure.
      */
     public function test_content_headers(): void {
         $this->resetAfterTest();
@@ -160,8 +144,48 @@ final class player_iframe_test extends advanced_testcase {
         $this->assertArrayNotHasKey('Content-Security-Policy', $sub);
         $this->assertArrayNotHasKey('Permissions-Policy', $sub);
 
-        // Legacy mode: no headers regardless of file type.
-        set_config('iframemode', player_iframe::MODE_LEGACY, 'mod_exelearning');
-        $this->assertSame([], player_iframe::content_headers('index.html', 'https://moodle.example.net'));
+        // Legacy mode was removed: a leftover iframemode=legacy config still emits the secure
+        // headers (no silent downgrade).
+        set_config('iframemode', 'legacy', 'mod_exelearning');
+        $legacy = player_iframe::content_headers('index.html', 'https://moodle.example.net');
+        $this->assertArrayHasKey('Content-Security-Policy', $legacy);
+        $this->assertSame('no-referrer', $legacy['Referrer-Policy']);
+    }
+
+    /**
+     * The compatible CSP profile re-opens img/media to https: (documented weaker), while the
+     * package iframe still renders opaque-origin (the CSP sandbox directive is unchanged).
+     */
+    public function test_csp_compatible_profile_allows_external_https(): void {
+        $origin = 'https://moodle.example.net';
+        $csp = player_iframe::content_security_policy($origin, player_iframe::CSP_COMPATIBLE);
+        $this->assertMatchesRegularExpression('~img-src[^;]*\bhttps:(?!//)~', $csp);
+        $this->assertMatchesRegularExpression('~media-src[^;]*\bhttps:(?!//)~', $csp);
+        $this->assertStringContainsString('sandbox allow-scripts allow-popups allow-forms', $csp);
+    }
+
+    /**
+     * csp_profile() defaults to strict; an unset or unrecognised value fails safe to strict.
+     */
+    public function test_csp_profile_defaults_strict(): void {
+        $this->resetAfterTest();
+        $this->assertSame(player_iframe::CSP_STRICT, player_iframe::csp_profile());
+        set_config('cspprofile', 'bogus', 'mod_exelearning');
+        $this->assertSame(player_iframe::CSP_STRICT, player_iframe::csp_profile());
+        set_config('cspprofile', player_iframe::CSP_COMPATIBLE, 'mod_exelearning');
+        $this->assertSame(player_iframe::CSP_COMPATIBLE, player_iframe::csp_profile());
+    }
+
+    /**
+     * The external-embed policy defaults to strict; an unset or unrecognised value fails safe
+     * to strict, and 'open' must be explicitly configured.
+     */
+    public function test_embed_mode_defaults_strict(): void {
+        $this->resetAfterTest();
+        $this->assertSame(player_iframe::EMBED_STRICT, player_iframe::embed_mode());
+        set_config('embedmode', 'bogus', 'mod_exelearning');
+        $this->assertSame(player_iframe::EMBED_STRICT, player_iframe::embed_mode());
+        set_config('embedmode', player_iframe::EMBED_OPEN, 'mod_exelearning');
+        $this->assertSame(player_iframe::EMBED_OPEN, player_iframe::embed_mode());
     }
 }

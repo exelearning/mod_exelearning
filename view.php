@@ -643,7 +643,7 @@ if (!$mainfile) {
         'width'  => '100%',
         'height' => '650',
         'allow'  => 'fullscreen',
-        'sandbox' => \mod_exelearning\local\ui\player_iframe::sandbox_tokens($iframemode),
+        'sandbox' => \mod_exelearning\local\ui\player_iframe::sandbox_tokens(),
         'style'  => 'border: 1px solid var(--bs-border-color, #dee2e6); border-radius: .5rem;',
     ]);
 

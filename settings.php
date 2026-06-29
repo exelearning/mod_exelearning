@@ -54,42 +54,42 @@ if (isset($exelearninginstalledmods['exeweb']) || isset($exelearninginstalledmod
 }
 
 if ($ADMIN->fulltree) {
-    // Package iframe security mode (DEC-0059): isolate the arbitrary author HTML/JS
-    // of an .elpx package in a sandboxed, opaque-origin iframe and relay SCORM
-    // scoring over a validated postMessage bridge. Defaults to the secure mode;
-    // 'legacy' restores the previous same-origin behaviour as a compatibility
-    // fallback. The default is also applied by player_iframe::resolve_mode() so an
-    // unset/invalid value never weakens isolation.
+    // The package iframe is ALWAYS rendered in a sandboxed, opaque-origin iframe (DEC-0059):
+    // the historical same-origin 'legacy' mode was removed, so there is no production setting
+    // that re-enables allow-same-origin for untrusted package content.
+
+    // Content CSP profile. 'strict' (default) blocks bare https: exfiltration channels (the
+    // per-user file token lives in the URL); 'compatible' re-opens img/media/script to https:
+    // for content that loads external author images or a MathJax CDN. player_iframe::csp_profile()
+    // applies the same default, so an unset/invalid value always resolves to strict.
     $settings->add(new admin_setting_configselect(
-        'mod_exelearning/iframemode',
-        get_string('iframemode', 'mod_exelearning'),
-        get_string('iframemode_desc', 'mod_exelearning'),
-        \mod_exelearning\local\ui\player_iframe::MODE_SECURE,
+        'mod_exelearning/cspprofile',
+        get_string('cspprofile', 'mod_exelearning'),
+        get_string('cspprofile_desc', 'mod_exelearning'),
+        \mod_exelearning\local\ui\player_iframe::CSP_STRICT,
         [
-            \mod_exelearning\local\ui\player_iframe::MODE_SECURE =>
-                get_string('iframemode_secure', 'mod_exelearning'),
-            \mod_exelearning\local\ui\player_iframe::MODE_LEGACY =>
-                get_string('iframemode_legacy', 'mod_exelearning'),
+            \mod_exelearning\local\ui\player_iframe::CSP_STRICT =>
+                get_string('cspprofile_strict', 'mod_exelearning'),
+            \mod_exelearning\local\ui\player_iframe::CSP_COMPATIBLE =>
+                get_string('cspprofile_compatible', 'mod_exelearning'),
         ]
     ));
 
-    // External-embed policy (DEC-0061). In secure mode external videos/PDFs are
-    // promoted to the parent and rendered as a sandboxed, cross-origin player, which
-    // SOP isolates from Moodle regardless of the host. 'open' (default) promotes any
-    // cross-origin https iframe (supports any provider, no maintenance); 'strict'
-    // restricts to the maintained host allowlist for deployments where even the
-    // content author is not trusted not to embed phishing/tracking. The relay
-    // enforces the structural invariant (https + cross-origin) in both modes.
+    // External-embed policy (DEC-0061). External videos/PDFs are promoted to the parent and
+    // rendered as a sandboxed, cross-origin player, which SOP isolates from Moodle. 'strict'
+    // (default) restricts promotion to the maintained provider allowlist with canonical URL
+    // reconstruction; 'open' is an explicit opt-in that promotes any cross-origin https iframe.
+    // An unset/invalid value fails safe to 'strict' in player_iframe::embed_mode().
     $settings->add(new admin_setting_configselect(
         'mod_exelearning/embedmode',
         get_string('embedmode', 'mod_exelearning'),
         get_string('embedmode_desc', 'mod_exelearning'),
-        \mod_exelearning\local\ui\player_iframe::EMBED_OPEN,
+        \mod_exelearning\local\ui\player_iframe::EMBED_STRICT,
         [
-            \mod_exelearning\local\ui\player_iframe::EMBED_OPEN =>
-                get_string('embedmode_open', 'mod_exelearning'),
             \mod_exelearning\local\ui\player_iframe::EMBED_STRICT =>
                 get_string('embedmode_strict', 'mod_exelearning'),
+            \mod_exelearning\local\ui\player_iframe::EMBED_OPEN =>
+                get_string('embedmode_open', 'mod_exelearning'),
         ]
     ));
 
