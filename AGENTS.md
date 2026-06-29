@@ -281,6 +281,14 @@ mod_exelearning/
 └── research/                  # ADRs, fuentes, fixtures (append-only)
 ```
 
+## Agent skills (`.agents/`)
+
+The `.agents/skills/` directory contains Claude Code project skills — reusable prompt workflows invoked with `/skill-name` in the Claude Code CLI. They are development tooling only and are excluded from release packages (covered by the `.*` rule in `.distignore`).
+
+| Skill | File | Purpose |
+|-------|------|---------|
+| `changelog` | `.agents/skills/changelog/SKILL.md` | Draft a CHANGELOG entry from merged GitHub PRs since the last release |
+
 ## Atajos útiles
 
 ```bash
