@@ -133,6 +133,12 @@
      *   - cmid, trackurl, session: identity and endpoint.
      *   - getScoringDocument(): returns the iframe content document (default: reads
      *     #exelearningobject) for objectid resolution.
+     *   - transport(data, sync): optional sink for the buffered scores. When provided
+     *     it REPLACES the direct XHR (secure mode: js/scorm_bridge_shim.js posts the
+     *     data to the Moodle parent, which owns the authenticated request). It gets
+     *     {cmi, itemscores} and a sync flag, and returns false to signal failure
+     *     (keeps the buffer dirty for retry). When absent, the XHR path below runs
+     *     (legacy same-origin mode and the unit tests).
      *   - xhrFactory(): returns an XMLHttpRequest-like object (default: real XHR).
      *   - setTimeout / clearTimeout: timer functions (default: globals).
      *   - bindUnload: wire a beforeunload synchronous flush (default: true in a browser).
@@ -148,6 +154,7 @@
         var setTimeoutFn = config.setTimeout || (typeof setTimeout !== 'undefined' ? setTimeout : null);
         var clearTimeoutFn = config.clearTimeout || (typeof clearTimeout !== 'undefined' ? clearTimeout : null);
         var xhrFactory = config.xhrFactory || function () { return new XMLHttpRequest(); };
+        var transport = config.transport || null;
         var getScoringDocument = config.getScoringDocument || function () {
             var fr = (typeof document !== 'undefined') && document.getElementById('exelearningobject');
             return fr && fr.contentDocument;
@@ -168,7 +175,19 @@
             // xAPI-primary packages keep window.API alive but never POST (DEC-0064).
             if (disableTracking) { dirty = false; return true; }
             if (!dirty) { return true; }
-            var snapshot = JSON.stringify(cmi);
+            // Bridge transport (secure mode): hand the buffered CMI + per-iDevice
+            // scores to the injected sink instead of doing the XHR here. The sink
+            // (js/scorm_bridge_shim.js) posts them to the Moodle parent, which owns
+            // the authenticated track.php request, retry and the pagehide beacon.
+            // Fire-and-forget: clear dirty once the message leaves; a thrown/false
+            // result keeps it dirty so the next autocommit re-sends it.
+            if (transport) {
+                try {
+                    var accepted = transport({ cmi: cmi, itemscores: itemScores }, sync === true);
+                    if (accepted !== false) { dirty = false; return true; }
+                    return false;
+                } catch (te) { errCode = '101'; return false; }
+            }
             var payload = buildPayload(cmid, session, cmi, itemScores);
             try {
                 var xhr = xhrFactory();
@@ -186,6 +205,9 @@
                 // and only if no newer value was buffered meanwhile. On failure dirty
                 // stays set so the next autocommit / beforeunload re-sends it (a failed
                 // autocommit must never silently drop a grade write to the gradebook).
+                // Snapshot the buffer here (this path only) — captured synchronously
+                // before xhr.send() below, so the onload comparison value is unchanged.
+                var snapshot = JSON.stringify(cmi);
                 xhr.onload = function () {
                     if (xhr.status >= 200 && xhr.status < 300
                             && JSON.stringify(cmi) === snapshot) {

@@ -128,6 +128,84 @@ describe('xapi_listener createListener().handleMessage', () => {
     });
 });
 
+describe('xapi_listener window-identity mode (secure / opaque origin, DEC-0065)', () => {
+    let xhr;
+    const frameWin = { name: 'package-iframe' };   // sentinel for the iframe's contentWindow.
+
+    function secureListener(extra = {}) {
+        return createListener({
+            cmid: 42,
+            trackurl: '/mod/exelearning/xapi_track.php?id=42&sesskey=abc',
+            registration: 'tok',
+            mode: 'grading',
+            expectedSource: frameWin,     // window-identity mode without a real DOM iframe.
+            xhrFactory: () => xhr,
+            ...extra,
+        });
+    }
+
+    beforeEach(() => { xhr = makeXhr(); });
+
+    it('forwards a statement from the package iframe even though the origin is the opaque "null"', () => {
+        const listener = secureListener();
+        const ok = listener.handleMessage(
+            { origin: 'null', source: frameWin, data: { type: 'exe-xapi-statement', statement: answered('s1') } });
+        expect(ok).toBe(true);
+        expect(xhr.calls.find((c) => c.method).url).toContain('xapi_track.php');
+    });
+
+    it('drops a statement from any other window, even one claiming the trusted host origin', () => {
+        const listener = secureListener();
+        expect(listener.handleMessage(
+            { origin: 'null', source: { other: true }, data: { type: 'exe-xapi-statement', statement: answered('s2') } })).toBe(false);
+        expect(listener.handleMessage(
+            { origin: HOST, source: { other: true }, data: { type: 'exe-xapi-statement', statement: answered('s3') } })).toBe(false);
+        expect(xhr.calls.length).toBe(0);
+    });
+
+    it('drops a message that carries no source', () => {
+        const listener = secureListener();
+        expect(listener.handleMessage(
+            { origin: 'null', data: { type: 'exe-xapi-statement', statement: answered('s4') } })).toBe(false);
+        expect(xhr.calls.length).toBe(0);
+    });
+
+    it('resolves the iframe by id lazily, so injection before the element exists still works', () => {
+        let frame = null;   // element not in the DOM yet (relay is injected before the iframe).
+        const doc = { getElementById: (id) => (id === 'exelearningobject' ? frame : null) };
+        const listener = createListener({
+            cmid: 42, trackurl: '/x', registration: 'tok',
+            iframeid: 'exelearningobject', document: doc, xhrFactory: () => xhr,
+        });
+        // No element -> no trusted source -> dropped (and not marked seen).
+        expect(listener.handleMessage(
+            { source: frameWin, data: { type: 'exe-xapi-statement', statement: answered('s5') } })).toBe(false);
+        // The element appears at load time -> the same source window is now trusted.
+        frame = { contentWindow: frameWin };
+        expect(listener.handleMessage(
+            { source: frameWin, data: { type: 'exe-xapi-statement', statement: answered('s6') } })).toBe(true);
+    });
+
+    it('window identity wins when both iframeid and allowedOrigin are set: origin is never consulted in secure mode', () => {
+        // Defensive: secure mode must NOT fall back to the origin check even if a future
+        // refactor leaves allowedOrigin in the config. event.source is the only anchor.
+        const listener = createListener({
+            cmid: 42, trackurl: '/x', registration: 'tok',
+            iframeid: 'exelearningobject',     // selects window-identity mode...
+            allowedOrigin: HOST,               // ...and this must be ignored, not consulted.
+            document: { getElementById: () => ({ contentWindow: frameWin }) },
+            xhrFactory: () => xhr,
+        });
+        // A message from a DIFFERENT window is rejected even though it carries the trusted host origin.
+        expect(listener.handleMessage(
+            { origin: HOST, source: { other: true }, data: { type: 'exe-xapi-statement', statement: answered('p1') } })).toBe(false);
+        // Only the real iframe window is accepted.
+        expect(listener.handleMessage(
+            { origin: HOST, source: frameWin, data: { type: 'exe-xapi-statement', statement: answered('p2') } })).toBe(true);
+        expect(xhr.calls.length).toBeGreaterThan(0);
+    });
+});
+
 /**
  * XHR factory whose instances expose resolve(status)/fail() so a test can drive the
  * async onload/onerror callbacks deterministically.
