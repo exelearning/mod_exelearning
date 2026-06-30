@@ -1,6 +1,9 @@
 {
   "$schema": "https://raw.githubusercontent.com/ateeducacion/moodle-playground/refs/heads/main/assets/blueprints/blueprint-schema.json",
   "preferredVersions": { "php": "8.3", "moodle": "5.0" },
+  "phpConstants": {
+    "EXELEARNING_UNSAFE_LEGACY_IFRAME": true
+  },
   "landingPage": "/course/view.php?id=2",
   "constants": {
     "REPO": "exelearning/mod_exelearning",
@@ -39,9 +42,8 @@
     },
     {
       "step": "setConfigs",
-      "comment": "iframemode is forced to legacy here (DEC-0060): the Playground's PHP-WASM service worker cannot serve an opaque-origin iframe, so the secure mode would only show the 'blocked by security configuration' notice. Legacy (same-origin) lets the demo render the package so the preview is useful. Real Moodle keeps the secure default and is unaffected by this Playground-only override.",
+      "comment": "Playground-only display/debug config. The opaque-iframe escape hatch is enabled separately via the top-level phpConstants (EXELEARNING_UNSAFE_LEGACY_IFRAME): the Playground's php-wasm service worker only serves same-origin documents, so secure mode would only show the 'blocked by security configuration' notice. Real Moodle keeps the secure default and never defines that constant.",
       "configs": [
-        { "name": "iframemode",   "value": "legacy",        "plugin": "exelearning" },
         { "name": "editormode",   "value": "embedded",      "plugin": "exelearning" },
         { "name": "display",      "value": "1",             "plugin": "exelearning" },
         { "name": "printintro",   "value": "1",             "plugin": "exelearning" },
