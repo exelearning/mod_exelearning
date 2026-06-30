@@ -60,6 +60,34 @@ final class player_iframe_test extends advanced_testcase {
     }
 
     /**
+     * The dev-only escape hatch defaults off: with no constant or env var set, the mode is secure.
+     */
+    public function test_unsafe_legacy_defaults_off(): void {
+        $this->assertFalse(player_iframe::is_unsafe_legacy());
+        $this->assertSame(player_iframe::MODE_SECURE, player_iframe::resolve_mode());
+    }
+
+    /**
+     * The dev-only EXELEARNING_UNSAFE_LEGACY_IFRAME escape hatch (here through its env var) switches
+     * to the same-origin legacy iframe and drops the CSP sandbox directive, so a service worker that
+     * only serves same-origin documents (the php-wasm Playground) can load the package CSS/JS. This
+     * path is never reachable from a Moodle setting.
+     */
+    public function test_unsafe_legacy_env_enables_same_origin(): void {
+        putenv('EXELEARNING_UNSAFE_LEGACY_IFRAME=1');
+        try {
+            $this->assertTrue(player_iframe::is_unsafe_legacy());
+            $this->assertSame(player_iframe::MODE_LEGACY, player_iframe::resolve_mode());
+            $this->assertFalse(player_iframe::is_secure());
+            $this->assertStringContainsString('allow-same-origin', player_iframe::sandbox_tokens());
+            $csp = player_iframe::content_security_policy('https://moodle.example.net');
+            $this->assertStringNotContainsString('sandbox', $csp);
+        } finally {
+            putenv('EXELEARNING_UNSAFE_LEGACY_IFRAME');
+        }
+    }
+
+    /**
      * The package always runs in an opaque origin: the sandbox tokens MUST drop
      * allow-same-origin and allow-popups-to-escape-sandbox, keep the scripts/popups/forms
      * the iDevices need, and never grant top navigation or modals.

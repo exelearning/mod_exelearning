@@ -33,14 +33,25 @@ namespace mod_exelearning\local\ui;
  * scoring is relayed to the parent over a validated postMessage bridge
  * (js/scorm_bridge_shim.js in the iframe, js/scorm_bridge_relay.js in the parent), and the
  * parent keeps the sesskey and performs the track.php request. The historical same-origin
- * "legacy" mode was removed: no production setting re-enables allow-same-origin.
+ * "legacy" mode is no longer a production setting; it survives only as a dev-only escape hatch
+ * (the EXELEARNING_UNSAFE_LEGACY_IFRAME constant) for environments whose service worker cannot
+ * serve an opaque subframe (the php-wasm Moodle Playground), and defaults off.
  *
  * Centralised here so the policy is unit-testable without rendering view.php.
  * See research ADR DEC-0059 (advances the Tier 2 roadmap of DEC-0019).
  */
 final class player_iframe {
-    /** @var string Secure mode: opaque-origin iframe + postMessage SCORM bridge (the only mode). */
+    /** @var string Secure mode: opaque-origin iframe + postMessage SCORM bridge (the production mode). */
     public const MODE_SECURE = 'secure';
+
+    /**
+     * Legacy mode: same-origin iframe. NOT a production mode — reachable only through the dev-only
+     * EXELEARNING_UNSAFE_LEGACY_IFRAME escape hatch, for environments whose service worker cannot
+     * serve an opaque subframe (the php-wasm Moodle Playground).
+     *
+     * @var string
+     */
+    public const MODE_LEGACY = 'legacy';
 
     /** @var string Open embeds: promote any cross-origin https iframe (DEC-0061). */
     public const EMBED_OPEN = 'open';
@@ -79,13 +90,30 @@ final class player_iframe {
     ];
 
     /**
-     * The package iframe mode. Always secure: the legacy same-origin mode was removed, so
-     * untrusted package content is never rendered with allow-same-origin in production.
+     * The package iframe mode. Secure (opaque origin) in production; the same-origin legacy mode is
+     * reachable only through the dev-only EXELEARNING_UNSAFE_LEGACY_IFRAME escape hatch, which
+     * defaults off and is never exposed as a Moodle setting.
      *
-     * @return string Always self::MODE_SECURE.
+     * @return string self::MODE_SECURE, or self::MODE_LEGACY when the escape hatch is enabled.
      */
     public static function resolve_mode(): string {
-        return self::MODE_SECURE;
+        return self::is_unsafe_legacy() ? self::MODE_LEGACY : self::MODE_SECURE;
+    }
+
+    /**
+     * Whether the dev-only same-origin escape hatch is enabled. Never a Moodle setting: it is the
+     * EXELEARNING_UNSAFE_LEGACY_IFRAME PHP constant (defined in config.php) or the env var of the
+     * same name, intended only for environments whose service worker cannot serve an opaque
+     * subframe (the php-wasm Moodle Playground). Defaults off.
+     *
+     * @return bool True when the constant or env var is set and truthy.
+     */
+    public static function is_unsafe_legacy(): bool {
+        if (defined('EXELEARNING_UNSAFE_LEGACY_IFRAME')) {
+            return (bool) constant('EXELEARNING_UNSAFE_LEGACY_IFRAME');
+        }
+        $env = getenv('EXELEARNING_UNSAFE_LEGACY_IFRAME');
+        return $env !== false && filter_var($env, FILTER_VALIDATE_BOOLEAN);
     }
 
     /**
@@ -111,6 +139,11 @@ final class player_iframe {
      * @return string Space-separated sandbox token list.
      */
     public static function sandbox_tokens(): string {
+        if (!self::is_secure()) {
+            // Dev-only escape hatch: same-origin so a service worker that only serves same-origin
+            // documents (the php-wasm Playground) can load the package CSS/JS. Never used in production.
+            return 'allow-same-origin allow-scripts allow-popups allow-forms';
+        }
         return 'allow-scripts allow-popups allow-forms';
     }
 
@@ -206,7 +239,7 @@ final class player_iframe {
             $mediasrc = "media-src 'self' $siteorigin data: blob:; ";
             $framesrc = "frame-src 'self' $siteorigin $providers; ";
         }
-        return "default-src 'self' $siteorigin; "
+        $policy = "default-src 'self' $siteorigin; "
             . $scriptsrc
             . "style-src 'self' $siteorigin 'unsafe-inline'; "
             . $imgsrc
@@ -215,8 +248,14 @@ final class player_iframe {
             . "connect-src 'self' $siteorigin; "
             . $framesrc
             . "object-src 'none'; base-uri 'none'; form-action 'self' $siteorigin; "
-            . "frame-ancestors 'self'; "
-            . "sandbox allow-scripts allow-popups allow-forms";
+            . "frame-ancestors 'self'";
+        // The CSP-level `sandbox` keeps the document opaque even if its URL is opened outside the
+        // iframe. Omit it under the dev-only legacy escape hatch (the php-wasm Playground), which
+        // needs same-origin rendering; the iframe sandbox attribute is relaxed in lockstep.
+        if (self::is_secure()) {
+            $policy .= "; sandbox allow-scripts allow-popups allow-forms";
+        }
+        return $policy;
     }
 
     /**
